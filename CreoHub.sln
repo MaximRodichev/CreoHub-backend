@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreoHub.Domain", "CreoHub.D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreoHub.Application", "CreoHub.Application\CreoHub.Application.csproj", "{737B1C51-CC30-476A-98A5-DEB9F72C9E20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreoHub.Infrastructure", "CreoHub.Infrastructure\CreoHub.Infrastructure.csproj", "{4A8DF43A-9F0F-448E-9E4D-79E8F1C3CC6E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{737B1C51-CC30-476A-98A5-DEB9F72C9E20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{737B1C51-CC30-476A-98A5-DEB9F72C9E20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{737B1C51-CC30-476A-98A5-DEB9F72C9E20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A8DF43A-9F0F-448E-9E4D-79E8F1C3CC6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A8DF43A-9F0F-448E-9E4D-79E8F1C3CC6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A8DF43A-9F0F-448E-9E4D-79E8F1C3CC6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A8DF43A-9F0F-448E-9E4D-79E8F1C3CC6E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,7 +1,8 @@
-namespace CreoHub.CRM.Domain.Types;
+namespace CreoHub.Domain.Types;
 
 public enum OrderStatus
 {
-    Canceled = 1,
-    Completed = 2,
+    Created = 1,
+    Canceled = 2,
+    Completed = 3,
 }

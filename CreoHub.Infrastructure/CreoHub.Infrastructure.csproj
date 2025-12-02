@@ -7,12 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\CreoHub.Domain\CreoHub.Domain.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="AutoMapper" Version="16.0.0-beta-1" />
-      <PackageReference Include="MediatR" Version="14.0.0-beta-1" />
+      <ProjectReference Include="..\CreoHub.Application\CreoHub.Application.csproj" />
     </ItemGroup>
 
 </Project>
