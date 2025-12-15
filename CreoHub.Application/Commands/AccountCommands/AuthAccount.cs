@@ -7,34 +7,39 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.AccountCommands;
 
-public record CreateAccountCommand(CreateAccountDTO dto) :  IRequest<BaseResponse<IdentityDTO>>{}
+public record AuthAccountCommand(AuthAccountDTO dto) :  IRequest<BaseResponse<IdentityDTO>>{}
 
-public class CreateAccountHandler : IRequestHandler<CreateAccountCommand, BaseResponse<IdentityDTO>>
+public class AuthAccountHandler : IRequestHandler<AuthAccountCommand, BaseResponse<IdentityDTO>>
 {
     private readonly IAccountRepository _accountRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
-    public CreateAccountHandler(IAccountRepository accountRepository, IUnitOfWork unitOfWork,  IMapper mapper)
+    public AuthAccountHandler(IAccountRepository accountRepository, IUnitOfWork unitOfWork,  IMapper mapper)
     {
         _accountRepository = accountRepository;
         _mapper =  mapper;
         _unitOfWork = unitOfWork;
     }
     
-    public async Task<BaseResponse<IdentityDTO>> Handle(CreateAccountCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<IdentityDTO>> Handle(AuthAccountCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var userData = User.Create(request.dto.Name, request.dto.Name, request.dto.TelegramId);
-            await _accountRepository.AddAsync(userData);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            var identity = _mapper.Map<IdentityDTO>(userData);
+            var user = await _accountRepository.FindUserByCredentials(request.dto.Email, request.dto.TelegramId);
+            if (user == null)
+            {
+                user = User.Create(request.dto.Name, request.dto.Email, request.dto.TelegramId);
+                await _accountRepository.AddAsync(user);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
+            var identity = _mapper.Map<IdentityDTO>(user);
             return BaseResponse<IdentityDTO>.Success(identity);
         }
         catch (Exception ex)
         {
-            return BaseResponse<IdentityDTO>.Fail(ex.Message);
+            return BaseResponse<IdentityDTO>.Fail(ex.InnerException.Message);
         }
     }
 }

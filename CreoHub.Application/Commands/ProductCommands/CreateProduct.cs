@@ -42,6 +42,7 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
             request.dto.Description,
             shop,
             tags);
+        
         product.InjectDate(request.dto.Date); //TODO: убрать позже, инжектирование даты только для восстановления бд
        
         var price = new Price(request.dto.Price, product);

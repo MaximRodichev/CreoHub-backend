@@ -31,4 +31,9 @@ public record BaseResponse<T>
             Status = ResponseStatus.Error
         };
     }
+
+    public override string ToString()
+    {
+        return $"Status: {Status},\nErrorMessage: {ErrorMessage},\nData: {Data}";
+    }
 }

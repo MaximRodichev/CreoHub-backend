@@ -8,6 +8,7 @@ public class AccountProfile : Profile
 {
     public AccountProfile()
     {
-        CreateMap<CreateAccountDTO, User>();
+        CreateMap<AuthAccountDTO, User>().ReverseMap();
+        CreateMap<IdentityDTO, User>().ReverseMap();
     }
 }

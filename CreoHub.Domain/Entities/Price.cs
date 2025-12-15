@@ -5,7 +5,7 @@ namespace CreoHub.Domain.Entities;
 public class Price
 {
     public DateTime Date { get; set; } =  DateTime.Now;
-    public decimal PriceAtMoment { get; set; }
+    public decimal Value { get; set; }
     
     //FK
     public Product Product { get; set; }
@@ -18,22 +18,22 @@ public class Price
 
     public Price(decimal amount, Product product)
     {
-        if (PriceAtMoment < 0)
+        if (Value < 0)
         {
             throw new NegativeOrZeroPriceException();
         }
-        PriceAtMoment = amount;
+        Value = amount;
         Product = product;
         ProductId = product.Id;
     }
     
     public Price(decimal amount, int productId)
     {
-        if (PriceAtMoment < 0)
+        if (Value < 0)
         {
             throw new NegativeOrZeroPriceException();
         }
-        PriceAtMoment = amount;
+        Value = amount;
         ProductId = productId;
     }
 }

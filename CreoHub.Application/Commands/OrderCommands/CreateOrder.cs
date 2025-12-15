@@ -39,7 +39,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, BaseRespon
             Product product = await _productRepository.GetProductById(request.dto.ProductId);
             Price price = await _priceRepository.GetPriceByProductId(request.dto.ProductId);
             
-            Order order = Order.Open(price.PriceAtMoment, String.Empty, product.Id, customer.Id);
+            Order order = Order.Open(price.Value, String.Empty, product.Id, customer.Id);
             order.InjectOrderDate(request.dto.Date); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
 
             await _orderRepository.AddAsync(order);

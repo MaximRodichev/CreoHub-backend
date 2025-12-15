@@ -29,7 +29,8 @@ public class CreateShopHandler : IRequestHandler<CreateShopCommand, BaseResponse
         {
             var shop = new Shop(
                     request.dto.Name,
-                    request.dto.Description
+                    request.dto.Description,
+                    request.UserId
                 );
             await _shopRepository.AddAsync(shop);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
