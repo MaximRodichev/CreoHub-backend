@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="4417b91f-c10f-43ba-be17-b451d7887584" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/DTO/FiltersDto.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/DTO/ProductDTOs/CreateProductDTO.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/DTO/ProductDTOs/ProductViewDTO.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/Queries/Product/GetProductsByFilter.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/Repositories/IPriceRepository.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/Repositories/IProductRepository.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CreoHub.Application/Services/ITelegramService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Application/Class1.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Application/CreoHub.Application.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Application/CreoHub.Application.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.CRM.sln" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.sln" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/Order.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/Order.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/Price.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/Price.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/Product.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/Product.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/Shop.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/Shop.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/Tag.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/Tag.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Entities/User.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Entities/User.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Interfaces/IRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Interfaces/IRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreoHub.Domain/Types/OrderStatus.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreoHub.Domain/Types/OrderStatus.cs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/CreoHub.Application/DTO/ProductDTOs/CreateProductDTO.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Application/Queries/Product/GetProductsByFilter.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Application/Repositories/IPriceRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Application/Repositories/IProductRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Application/Services/ITelegramService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/Order.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/Price.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/Product.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/Shop.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/Tag.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Entities/User.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Interfaces/IRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreoHub.Domain/Types/OrderStatus.cs" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 5
+}]]></component>
+  <component name="ProjectId" id="35vQN3p4o1lTNavX8UL9ITswF77" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="4417b91f-c10f-43ba-be17-b451d7887584" name="Changes" comment="" />
+      <created>1763988024160</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1763988024160</updated>
+      <workItem from="1763988024659" duration="15081000" />
+    </task>
+    <task id="LOCAL-00001" summary="add domain layer">
+      <option name="closed" value="true" />
+      <created>1764015001338</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1764015001338</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+    <MESSAGE value="add domain layer" />
+    <option name="LAST_COMMIT_MESSAGE" value="add domain layer" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
