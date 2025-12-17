@@ -5,6 +5,7 @@ using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
@@ -38,12 +39,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, BaseRespon
             User? customer = await _accountRepository.GetByIdAsync(request.userId);
             Product product = await _productRepository.GetProductById(request.dto.ProductId);
             Price price = await _priceRepository.GetPriceByProductId(request.dto.ProductId);
-            
+
             Order order = Order.Open(price.Value, String.Empty, product.Id, customer.Id);
-            order.InjectOrderDate(request.dto.Date); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
+            order.InjectOrderDate(request.dto
+                .Date); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
 
             await _orderRepository.AddAsync(order);
-            
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)

@@ -71,9 +71,9 @@ public class ProductRepository : IProductRepository
         throw new NotImplementedException();
     }
 
-    public Task<Product> GetProductById(int id)
+    public async Task<Product> GetProductById(int id)
     {
-        throw new NotImplementedException();
+        return (await _db.Products.FirstOrDefaultAsync(x => x.Id == id));
     }
 
     public Task<Guid> GetShopIdByProductId(int id)

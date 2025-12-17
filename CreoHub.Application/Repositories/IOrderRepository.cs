@@ -7,5 +7,5 @@ namespace CreoHub.Application.Repositories;
 
 public interface IOrderRepository : IRepository<Order, Guid>
 {
-    Task<OrderInfoDTO> GetOrderInfoById(Guid id);
+    Task<OrderFullInfoDTO> GetOrderInfoById(Guid id);
 }

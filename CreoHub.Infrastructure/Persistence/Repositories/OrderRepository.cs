@@ -26,9 +26,9 @@ public class OrderRepository : IOrderRepository
             .ToListAsync();
     }
 
-    public Task<List<Order>> GetAllAsync()
+    public async Task<List<Order>> GetAllAsync()
     {
-        throw new NotImplementedException();
+        return _db.Orders.ToList();
     }
 
     public async Task<Order> AddAsync(Order entity)
@@ -46,8 +46,28 @@ public class OrderRepository : IOrderRepository
         throw new NotImplementedException();
     }
 
-    public Task<OrderInfoDTO> GetOrderInfoById(Guid id)
+    public async Task<OrderFullInfoDTO> GetOrderInfoById(Guid id)
     {
-        throw new NotImplementedException();
+        var response =  await _db.Orders
+            .Include(x=>x.Customer)
+            .Include(x=>x.Product)
+            .Include(x=>x.Product.Owner)
+            .Select(x=> new OrderFullInfoDTO()
+            {
+                CustomerId = x.CustomerId,
+                CustomerName = x.Customer.Name,
+                Date =  x.OrderDate,
+                Price = x.Price,
+                Status = x.Status.ToString(),
+                ProductId = x.ProductId,
+                ProductName = x.Product.Name,
+                Id = x.Id,
+                ShopId = x.Product.OwnerId,
+                ShopName = x.Product.Owner.Name,
+                
+            })
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        return response;
     }
 }

@@ -1,6 +1,6 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
-using CreoHub.Application.ErrorMessages;
+using CreoHub.Application.Exceptions;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
@@ -31,27 +31,31 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
 
     public async Task<BaseResponse<bool>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
-        Shop shop = await _shopRepository.GetByOwnerIdAsync(request.userId);
-        if (shop == null)
-            return BaseResponse<bool>.Fail(ShopErrors.NotFound);
-        
-        var tags = await _tagRepository.GetByIdsAsync(request.dto.Tags);
-        
-        Product product = new Product(
-            request.dto.Name, 
-            request.dto.Description,
-            shop,
-            tags);
-        
-        product.InjectDate(request.dto.Date); //TODO: убрать позже, инжектирование даты только для восстановления бд
-       
-        var price = new Price(request.dto.Price, product);
-        
-        await _productRepository.AddAsync(product);
-        await _priceRepository.AddAsync(price);
-        
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            Shop shop = await _shopRepository.GetByOwnerIdAsync(request.userId);
+            var tags = await _tagRepository.GetByIdsAsync(request.dto.Tags);
 
-        return BaseResponse<bool>.Success(true);
+            Product product = new Product(
+                request.dto.Name,
+                request.dto.Description,
+                shop,
+                tags);
+
+            product.InjectDate(request.dto.Date); //TODO: убрать позже, инжектирование даты только для восстановления бд
+
+            var price = new Price(request.dto.Price, product);
+
+            await _productRepository.AddAsync(product);
+            await _priceRepository.AddAsync(price);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return BaseResponse<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            return BaseResponse<bool>.Fail(ex.Message);
+        }
     }
 }

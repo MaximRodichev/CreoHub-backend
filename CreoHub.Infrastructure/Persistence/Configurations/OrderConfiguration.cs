@@ -11,6 +11,7 @@ public class OrderConfiguration :  IEntityTypeConfiguration<Order>
         builder.HasKey(x => x.Id);
         
         builder.Property(x => x.Price).HasPrecision(18, 2).IsRequired();
+        builder.HasIndex(x => new { x.ProductId, x.CustomerId }).IsUnique();
         builder.Property(x => x.ProductId).IsRequired();
         builder.Property(x=> x.CustomerId).IsRequired();
         builder.Property(x=>x.OrderDate).IsRequired();

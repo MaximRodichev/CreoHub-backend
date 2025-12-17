@@ -1,5 +1,6 @@
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
 
@@ -43,8 +44,8 @@ public class PriceRepository : IPriceRepository
         throw new NotImplementedException();
     }
 
-    public Task<Price> GetPriceByProductId(int id)
+    public async Task<Price> GetPriceByProductId(int id)
     {
-        throw new NotImplementedException();
+        return await _db.Prices.OrderBy(x=>x.Date).LastOrDefaultAsync(x=> x.ProductId == id);
     }
 }
