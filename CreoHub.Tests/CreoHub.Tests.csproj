@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\CreoHub.AssetsGrabber\CreoHub.AssetsGrabber.csproj" />
       <ProjectReference Include="..\CreoHub.Infrastructure\CreoHub.Infrastructure.csproj" />
     </ItemGroup>
 
