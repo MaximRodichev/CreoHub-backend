@@ -1,0 +1,104 @@
+
+big_win.png
+size: 2048,2048
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+BRUSH
+  rotate: true
+  xy: 1416, 90
+  size: 664, 400
+  orig: 664, 400
+  offset: 0, 0
+  index: -1
+bg_overlay
+  rotate: false
+  xy: 2, 240
+  size: 513, 300
+  orig: 513, 300
+  offset: 0, 0
+  index: -1
+big_win
+  rotate: true
+  xy: 1268, 78
+  size: 676, 146
+  orig: 676, 146
+  offset: 0, 0
+  index: -1
+big_win_type
+  rotate: false
+  xy: 757, 254
+  size: 509, 500
+  orig: 509, 500
+  offset: 0, 0
+  index: -1
+black_circle
+  rotate: true
+  xy: 834, 756
+  size: 603, 600
+  orig: 603, 600
+  offset: 0, 0
+  index: -1
+bw_stage_1
+  rotate: false
+  xy: 1436, 957
+  size: 412, 402
+  orig: 412, 402
+  offset: 0, 0
+  index: -1
+epic_win
+  rotate: true
+  xy: 616, 1024
+  size: 760, 216
+  orig: 760, 216
+  offset: 0, 0
+  index: -1
+epic_win_type
+  rotate: true
+  xy: 877, 1361
+  size: 624, 620
+  orig: 624, 620
+  offset: 0, 0
+  index: -1
+mega_win
+  rotate: true
+  xy: 609, 292
+  size: 730, 146
+  orig: 730, 146
+  offset: 0, 0
+  index: -1
+mega_win_type
+  rotate: true
+  xy: 2, 1164
+  size: 620, 612
+  orig: 620, 612
+  offset: 0, 0
+  index: -1
+red_bleed
+  rotate: true
+  xy: 1499, 1585
+  size: 400, 349
+  orig: 400, 349
+  offset: 0, 0
+  index: -1
+super_mega_type
+  rotate: true
+  xy: 2, 542
+  size: 620, 605
+  orig: 620, 605
+  offset: 0, 0
+  index: -1
+super_mega_win
+  rotate: false
+  xy: 2, 1786
+  size: 873, 199
+  orig: 873, 199
+  offset: 0, 0
+  index: -1
+white_schumtz
+  rotate: false
+  xy: 517, 2
+  size: 321, 250
+  orig: 321, 250
+  offset: 0, 0
+  index: -1

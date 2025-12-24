@@ -1,0 +1,41 @@
+
+low_symbols.png
+size: 1024,1024
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+1
+  rotate: false
+  xy: 701, 204
+  size: 129, 157
+  orig: 129, 157
+  offset: 0, 0
+  index: -1
+2
+  rotate: false
+  xy: 701, 516
+  size: 149, 167
+  orig: 149, 167
+  offset: 0, 0
+  index: -1
+3
+  rotate: false
+  xy: 701, 685
+  size: 154, 170
+  orig: 154, 170
+  offset: 0, 0
+  index: -1
+4
+  rotate: true
+  xy: 701, 363
+  size: 151, 141
+  orig: 151, 141
+  offset: 0, 0
+  index: -1
+circle
+  rotate: false
+  xy: 2, 188
+  size: 697, 667
+  orig: 697, 667
+  offset: 0, 0
+  index: -1

@@ -1,5 +1,7 @@
 using CreoHub.API.Models;
 using CreoHub.AssetsGrabber;
+using CreoHub.AssetsGrabber.Extensitions;
+using CreoHub.AssetsGrabber.Grabbers;
 using Microsoft.AspNetCore.StaticFiles;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,8 +9,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+string rootPath = builder.Environment.ContentRootPath;
+
 builder.Services.AddScoped<WebAssetScout>();
-builder.Services.AddScoped<HacksawGrabber>();
+builder.Services.AddScoped<HacksawGrabber>(sp => 
+{
+    var scout = sp.GetRequiredService<WebAssetScout>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    
+    return new HacksawGrabber(
+        scout, 
+        env.ContentRootPath + "/wwwroot/", 
+        "http://localhost:5242"
+    );
+});
 
 // Добавляем политику CORS
 builder.Services.AddCors(options =>
@@ -32,17 +47,15 @@ app.UseStaticFiles(new StaticFileOptions
     ContentTypeProvider = provider
 });
 
-app.MapPost("/api/grab", async (AssetGrabRequest request, HacksawGrabber grabber, IWebHostEnvironment env) =>
+app.MapPost("/api/grab", async (AssetGrabRequest request, HacksawGrabber grabber) =>
     {
         if (string.IsNullOrWhiteSpace(request.Url))
         {
             return Results.BadRequest(new { error = "URL is required" });
         }
-
         try
-        {   
-            var _basePath = env.WebRootPath;
-            var result = await grabber.CreateBundleSpineItemList(request.Url, _basePath, "hacksaw");
+        {
+            var result = await grabber.GetResultBundleFromUrl(request.Url);
             
             return Results.Ok(result);
         }

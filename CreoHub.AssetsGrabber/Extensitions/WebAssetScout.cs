@@ -9,7 +9,7 @@ using System.Text.Json;
 using CreoHub.AssetsGrabber.Models;
 using Microsoft.Playwright;
 
-namespace CreoHub.AssetsGrabber;
+namespace CreoHub.AssetsGrabber.Extensitions;
 
 public class WebAssetScout
 {

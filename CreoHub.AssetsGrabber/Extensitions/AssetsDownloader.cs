@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Linq;
 
-namespace CreoHub.AssetsGrabber;
+namespace CreoHub.AssetsGrabber.Extensitions;
 
 public class AssetDownloader
 {

@@ -1,9 +1,12 @@
 @CreoHub_API_HostAddress = http://127.0.0.1:5242
+@LeSanta = "https://static-live.hacksawgaming.com/1965/1.7.1/index.html?language=en&channel=desktop&gameid=1965&mode=2&token=123131&lobbyurl=https%3A%2F%2Fwww.hacksawgaming.com&currency=EUR&partner=demo&env=https://rgs-demo.hacksawgaming.com/api&realmoneyenv=https://rgs-demo.hacksawgaming.com/api"
+@Donshio = "https://static-live.hacksawgaming.com/1348/1.24.1/index.html?language=en&channel=desktop&gameid=1348&mode=2&token=123131&lobbyurl=https%3A%2F%2Fwww.hacksawgaming.com&currency=EUR&partner=demo&env=https://rgs-demo.hacksawgaming.com/api&realmoneyenv=https://rgs-demo.hacksawgaming.com/api"
+@SunPrincess = "https://static-live.hacksawgaming.com/1914/1.18.1/index.html?language=en&channel=desktop&gameid=1914&mode=2&token=123131&lobbyurl=https%3A%2F%2Fwww.hacksawgaming.com&currency=EUR&partner=demo&env=https://rgs-demo.hacksawgaming.com/api&realmoneyenv=https://rgs-demo.hacksawgaming.com/api"
 
 ### Граббинг ассетов через POST
 POST {{CreoHub_API_HostAddress}}/api/grab
 Content-Type: application/json
 
 {
-  "url": "https://static-live.hacksawgaming.com/1348/1.24.1/index.html?language=en&channel=desktop&gameid=1348&mode=2&token=123131&lobbyurl=https%3A%2F%2Fwww.hacksawgaming.com&currency=EUR&partner=demo&env=https://rgs-demo.hacksawgaming.com/api&realmoneyenv=https://rgs-demo.hacksawgaming.com/api"
+  "url": {{LeSanta}}
 }
