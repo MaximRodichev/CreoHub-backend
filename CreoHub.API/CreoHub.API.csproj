@@ -14,4 +14,72 @@
       <ProjectReference Include="..\CreoHub.AssetsGrabber\CreoHub.AssetsGrabber.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_bonus_1.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_bonus_1.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_bonus_2.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_bonus_2.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_epic_bonus.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_epic_bonus.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_main_game.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\background_main_game.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\big_win.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\big_win.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\big_win.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\bridge.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\bridge.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\bridge.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\character.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\character.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\coin.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\coin.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\countup_tiers.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\countup_tiers.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\countup_tiers_bg.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\countup_tiers_bg.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\crane.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\crane.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\crane.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\epic_character.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\epic_character.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\fs_attention.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\fs_attention.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\fs_splash.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\fs_splash.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\geisha.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\geisha.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\geisha.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\high_symbols.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\high_symbols.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\high_symbols.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\jackpot.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\jackpot.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\jackpot_mobile.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\jackpot_mobile.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\low_symbols.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\low_symbols.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\low_symbols.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\owl.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\owl.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\owl.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\raccoon.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\raccoon.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\reel.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\reel.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\ronin.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\ronin.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\ronin.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\special_symbol.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\special_symbol.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\special_symbol.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\square_ploff.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\square_ploff.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\sun_symbol.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\sun_symbol.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\symbols.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\symbols.json" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\total_win.atlas" />
+      <_ContentIncludedByDefault Remove="wwwroot\test\total_win.json" />
+    </ItemGroup>
+
 </Project>

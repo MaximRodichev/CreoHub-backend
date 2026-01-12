@@ -8,5 +8,5 @@ POST {{CreoHub_API_HostAddress}}/api/grab
 Content-Type: application/json
 
 {
-  "url": {{LeSanta}}
+  "url": {{SunPrincess}}
 }

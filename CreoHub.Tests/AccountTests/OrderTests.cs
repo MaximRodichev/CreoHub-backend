@@ -80,7 +80,7 @@ public class OrderTests : IDisposable
     }
     
     [Theory]
-    [InlineData("1fc275a4-a7e8-45fd-856d-42bf8b126bd8", "4c720189-2aa1-47ee-a3ed-f5e49fa376f2")]
+    [InlineData("0b12aecf-bb25-40ef-a374-8484e3e85ea5", "a2a26a29-8fb2-41eb-8e09-061c75d071b9")]
     public async Task GetOrderFullInfo(Guid customerId, Guid orderId)
     {
         using var scope = _provider.CreateScope();
