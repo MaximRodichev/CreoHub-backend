@@ -30,8 +30,8 @@ public class PriceRepository : IPriceRepository
 
     public async Task<Price> AddAsync(Price entity)
     {
-        await _db.Prices.AddAsync(entity);
-        return null;
+        Price response = (await _db.Prices.AddAsync(entity)).Entity;
+        return response;
     }
 
     public void Remove(Price entity)
@@ -39,7 +39,7 @@ public class PriceRepository : IPriceRepository
         throw new NotImplementedException();
     }
 
-    public Task<Price> UpdateAsync(Price entity)
+    public Price Update(Price entity)
     {
         throw new NotImplementedException();
     }

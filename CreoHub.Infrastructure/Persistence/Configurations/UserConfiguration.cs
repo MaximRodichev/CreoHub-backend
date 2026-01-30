@@ -16,6 +16,7 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
         builder.HasIndex(x=>x.EmailAddress).IsUnique();
         builder.HasIndex(x => x.TelegramId).IsUnique();
         builder.Property(x => x.Discount).IsRequired();
+        builder.HasIndex(x => x.TelegramUsername).IsUnique();
            
         builder.ToTable(t =>
         {
@@ -34,8 +35,7 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
         builder.Property(x => x.Role)
             .HasConversion<string>();
 
-        builder.HasOne(x => x.Shop).WithOne(x => x.Owner);
+        builder.HasOne(x => x.Shop).WithOne(x => x.Owner).HasForeignKey<User>(x => x.ShopId);
         builder.HasMany(x => x.Orders).WithOne(x => x.Customer).HasForeignKey(x => x.CustomerId);
-
     }
 }

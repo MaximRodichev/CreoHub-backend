@@ -31,7 +31,8 @@ public class ShopRepository : IShopRepository
 
     public async Task<Shop> AddAsync(Shop entity)
     {
-        return (await _db.Shops.AddAsync(entity)).Entity;
+        var response = (await _db.Shops.AddAsync(entity)).Entity;
+        return response;
     }
 
     public void Remove(Shop entity)
@@ -39,7 +40,7 @@ public class ShopRepository : IShopRepository
         throw new NotImplementedException();
     }
 
-    public Task<Shop> UpdateAsync(Shop entity)
+    public Shop Update(Shop entity)
     {
         throw new NotImplementedException();
     }

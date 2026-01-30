@@ -9,4 +9,6 @@ public record ProductInfoDTO
     public int TotalSells { get; set; }
     public Guid ShopId { get; set; }
     public string ShopName { get; set; }
+    public List<string> Tags { get; set; }
+    public DateTime Date { get; set; }
 }

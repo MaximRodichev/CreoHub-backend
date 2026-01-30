@@ -41,7 +41,7 @@ public class OrderRepository : IOrderRepository
         throw new NotImplementedException();
     }
 
-    public Task<Order> UpdateAsync(Order entity)
+    public Order Update(Order entity)
     {
         throw new NotImplementedException();
     }
@@ -69,5 +69,18 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(o => o.Id == id);
 
         return response;
+    }
+
+    public async Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopId(Guid shopId)
+    {
+        return await _db.Orders.Where(x => x.Product.OwnerId == shopId)
+            .Select(order => new OrderShortInfoDTO()
+            {
+                CustomerName = order.Customer.Name,
+                OrderDate = order.OrderDate,
+                Price = order.Price,
+                ProductName = order.Product.Name,
+                Status = order.Status.ToString(),
+            }).ToListAsync();
     }
 }

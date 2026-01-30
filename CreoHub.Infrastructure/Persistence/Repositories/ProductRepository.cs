@@ -41,27 +41,45 @@ public class ProductRepository : IProductRepository
         throw new NotImplementedException();
     }
 
-    public Task<Product> UpdateAsync(Product entity)
+    public Product Update(Product entity)
     {
         throw new NotImplementedException();
     }
 
-    public Task<List<ProductViewDTO>> GetProductsByFilters(FiltersDto filters)
+    public async Task<List<ProductViewDTO>> GetProductsByFilters(FiltersDto filters)
     {
-        var response = _db.Products
-            .Include(x => x.Prices)
-            .Include(x => x.Owner)
-            .Include(x => x.Tags)
-            .Select(x => new ProductViewDTO
+        var query = _db.Products.AsNoTracking(); // Быстрее для чтения
+
+        // 1. Фильтрация
+        query = query.Where(x => filters.ShopId == null || x.OwnerId == filters.ShopId);
+
+        if (filters.Tags != null && filters.Tags.Any())
         {
-            Id = x.Id,
-            Name = x.Name,
-            Description = x.Description,
-            Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
-            OwnerId = x.OwnerId,
-            OwnerName = x.Owner.Name,
-            Tags = x.Tags.Select(t => t.Name).ToList()
-        }).ToListAsync();
+            query = query.Where(x => x.Tags.Any(t => filters.Tags.Contains(t.Name)));
+        }
+
+        // 2. Пагинация (обязательно ПОСЛЕ фильтрации и ДО Select для производительности)
+        var response = await query
+            .OrderBy(x => x.Id) // Пагинация требует сортировки
+            .Select(x => new ProductViewDTO
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Description = x.Description,
+                Price = x.Prices
+                    .OrderByDescending(p => p.Date)
+                    .Select(p => p.Value)
+                    .FirstOrDefault(),
+                OwnerId = x.OwnerId,
+                OwnerName = x.Owner.Name,
+                Tags = x.Tags.Select(t => t.Name).ToList(),
+                TotalSells = x.Orders.Count,
+                Date = x.CreatedAt
+            })
+            .OrderByDescending(x=>x.TotalSells)
+            .Skip(filters.Page * filters.PageSize)
+            .Take(filters.PageSize)
+            .ToListAsync();
 
         return response;
     }
@@ -84,5 +102,32 @@ public class ProductRepository : IProductRepository
     public Task<List<ProductInfoDTO>> GetProductsInfoByShopId(Guid shopId)
     {
         throw new NotImplementedException();
+        return _db.Products
+            .Include(x=>x.Prices)
+            .Include(x=>x.Orders)
+            .Include(x=>x.Owner)
+            .Where(x=>x.OwnerId == shopId)
+            .Select(x=>new ProductInfoDTO()
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Description = x.Description,
+                Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
+                ShopId = x.Owner.Id,
+                TotalSells = x.Orders.Count,
+                ShopName = x.Owner.Name
+                
+            }).ToListAsync();
+    }
+
+    public async Task<List<ProductNameDTO>> GetProductsNamesByShopId(Guid shopId)
+    {
+        return await _db.Products
+            .Where(x=>x.OwnerId == shopId)
+            .Select(x => new ProductNameDTO()
+        {
+            Id = x.Id,
+            Name = x.Name
+        }).ToListAsync();
     }
 }

@@ -7,11 +7,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10"/>
+        <PackageReference Include="Google.Apis.Auth" Version="1.73.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.1" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\CreoHub.Application\CreoHub.Application.csproj" />
       <ProjectReference Include="..\CreoHub.AssetsGrabber\CreoHub.AssetsGrabber.csproj" />
+      <ProjectReference Include="..\CreoHub.Infrastructure\CreoHub.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -34,8 +34,8 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
         try
         {
             Shop shop = await _shopRepository.GetByOwnerIdAsync(request.userId);
-            var tags = await _tagRepository.GetByIdsAsync(request.dto.Tags);
-
+            var tags = await _tagRepository.GetByNamesAsync(request.dto.Tags);
+            
             Product product = new Product(
                 request.dto.Name,
                 request.dto.Description,
@@ -44,11 +44,16 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
 
             product.InjectDate(request.dto.Date); //TODO: убрать позже, инжектирование даты только для восстановления бд
 
-            var price = new Price(request.dto.Price, product);
+            var price = new Price(request.dto.Price, product)
+            {
+                Date = request.dto.Date,
+            }; //TODO: убрать позже, инжектирование даты только для восстановления бд
+            
 
             await _productRepository.AddAsync(product);
             await _priceRepository.AddAsync(price);
-
+            
+            
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return BaseResponse<bool>.Success(true);

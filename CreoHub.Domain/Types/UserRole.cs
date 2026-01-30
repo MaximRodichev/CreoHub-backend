@@ -6,5 +6,6 @@ public enum UserRole
 {
     User,
     Moderator,
-    Admin
+    Admin,
+    Shop
 }

@@ -5,4 +5,5 @@ public class AuthAccountDTO
     public string Name { get; set; }
     public string? Email { get; set; }
     public long? TelegramId  { get; set; }
+    public string? TelegramUsername { get; set; }
 }

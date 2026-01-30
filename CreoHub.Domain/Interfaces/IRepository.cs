@@ -7,5 +7,5 @@ public interface IRepository<T, TKey>
     Task<List<T>> GetAllAsync();
     Task<T> AddAsync(T entity);
     void Remove(T entity);
-    Task<T> UpdateAsync(T entity);
+    T Update(T entity);
 }

@@ -13,4 +13,5 @@ public interface IProductRepository : IRepository<Product, int>
 
     public Task<Guid> GetShopIdByProductId(int id);
     public Task<List<ProductInfoDTO>> GetProductsInfoByShopId(Guid shopId);
+    public Task<List<ProductNameDTO>> GetProductsNamesByShopId(Guid shopId);
 }

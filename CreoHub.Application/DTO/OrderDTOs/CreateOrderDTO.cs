@@ -1,5 +1,6 @@
 namespace CreoHub.Application.DTO.OrderDTOs;
 
+//TODO: Дев версия
 public class CreateOrderDTO
 {
     public int ProductId { get; set; }
