@@ -73,7 +73,7 @@ public class ProductRepository : IProductRepository
                 OwnerId = x.OwnerId,
                 OwnerName = x.Owner.Name,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
-                TotalSells = x.Orders.Count,
+                TotalSells = x.OrderItems.Count,
                 Date = x.CreatedAt
             })
             .OrderByDescending(x=>x.TotalSells)
@@ -103,9 +103,7 @@ public class ProductRepository : IProductRepository
     {
         throw new NotImplementedException();
         return _db.Products
-            .Include(x=>x.Prices)
-            .Include(x=>x.Orders)
-            .Include(x=>x.Owner)
+            .AsNoTracking()
             .Where(x=>x.OwnerId == shopId)
             .Select(x=>new ProductInfoDTO()
             {
@@ -114,7 +112,7 @@ public class ProductRepository : IProductRepository
                 Description = x.Description,
                 Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
                 ShopId = x.Owner.Id,
-                TotalSells = x.Orders.Count,
+                TotalSells = x.OrderItems.Count,
                 ShopName = x.Owner.Name
                 
             }).ToListAsync();
@@ -129,5 +127,15 @@ public class ProductRepository : IProductRepository
             Id = x.Id,
             Name = x.Name
         }).ToListAsync();
+    }
+
+    public Task<List<Product>> GetProductsByIds(List<int> ids)
+    {
+        return _db.Products.AsNoTracking().Include(x=>x.Prices).Where(x => ids.Contains(x.Id)).ToListAsync();
+    }
+
+    public Product Attach(Product entity)
+    {
+        return _db.Products.Attach(entity).Entity;
     }
 }

@@ -1,4 +1,5 @@
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -49,22 +50,21 @@ public class OrderRepository : IOrderRepository
     public async Task<OrderFullInfoDTO> GetOrderInfoById(Guid id)
     {
         var response =  await _db.Orders
-            .Include(x=>x.Customer)
-            .Include(x=>x.Product)
-            .Include(x=>x.Product.Owner)
             .Select(x=> new OrderFullInfoDTO()
             {
                 CustomerId = x.CustomerId,
                 CustomerName = x.Customer.Name,
                 Date =  x.OrderDate,
-                Price = x.Price,
                 Status = x.Status.ToString(),
-                ProductId = x.ProductId,
-                ProductName = x.Product.Name,
+                ProductItems = x.Items.Select(y=> new ProductOrderInfoDTO()
+                {
+                    Id = y.Id,
+                    Name = y.Product.Name,
+                    Price = y.PriceAtPurchase,
+                    ShopId = y.Product.OwnerId,
+                    ShopName = y.Product.Owner.Name
+                }).ToList(),
                 Id = x.Id,
-                ShopId = x.Product.OwnerId,
-                ShopName = x.Product.Owner.Name,
-                
             })
             .FirstOrDefaultAsync(o => o.Id == id);
 
@@ -73,14 +73,21 @@ public class OrderRepository : IOrderRepository
 
     public async Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopId(Guid shopId)
     {
-        return await _db.Orders.Where(x => x.Product.OwnerId == shopId)
+        return await _db.Orders.Where(x => x.Items.Any(x=>x.Product.OwnerId==shopId))
             .Select(order => new OrderShortInfoDTO()
             {
+                Id = order.Id,
                 CustomerName = order.Customer.Name,
                 OrderDate = order.OrderDate,
                 Price = order.Price,
-                ProductName = order.Product.Name,
+                ProductNames = order.Items.Select(x=>x.Product.Name).ToList(),
                 Status = order.Status.ToString(),
             }).ToListAsync();
     }
+    
+    public Order Attach(Order entity)
+    {
+        return _db.Orders.Attach(entity).Entity;
+    }
+
 }

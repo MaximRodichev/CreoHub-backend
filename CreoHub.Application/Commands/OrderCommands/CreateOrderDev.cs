@@ -37,15 +37,21 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
         try
         {
             User? customer = await _accountRepository.GetByIdAsync(request.dto.ClientId);
-            Product product = await _productRepository.GetProductById(request.dto.ProductId);
-            Price price = await _priceRepository.AddAsync(new Price()
-            {
-                Date = request.dto.PurchaseDate,
-                Product = product,
-                Value = request.dto.Price
-            });
+            List<Product> products = await _productRepository.GetProductsByIds(request.dto.ProductsIds);
             
-            Order order = Order.Open(price.Value, String.Empty, product.Id, customer.Id);
+            foreach (Product product in products)
+            {   
+                Price _ = await _priceRepository.AddAsync(new Price()
+                {
+                    Date = request.dto.PurchaseDate,
+                    ProductId = product.Id,
+                    Value = products.Count > 1 ? product.Prices.Last().Value : request.dto.Price
+                });
+            }
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            //decimal price = products.Sum(x=>x.Prices.Last().Value);
+            
+            Order order = Order.Open(request.dto.Price, String.Empty, products, customer.Id);
             order.InjectOrderDate(request.dto
                 .PurchaseDate); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
 

@@ -11,8 +11,6 @@ public class OrderConfiguration :  IEntityTypeConfiguration<Order>
         builder.HasKey(x => x.Id);
         
         builder.Property(x => x.Price).HasPrecision(18, 2).IsRequired();
-        builder.HasIndex(x => new { x.ProductId, x.CustomerId }).IsUnique();
-        builder.Property(x => x.ProductId).IsRequired();
         builder.Property(x=> x.CustomerId).IsRequired();
         builder.Property(x=>x.OrderDate).IsRequired();
         builder.Property(x=>x.Status).IsRequired().HasConversion<string>();
@@ -24,7 +22,10 @@ public class OrderConfiguration :  IEntityTypeConfiguration<Order>
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
 
-        builder.HasOne(x => x.Product).WithMany(x => x.Orders).HasForeignKey(x => x.ProductId);
+        builder.HasMany(x => x.Items)
+            .WithOne(x => x.Order)
+            .HasForeignKey(x => x.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Customer).WithMany(x => x.Orders).HasForeignKey(x => x.CustomerId);
     }
 }

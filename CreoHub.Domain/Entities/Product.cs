@@ -20,7 +20,7 @@ public class Product
     public Guid OwnerId { get; set; }
     public ICollection<Tag> Tags { get; set; }
     public List<Price> Prices { get; set; }
-    public List<Order> Orders { get; set; }
+    public List<OrderItem> OrderItems { get; set; }
 
     public Product()
     {

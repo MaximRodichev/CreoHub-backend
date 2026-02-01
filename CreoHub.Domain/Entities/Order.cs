@@ -13,8 +13,8 @@ public class Order
     //FK
     public User Customer { get; private set; }
     public Guid CustomerId { get; private set; }
-    public Product Product { get; private set; }
-    public int ProductId { get; private set; }
+    
+    public List<OrderItem> Items { get; set; } = new List<OrderItem>();
 
     public Order()
     {
@@ -25,16 +25,31 @@ public class Order
     /// Создание заказа
     /// </summary>
     /// <returns></returns>
-    public static Order Open(decimal price, string description, int productId, Guid customerId)
+    public static Order Open(decimal price, string description, List<Product> products, Guid customerId)
     {
-        return new Order()
+        List<OrderItem> items = new List<OrderItem>(products.Count);
+        
+        Order thisOrder = new Order()
         {
             Id = Guid.NewGuid(),
             Price = price,
             Description = description,
-            ProductId = productId,
             CustomerId = customerId,
         };
+
+        foreach (var product in products)
+        {
+            items.Add(new OrderItem()
+            {
+                OrderId = thisOrder.Id,
+                ProductId = product.Id,
+                PriceAtPurchase = product.Prices.Last().Value,
+            });
+        }
+        
+        thisOrder.Items = items;
+        
+        return thisOrder;
     }
 
     public Order InjectOrderDate(DateTime orderDate)

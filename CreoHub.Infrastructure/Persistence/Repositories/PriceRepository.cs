@@ -30,8 +30,25 @@ public class PriceRepository : IPriceRepository
 
     public async Task<Price> AddAsync(Price entity)
     {
-        Price response = (await _db.Prices.AddAsync(entity)).Entity;
-        return response;
+        var existingPrice = await _db.Prices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ProductId == entity.ProductId && x.Date == entity.Date);
+
+        if (existingPrice != null)
+        {
+            return existingPrice;
+        }
+
+        try
+        {
+            return (await _db.Prices.AddAsync(entity)).Entity;;
+        }
+        catch (Exception ex)
+        {
+            return await _db.Prices
+                .AsNoTracking()
+                .FirstAsync(x => x.ProductId == entity.ProductId && x.Date == entity.Date);
+        }
     }
 
     public void Remove(Price entity)
@@ -47,5 +64,10 @@ public class PriceRepository : IPriceRepository
     public async Task<Price> GetPriceByProductId(int id)
     {
         return await _db.Prices.OrderBy(x=>x.Date).LastOrDefaultAsync(x=> x.ProductId == id);
+    }
+    
+    public Price Attach(Price entity)
+    {
+        return _db.Prices.Attach(entity).Entity;
     }
 }

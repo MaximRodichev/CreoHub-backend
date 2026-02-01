@@ -72,4 +72,9 @@ public class TagRepository : ITagRepository
 
         return existingTags;
     }
+
+    public Tag Attach(Tag entity)
+    {
+        return _db.Tags.Attach(entity).Entity;
+    }
 }

@@ -46,6 +46,11 @@ public class AccountRepository : IAccountRepository
         
     }
 
+    public User Attach(User entity)
+    {
+        return _db.Users.Attach(entity).Entity;
+    }
+
     public Task<Guid> GetShopByUserId(Guid userId)
     {
         throw new NotImplementedException();
@@ -79,25 +84,31 @@ public class AccountRepository : IAccountRepository
 
         return null;
     }
-
+    //.Where(u => u.Orders.Any(o => o.Items.Any(x=> x.Product.OwnerId == shopId)))
     public async Task<List<ClientShortInfoDTO>> GetClientsShortInfoAsync(Guid shopId)
     {
         return await _db.Users
             .AsNoTracking()
-            .Where(u => u.Orders.Any(o => o.Product.OwnerId == shopId))
+            // 1. Фильтруем пользователей, у которых есть хотя бы один заказ с товарами этого магазина
+            //.Where(u => u.Orders.Any(o => o.Items.Any(i => i.Product.OwnerId == shopId)))
             .Select(u => new 
             {
-                User = u,
-                ShopOrders = u.Orders.Where(o => o.Product.OwnerId == shopId)
+                u.Id,
+                u.Name,
+                u.TelegramUsername,
+                // 2. Берем только те заказы пользователя, которые относятся к данному магазину
+                ShopOrders = u.Orders.Where(o => o.Items.Any(i => i.Product.OwnerId == shopId))
             })
             .Select(x => new ClientShortInfoDTO
             {
-                Id = x.User.Id,
-                Name = x.User.Name,
-                TelegramUsername = x.User.TelegramUsername,
+                Id = x.Id,
+                Name = x.Name,
+                TelegramUsername = x.TelegramUsername,
                 TotalBuys = x.ShopOrders.Count(),
-                TotalSpent = x.ShopOrders.Sum(o => o.Price)
+                // 3. Считаем сумму: Сумма (Количество * Цена) для всех позиций в заказах этого магазина
+                TotalSpent = x.ShopOrders.Sum(x=>x.Price)
             })
+            .OrderByDescending(x=>x.TotalSpent)
             .ToListAsync();
     }
 

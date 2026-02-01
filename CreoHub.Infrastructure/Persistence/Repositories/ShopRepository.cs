@@ -83,4 +83,8 @@ public class ShopRepository : IShopRepository
             .FirstOrDefaultAsync();
     }
 
+    public Shop Attach(Shop entity)
+    {
+        return _db.Shops.Attach(entity).Entity;
+    }
 }

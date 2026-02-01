@@ -8,4 +8,5 @@ public interface IRepository<T, TKey>
     Task<T> AddAsync(T entity);
     void Remove(T entity);
     T Update(T entity);
+    T Attach(T entity);
 }

@@ -37,10 +37,10 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, BaseRespon
         try
         {
             User? customer = await _accountRepository.GetByIdAsync(request.userId);
-            Product product = await _productRepository.GetProductById(request.dto.ProductId);
-            Price price = await _priceRepository.GetPriceByProductId(request.dto.ProductId);
+            List<Product> products = await _productRepository.GetProductsByIds(request.dto.ProductsIds);
+            decimal price = products.Sum(x=>x.Prices.Last().Value);
 
-            Order order = Order.Open(price.Value, String.Empty, product.Id, customer.Id);
+            Order order = Order.Open(price, String.Empty, products, customer.Id);
             order.InjectOrderDate(request.dto
                 .Date); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
 
