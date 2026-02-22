@@ -74,6 +74,7 @@ public class OrderRepository : IOrderRepository
     public async Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopId(Guid shopId)
     {
         return await _db.Orders.Where(x => x.Items.Any(x=>x.Product.OwnerId==shopId))
+            .OrderByDescending(x=>x.OrderDate)
             .Select(order => new OrderShortInfoDTO()
             {
                 Id = order.Id,

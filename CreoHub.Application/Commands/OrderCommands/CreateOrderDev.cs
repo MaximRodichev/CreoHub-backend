@@ -43,7 +43,7 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
             {   
                 Price _ = await _priceRepository.AddAsync(new Price()
                 {
-                    Date = request.dto.PurchaseDate,
+                    Date = DateTime.Now,
                     ProductId = product.Id,
                     Value = products.Count > 1 ? product.Prices.Last().Value : request.dto.Price
                 });
@@ -52,8 +52,6 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
             //decimal price = products.Sum(x=>x.Prices.Last().Value);
             
             Order order = Order.Open(request.dto.Price, String.Empty, products, customer.Id);
-            order.InjectOrderDate(request.dto
-                .PurchaseDate); //TODO: дата не должна инжекститься, это условность чтобы восстановить истори работы
 
             await _orderRepository.AddAsync(order);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
