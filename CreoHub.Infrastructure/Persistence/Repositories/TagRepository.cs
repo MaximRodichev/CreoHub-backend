@@ -74,15 +74,15 @@ public class TagRepository : ITagRepository
         return existingTags;
     }
 
-    public async Task<List<TagStatsDTO>> GetTagStatsByShopAsync(Guid shopId)
+    public async Task<List<TagStatsDTO>> GetTagStatsByShopAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null)
     {
-        return await _db.Tags
+        var query = _db.Tags
             .Where(t => t.Products.Any(p => p.OwnerId == shopId))
             .Select(tag => new TagStatsDTO
             {
                 TagId = tag.Id,
                 TagName = tag.Name,
-            
+
                 // Количество товаров этого магазина с данным тегом
                 TagProductsCount = tag.Products
                     .Count(p => p.OwnerId == shopId),
@@ -91,13 +91,16 @@ public class TagRepository : ITagRepository
                 TagItemsSold = tag.Products
                     .Where(p => p.OwnerId == shopId)
                     .SelectMany(p => p.OrderItems)
-                    .Count(),
-                
+                    .Count(oi => (!from.HasValue || oi.Order.OrderDate >= from) &&
+                                 (!to.HasValue || oi.Order.OrderDate <= to)),
+
                 TagOrdersCount = tag.Products
                     .Where(p => p.OwnerId == shopId)
                     .SelectMany(p => p.OrderItems)
+                    .Where(oi => (!from.HasValue || oi.Order.OrderDate >= from) &&
+                                 (!to.HasValue || oi.Order.OrderDate <= to))
                     .Select(oi => oi.OrderId) // Выбираем ID заказов
-                    .Distinct()               // Убираем дубликаты
+                    .Distinct() // Убираем дубликаты
                     .Count(),
 
                 // Суммарная выручка по тегу
@@ -105,10 +108,18 @@ public class TagRepository : ITagRepository
                 TagRevenue = tag.Products
                     .Where(p => p.OwnerId == shopId)
                     .SelectMany(p => p.OrderItems)
-                    .Sum(oi => (decimal?)oi.PriceAtPurchase) ?? 0m 
+                    .Where(oi => (!from.HasValue || oi.Order.OrderDate >= from) &&
+                                 (!to.HasValue || oi.Order.OrderDate <= to))
+                    .Sum(oi => (decimal?)oi.PriceAtPurchase) ?? 0m
             })
             .OrderByDescending(t => t.TagRevenue)
-            .ToListAsync();
+            .AsNoTracking();
+        
+        if (limit.HasValue)
+        {
+            return await query.Take(limit.Value).ToListAsync();
+        }
+        return await query.ToListAsync();
     }
 
     public Tag Attach(Tag entity)

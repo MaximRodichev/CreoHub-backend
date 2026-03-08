@@ -20,7 +20,7 @@ public class GetOrdersShortInfoByShopIdHandler : IRequestHandler<GetOrdersShortI
     {
         try
         {
-            var response = await _orderRepository.GetOrdersShortInfoByShopId(request.shopId);
+            var response = await _orderRepository.GetOrdersShortInfoByShopIdAsync(request.shopId);
             
             
             return BaseResponse<List<OrderShortInfoDTO>>.Success(response);

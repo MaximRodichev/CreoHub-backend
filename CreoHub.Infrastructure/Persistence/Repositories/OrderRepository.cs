@@ -71,19 +71,48 @@ public class OrderRepository : IOrderRepository
         return response;
     }
 
-    public async Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopId(Guid shopId)
+    public async Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopIdAsync(
+        Guid shopId, 
+        DateTime? from = null, 
+        DateTime? to = null, 
+        int? limit = null)
     {
-        return await _db.Orders.Where(x => x.Items.Any(x=>x.Product.OwnerId==shopId))
-            .OrderByDescending(x=>x.OrderDate)
-            .Select(order => new OrderShortInfoDTO()
+        // 1. Создаем базовый запрос с фильтром по магазину
+        var query = _db.Orders
+            .Where(x => x.Items.Any(i => i.Product.OwnerId == shopId));
+
+        // 2. Применяем фильтрацию по датам (если они переданы)
+        if (from.HasValue)
+        {
+            query = query.Where(x => x.OrderDate >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(x => x.OrderDate <= to.Value);
+        }
+
+        // 3. Сортируем и выбираем только нужные поля (Проекция)
+        var projectedQuery = query
+            .OrderByDescending(x => x.OrderDate)
+            .Select(order => new OrderShortInfoDTO
             {
                 Id = order.Id,
                 CustomerName = order.Customer.Name,
                 OrderDate = order.OrderDate,
                 Price = order.Price,
-                ProductNames = order.Items.Select(x=>x.Product.Name).ToList(),
+                // Используем Select без ToList() внутри проекции для EF
+                ProductNames = order.Items.Select(i => i.Product.Name).ToList(),
                 Status = order.Status.ToString(),
-            }).ToListAsync();
+            });
+
+        // 4. Применяем лимит в самом конце
+        if (limit.HasValue)
+        {
+            projectedQuery = projectedQuery.Take(limit.Value);
+        }
+
+        return await projectedQuery.ToListAsync();
     }
     
     public Order Attach(Order entity)

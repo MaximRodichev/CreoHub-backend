@@ -83,6 +83,59 @@ public class ShopRepository : IShopRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task<ShopStatsDTO> GetShopStatsAsync(Guid shopId, DateTime? from = null, DateTime? to = null)
+    {
+        // 1. Базовый запрос с фильтрами для текущих стат (за период)
+        var periodOrdersQuery = _db.Orders
+            .AsNoTracking()
+            .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId));
+
+        if (from.HasValue) periodOrdersQuery = periodOrdersQuery.Where(o => o.OrderDate >= from);
+        if (to.HasValue) periodOrdersQuery = periodOrdersQuery.Where(o => o.OrderDate <= to);
+
+        // 2. Статистика за период (один запрос)
+        var statsResult = await periodOrdersQuery
+            .GroupBy(o => 1)
+            .Select(g => new
+            {
+                Revenue = g.Sum(o => o.Price),
+                OrdersCount = g.Count(),
+                ClientsCount = g.Select(o => o.CustomerId).Distinct().Count()
+            })
+            .FirstOrDefaultAsync();
+
+            // 1. Сначала получаем сгруппированные данные из БД в анонимный тип
+            var revenueData = await _db.Orders
+                .AsNoTracking()
+                .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId))
+                .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
+                .Select(g => new 
+                {
+                    g.Key.Year,
+                    g.Key.Month,
+                    Revenue = g.Sum(o => o.Price)
+                })
+                .OrderBy(x => x.Year)
+                .ThenBy(x => x.Month)
+                .ToListAsync();
+
+            // 2. Превращаем список в Dictionary<string, decimal> на стороне сервера (C#)
+            var revenueHistory = revenueData.ToDictionary(
+                x => $"{x.Year}-{x.Month:D2}", // Ключ: "2026-03"
+                x => x.Revenue                  // Значение: выручка
+            );
+
+        var productsCount = await _db.Products.CountAsync(p => p.OwnerId == shopId);
+
+        return new ShopStatsDTO(
+            TotalRevenue: statsResult?.Revenue ?? 0,
+            TotalOrders: statsResult?.OrdersCount ?? 0,
+            TotalProducts: productsCount,
+            TotalClients: statsResult?.ClientsCount ?? 0,
+            RevenuePerMonth: revenueHistory // Список выручки по месяцам
+        );
+    }
+
     public Shop Attach(Shop entity)
     {
         return _db.Shops.Attach(entity).Entity;

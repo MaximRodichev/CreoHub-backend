@@ -1,5 +1,6 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
+using CreoHub.Application.DTO.StatsDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -132,6 +133,49 @@ public class ProductRepository : IProductRepository
     public Task<List<Product>> GetProductsByIds(List<int> ids)
     {
         return _db.Products.AsNoTracking().Include(x=>x.Prices).Where(x => ids.Contains(x.Id)).ToListAsync();
+    }
+
+    public async Task<List<ProductStatsDTO>> GetProductsStatsByShopIdAsync(
+        Guid shopId, 
+        DateTime? from = null, 
+        DateTime? to = null,
+        int? limit = null)
+    {
+        var query = _db.Products
+            .Where(p => p.OwnerId == shopId)
+            .Select(p => new
+            {
+                Id = p.Id,
+                Name = p.Name,
+                // Calculate the Revenue metric
+                Revenue = p.OrderItems
+                    .Where(oi => (!from.HasValue || oi.Order.OrderDate >= from) && 
+                                 (!to.HasValue || oi.Order.OrderDate <= to))
+                    .Sum(oi => (decimal?)oi.PriceAtPurchase) ?? 0m,
+                // Calculate Current Price
+                CurrentPrice = p.Prices
+                    .OrderByDescending(pr => pr.Date)
+                    .Select(pr => pr.Value)
+                    .FirstOrDefault(),
+                // Calculate Order Count
+                OrderCount = p.OrderItems
+                    .Count(oi => (!from.HasValue || oi.Order.OrderDate >= from) && 
+                                 (!to.HasValue || oi.Order.OrderDate <= to))
+            })
+            // 1. Sort using the anonymous property (EF knows how to translate this)
+            .OrderByDescending(x => x.Revenue)
+            // 2. Apply limit while still in SQL
+            .Take(limit ?? int.MaxValue)
+            // 3. Final projection to your DTO
+            .Select(x => new ProductStatsDTO(
+                x.Id,
+                x.Name,
+                x.Revenue,
+                x.CurrentPrice,
+                x.OrderCount
+            ));
+
+        return await query.ToListAsync();
     }
 
     public Product Attach(Product entity)

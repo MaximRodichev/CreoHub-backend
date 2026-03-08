@@ -103,4 +103,19 @@ public class ShopController : ControllerBase
         
         return Ok(response);
     }
+
+    [Authorize]
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var command = new GetShopDashboardQuery(ShopId, from, to);
+        var response = await _mediator.Send(command);
+
+        if (response.Status == ResponseStatus.Error)
+        {
+            return BadRequest(response.ErrorMessage);
+        }
+        
+        return Ok(response);
+    }
 }
