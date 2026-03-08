@@ -104,26 +104,29 @@ public class ShopRepository : IShopRepository
             })
             .FirstOrDefaultAsync();
 
-            // 1. Сначала получаем сгруппированные данные из БД в анонимный тип
-            var revenueData = await _db.Orders
-                .AsNoTracking()
-                .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId))
-                .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
-                .Select(g => new 
-                {
-                    g.Key.Year,
-                    g.Key.Month,
-                    Revenue = g.Sum(o => o.Price)
-                })
-                .OrderBy(x => x.Year)
-                .ThenBy(x => x.Month)
-                .ToListAsync();
+        var revenueData = await _db.Orders
+            .AsNoTracking()
+            // 1. Фильтрация (пропускаем, если нужен отчет по всей базе как в SQL)
+            .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId)) 
+    
+            // 2. Группировка (Эквивалент date_trunc по смыслу)
+            .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
+    
+            // 3. Агрегация (SUM и COUNT)
+            .Select(g => new 
+            {
+                Date = new DateTime(g.Key.Year, g.Key.Month, 1), // Тот самый "month" из SQL
+                TotalSum = g.Sum(o => o.Price),                 // SUM(o."Price")
+                TransactionsCount = g.Count()                   // COUNT(DISTINCT o."Id")
+            })
+            .OrderBy(x => x.Date)
+            .ToListAsync();
 
-            // 2. Превращаем список в Dictionary<string, decimal> на стороне сервера (C#)
-            var revenueHistory = revenueData.ToDictionary(
-                x => $"{x.Year}-{x.Month:D2}", // Ключ: "2026-03"
-                x => x.Revenue                  // Значение: выручка
-            );
+// Превращаем в словарь для фронтенда
+        var revenueHistory = revenueData.ToDictionary(
+            x => x.Date.ToString("yyyy-MM-dd"), 
+            x => x.TotalSum
+        );
 
         var productsCount = await _db.Products.CountAsync(p => p.OwnerId == shopId);
 
