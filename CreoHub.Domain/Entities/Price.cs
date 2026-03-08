@@ -18,7 +18,7 @@ public class Price
 
     public Price(decimal amount, Product product)
     {
-        if (Value < 0)
+        if (amount < 0)
         {
             throw new NegativeOrZeroPriceException();
         }
@@ -29,7 +29,7 @@ public class Price
     
     public Price(decimal amount, int productId)
     {
-        if (Value < 0)
+        if (amount < 0)
         {
             throw new NegativeOrZeroPriceException();
         }

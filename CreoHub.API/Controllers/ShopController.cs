@@ -17,6 +17,8 @@ namespace CreoHub.API.Controllers;
 public class ShopController : ControllerBase
 {
     private readonly IMediator _mediator;
+    protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
+    protected Guid ShopId => Guid.Parse(User.FindFirst("shop_id")?.Value ?? Guid.Empty.ToString());
     
     public ShopController(IMediator mediator)
     {
@@ -77,6 +79,21 @@ public class ShopController : ControllerBase
     {
         Guid shopId = Guid.Parse(User.FindFirst("shop_id").Value);
         var command = new GetClientsNameQuery(shopId);
+        var response = await _mediator.Send(command);
+        
+        if (response.Status == ResponseStatus.Error)
+        {
+            return BadRequest(response.ErrorMessage);
+        }
+        
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("tags-stats")]
+    public async Task<IActionResult> GetTagsStats()
+    {
+        var command = new GetTagStatsByShopQuery(ShopId);
         var response = await _mediator.Send(command);
         
         if (response.Status == ResponseStatus.Error)

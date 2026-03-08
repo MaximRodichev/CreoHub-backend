@@ -1,3 +1,4 @@
+using CreoHub.Application.DTO.StatsDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +72,43 @@ public class TagRepository : ITagRepository
         }
 
         return existingTags;
+    }
+
+    public async Task<List<TagStatsDTO>> GetTagStatsByShopAsync(Guid shopId)
+    {
+        return await _db.Tags
+            .Where(t => t.Products.Any(p => p.OwnerId == shopId))
+            .Select(tag => new TagStatsDTO
+            {
+                TagId = tag.Id,
+                TagName = tag.Name,
+            
+                // Количество товаров этого магазина с данным тегом
+                TagProductsCount = tag.Products
+                    .Count(p => p.OwnerId == shopId),
+
+                // Общее кол-во продаж (штук) товаров с этим тегом в этом магазине
+                TagItemsSold = tag.Products
+                    .Where(p => p.OwnerId == shopId)
+                    .SelectMany(p => p.OrderItems)
+                    .Count(),
+                
+                TagOrdersCount = tag.Products
+                    .Where(p => p.OwnerId == shopId)
+                    .SelectMany(p => p.OrderItems)
+                    .Select(oi => oi.OrderId) // Выбираем ID заказов
+                    .Distinct()               // Убираем дубликаты
+                    .Count(),
+
+                // Суммарная выручка по тегу
+                // Используем PriceAtPurchase из OrderItems, так как это историческая цена продажи
+                TagRevenue = tag.Products
+                    .Where(p => p.OwnerId == shopId)
+                    .SelectMany(p => p.OrderItems)
+                    .Sum(oi => (decimal?)oi.PriceAtPurchase) ?? 0m 
+            })
+            .OrderByDescending(t => t.TagRevenue)
+            .ToListAsync();
     }
 
     public Tag Attach(Tag entity)

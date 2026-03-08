@@ -3,3 +3,5 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+/CreoHub.API/appsettings.json
+/CreoHub.API/appsettings.Development.json
