@@ -7,13 +7,12 @@ using MediatR;
 
 namespace CreoHub.Application.Queries.Product;
 
-public record GetProductsByFilterQuery(FiltersDto filters) : IRequest<BaseResponse<IReadOnlyList<ProductViewDTO>>>
-
+public record GetProductsByFilterQuery(FiltersDto filters) : IRequest<BaseResponse<PageViewDTO>>
 {
     
 }
 
-public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQuery, BaseResponse<IReadOnlyList<ProductViewDTO>>>
+public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQuery, BaseResponse<PageViewDTO>>
 {
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
@@ -24,16 +23,21 @@ public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQue
         _mapper = Mapper;
     }
     
-    public async Task<BaseResponse<IReadOnlyList<ProductViewDTO>>> Handle(GetProductsByFilterQuery request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<PageViewDTO>> Handle(GetProductsByFilterQuery request, CancellationToken cancellationToken)
     {
         try
         {
-            IReadOnlyList<ProductViewDTO> products = await _productRepository.GetProductsByFilters(request.filters);
-            return BaseResponse<IReadOnlyList<ProductViewDTO>>.Success(products);
+            (IReadOnlyList<ProductViewDTO> products, int count) = await _productRepository.GetProductsByFilters(request.filters);
+            PageViewDTO page = new PageViewDTO()
+            {
+                Products = products,
+                CountProducts = count
+            };
+            return BaseResponse<PageViewDTO>.Success(page);
         }
         catch (Exception ex)
         {
-            return BaseResponse<IReadOnlyList<ProductViewDTO>>.Fail(ex.Message);
+            return BaseResponse<PageViewDTO>.Fail(ex.Message);
         }
     }
 }

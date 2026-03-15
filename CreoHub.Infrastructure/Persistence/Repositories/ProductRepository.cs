@@ -3,6 +3,7 @@ using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.DTO.StatsDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
@@ -47,42 +48,64 @@ public class ProductRepository : IProductRepository
         throw new NotImplementedException();
     }
 
-    public async Task<List<ProductViewDTO>> GetProductsByFilters(FiltersDto filters)
+    public async Task<(List<ProductViewDTO>, int)> GetProductsByFilters(FiltersDto filters)
     {
-        var query = _db.Products.AsNoTracking(); // Быстрее для чтения
+        var query = _db.Products.AsNoTracking();
 
         // 1. Фильтрация
-        query = query.Where(x => filters.ShopId == null || x.OwnerId == filters.ShopId);
+        if (filters.ShopId.HasValue)
+            query = query.Where(x => x.OwnerId == filters.ShopId);
 
-        if (filters.Tags != null && filters.Tags.Any())
+        if (!string.IsNullOrWhiteSpace(filters.Search))
         {
-            query = query.Where(x => x.Tags.Any(t => filters.Tags.Contains(t.Name)));
+            var search = filters.Search.ToLower();
+            query = query.Where(x => x.Name.ToLower().Contains(search));
         }
 
-        // 2. Пагинация (обязательно ПОСЛЕ фильтрации и ДО Select для производительности)
-        var response = await query
-            .OrderBy(x => x.Id) // Пагинация требует сортировки
+        if (filters.Tags != null && filters.Tags.Any())
+            query = query.Where(x => x.Tags.Any(t => filters.Tags.Contains(t.Name)));
+        
+        query = query.Where(x=>x.ProductStatus == ProductStatus.Active);
+
+        // Считаем общее количество до пагинации
+        var totalCount = await query.CountAsync();
+
+        // 2. Сортировка по ОРИГИНАЛЬНОЙ сущности (до проекции в DTO)
+        // Здесь мы используем свойства Product (x.CreatedAt, x.Prices и т.д.)
+        query = filters.SortOrder switch
+        {
+            SortOrder.AscendingPrice => query.OrderBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+            SortOrder.DescendingPrice => query.OrderByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+            SortOrder.Popularity => query.OrderByDescending(x => x.OrderItems.Count),
+            SortOrder.Latests => query.OrderByDescending(x => x.CreatedAt), // Сортируем по дате создания в БД
+            SortOrder.Oldest => query.OrderBy(x => x.CreatedAt),
+            _ => query.OrderBy(x => x.Id)
+        };
+
+        // 3. Пагинация и финальная проекция
+        var items = await query
+            .Include(x=>x.BundleItems)
+                .ThenInclude(x=>x.Product)
+                .ThenInclude(x=>x.Prices)
+            .Skip(filters.Page * filters.PageSize)
+            .Take(filters.PageSize)
             .Select(x => new ProductViewDTO
             {
                 Id = x.Id,
                 Name = x.Name,
-                Description = x.Description,
-                Price = x.Prices
+                Price =  x.Prices
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.Value)
                     .FirstOrDefault(),
-                OwnerId = x.OwnerId,
-                OwnerName = x.Owner.Name,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
-                TotalSells = x.OrderItems.Count,
-                Date = x.CreatedAt
+                isHotProduct = x.OrderItems.Count > 6,
+                Date = x.CreatedAt,
+                ProductType = x.ProductType,
+                PriceWithoutDiscount = x.BundleItems.Select(y=>y.Product.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()).Sum(),
             })
-            .OrderByDescending(x=>x.TotalSells)
-            .Skip(filters.Page * filters.PageSize)
-            .Take(filters.PageSize)
             .ToListAsync();
 
-        return response;
+        return (items, totalCount);
     }
 
     public Task<ProductInfoDTO> GetProductInfoById(int id)
@@ -100,39 +123,132 @@ public class ProductRepository : IProductRepository
         throw new NotImplementedException();
     }
 
-    public Task<List<ProductInfoDTO>> GetProductsInfoByShopId(Guid shopId)
+    public async Task<ProductInfoDTO> GetProductByName(string name)
     {
-        throw new NotImplementedException();
-        return _db.Products
-            .AsNoTracking()
-            .Where(x=>x.OwnerId == shopId)
-            .Select(x=>new ProductInfoDTO()
+        var query = _db.Products.AsNoTracking();
+        return await query
+            .Where(x=>x.ProductStatus == ProductStatus.Active)
+            .Select(x => new ProductInfoDTO()
             {
                 Id = x.Id,
                 Name = x.Name,
                 Description = x.Description,
-                Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
+                Date = x.CreatedAt,
+                Price = x.Prices
+                    .OrderByDescending(p => p.Date)
+                    .Select(p => p.Value)
+                    .FirstOrDefault(),
                 ShopId = x.Owner.Id,
-                TotalSells = x.OrderItems.Count,
-                ShopName = x.Owner.Name
+                isHotProduct = x.OrderItems.Count > 6,
+                ShopName = x.Owner.Name,
+                Tags = x.Tags.Select(t => t.Name).ToList(),
+                ProductType = x.ProductType,
+                inBundleProducts = x.BundleItems.Select(x => new ProductShortInfoDTO()
+                {
+                    Name = x.Product.Name,
+                    Id = x.ProductId,
+                    Price = x.Product.Prices
+                        .OrderByDescending(p => p.Date)
+                        .Select(p => p.Value)
+                        .FirstOrDefault(),
+                }).ToList()
+            })
+            .FirstAsync(x => x.Name == name);
+    }
+
+    public async Task<ProductAnalyticsDTO> GetProductAnalyticsById(int id)
+    {
+        // 1. Fetch raw data into an anonymous object
+        var rawData = await _db.Products
+            .AsNoTracking()
+            .Include(p=>p.BundleItems)
+                .ThenInclude(bi => bi.Product)
+                .ThenInclude(p => p.Prices)
+            .Where(x => x.Id == id)
+            .Select(x => new 
+            {
+                x.OwnerId,
+                x.Id,
+                CountSells = x.OrderItems.Count,
+                // Max() is translatable to SQL
+                LastSellDate = (DateTime?)x.OrderItems.Select(y => y.Order.OrderDate).Max(),
+                // Project the collections into simple enumerables EF can handle
+                PriceList = x.Prices.Select(p => new { p.Date, p.Value }).ToList(),
+                SellsList = x.OrderItems.Select(y => y.Order.OrderDate).ToList(),
+                x.ProductStatus,
+                x.ProductType,
+                x.BundleItems
+            })
+            .FirstOrDefaultAsync();
+
+        if (rawData == null) return null;
+
+        // 2. Map to your DTO in-memory (Client-side)
+        return new ProductAnalyticsDTO
+        {
+            ShopId = rawData.OwnerId,
+            ProductId = rawData.Id,
+            CountSells = rawData.CountSells,
+            LastSellDate = rawData.LastSellDate,
+            // Now ToDictionary works because we are in C#-land, not SQL-land
+            PriceHistory = rawData.PriceList.ToDictionary(p => p.Date, p => p.Value),
+            SellsDateTimes = rawData.SellsList,
+            ProductStatus = rawData.ProductStatus,
+            ProductType = rawData.ProductType,
+            inBundleProducts = rawData.BundleItems.Select(x => new ProductShortInfoDTO()
+            {
+                Name = x.Product.Name,
+                Id = x.ProductId,
+                Price = x.Product.Prices
+                    .OrderByDescending(p => p.Date)
+                    .Select(p => p.Value)
+                    .FirstOrDefault(),
+            }).ToList()
+        };
+    }
+
+    public Task<List<ProductViewExtendedDTO>> GetProductsExtendedInfo(Guid shopId)
+    {
+        return _db.Products
+            .AsNoTracking()
+            .Where(x=>x.OwnerId == shopId)
+            .Select(x=>new ProductViewExtendedDTO()
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
+                isHotProduct = x.OrderItems.Count > 6,
+                SellsCount = x.OrderItems.Count,
+                ProductStatus = x.ProductStatus,
+                Tags = x.Tags.Select(t => t.Name).ToList(),
+                Date = x.CreatedAt
                 
             }).ToListAsync();
     }
 
-    public async Task<List<ProductNameDTO>> GetProductsNamesByShopId(Guid shopId)
+    public async Task<List<ProductShortInfoDTO>> GetProductsNamesByShopId(Guid shopId)
     {
         return await _db.Products
             .Where(x=>x.OwnerId == shopId)
-            .Select(x => new ProductNameDTO()
+            .Select(x => new ProductShortInfoDTO()
         {
             Id = x.Id,
-            Name = x.Name
+            Name = x.Name,
+            Price = x.Prices
+                .OrderByDescending(pr => pr.Date)
+                .Select(pr => pr.Value)
+                .FirstOrDefault()
         }).ToListAsync();
     }
 
     public Task<List<Product>> GetProductsByIds(List<int> ids)
     {
         return _db.Products.AsNoTracking().Include(x=>x.Prices).Where(x => ids.Contains(x.Id)).ToListAsync();
+    }
+
+    public async Task<int> GetProductsCount()
+    {
+        return await _db.Products.CountAsync();
     }
 
     public async Task<List<ProductStatsDTO>> GetProductsStatsByShopIdAsync(

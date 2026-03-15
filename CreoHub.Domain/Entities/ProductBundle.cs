@@ -12,4 +12,13 @@ public class ProductBundle
     public int BundleId { get; private set; }
     public Product Product { get; private set; }
     public int ProductId { get; private set; }
+
+    private ProductBundle(){}
+    
+    public ProductBundle(int bundleId, int productId)
+    {
+        this.BundleId = bundleId;
+        this.ProductId = productId;
+        
+    }
 }

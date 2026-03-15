@@ -13,6 +13,7 @@ public class Product
     public DateTime CreatedAt { get; private set; } = DateTime.Now;
 
     public ProductType ProductType { get; set; } = ProductType.Single;
+    public ProductStatus ProductStatus { get; set; }
     public ICollection<ProductBundle> BundleItems { get; private set; }
     
     //FK Ef-core
@@ -38,6 +39,28 @@ public class Product
     public Product InjectDate(DateTime date)
     {
         CreatedAt = date;
+        return this;
+    }
+
+    public Product AddBundleItems(List<Product> products)
+    {
+        this.ProductType = ProductType.Bundle;
+        
+        var newBundles = products.Select(p => new ProductBundle(this.Id, p.Id)).ToList();
+        if (this.BundleItems == null)
+        {
+            this.BundleItems = new List<ProductBundle>();
+        }
+        
+        foreach (var item in newBundles)
+        {
+            // Проверка на дубликаты, чтобы не упал Primary Key в БД
+            if (!this.BundleItems.Any(existing => existing.ProductId == item.ProductId))
+            {
+                this.BundleItems.Add(item);
+            }
+        }
+
         return this;
     }
 }

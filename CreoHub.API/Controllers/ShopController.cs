@@ -43,10 +43,9 @@ public class ShopController : ControllerBase
 
     [Authorize]
     [HttpGet("products")]
-    public async Task<IActionResult> GetProducts([FromQuery] FiltersDto dto)
+    public async Task<IActionResult> GetProducts()
     {
-        Guid id = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        var command = new GetProductsByFilterQuery(dto);
+        var command = new GetProductsExtendViewsQuery(ShopId);
         var response = await _mediator.Send(command);
         
         if (response.Status == ResponseStatus.Error)

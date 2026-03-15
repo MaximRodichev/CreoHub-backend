@@ -15,7 +15,10 @@ public static class Initialization
     {
         // Используем строку подключения из конфигурации (appsettings.json)
         services.AddDbContext<AppDbContext>(opt =>
-            opt.UseNpgsql(configuration.GetConnectionString("AppDb")));
+            opt.UseNpgsql(configuration.GetConnectionString("AppDb"), o =>
+            {
+                o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            }));
         
         // Репозитории
         services.AddScoped<IAccountRepository, AccountRepository>();
@@ -24,6 +27,7 @@ public static class Initialization
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<ITagRepository, TagRepository>();
         services.AddScoped<IPriceRepository, PriceRepository>();
+        services.AddScoped<IProductBundleRepository, ProductBundleRepository>();
 
         services.AddScoped<JwtService>();
         
