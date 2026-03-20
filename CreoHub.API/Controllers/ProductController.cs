@@ -49,9 +49,7 @@ public class ProductController : ControllerBase
         var command = new CreateProductBundleCommand(UserId, dto);
         var response = await _mediator.Send(command);
         
-        if(response.Status== ResponseStatus.Error)
-            return BadRequest(response.ErrorMessage);
-        
+
         return Ok(response);
     }
 
@@ -60,8 +58,7 @@ public class ProductController : ControllerBase
     {
         var command = new GetProductsByFilterQuery(filters);
         var response = await _mediator.Send(command);
-        if(response.Status == ResponseStatus.Error)
-            return BadRequest(response.ErrorMessage);
+
         return Ok(response);
     }
 
@@ -70,10 +67,7 @@ public class ProductController : ControllerBase
     {
         var command = new GetProductInfoByNameQuery(name);
         var response = await _mediator.Send(command);
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
+
         return Ok(response);
     }
 
@@ -81,18 +75,8 @@ public class ProductController : ControllerBase
     [HttpGet("get-product-analytics")]
     public async Task<IActionResult> GetProductAnalytics([FromQuery] int productId)
     {
-        if (ShopId == Guid.Empty)
-        {
-            return BadRequest("ShopId is required");
-        }
-        
         var command = new GetProductAnalyticsQuery(ShopId, productId);
         var response = await _mediator.Send(command);
-
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
 
         return Ok(response);
     }
@@ -101,19 +85,9 @@ public class ProductController : ControllerBase
     [HttpPost("update")]
     public async Task<IActionResult> UpdateProduct([FromBody] UpdateProductInfoDTO dto)
     {
-        if (ShopId == Guid.Empty)
-        {
-            return BadRequest("ShopId is required");
-        }
-
         var command = new UpdateProductCommand(ShopId, dto);
         var response = await _mediator.Send(command);
         
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
-
         return Ok(response);
     }
 }

@@ -15,4 +15,5 @@ public class ProductViewDTO
     public decimal? PriceWithoutDiscount { get; set; }
     public decimal Price { get; set; }
     public List<string> Tags { get; set; }
+    public string PreviewMediaKey { get; set; }
 }

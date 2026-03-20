@@ -22,6 +22,8 @@ public class Product
     public ICollection<Tag> Tags { get; set; }
     public List<Price> Prices { get; set; }
     public List<OrderItem> OrderItems { get; set; }
+    
+    public List<MediaProduct> MediaProducts { get; set; }
 
     public Product()
     {

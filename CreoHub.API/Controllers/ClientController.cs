@@ -48,11 +48,7 @@ public class ClientController : ControllerBase
         };
 
         var response = await _mediator.Send(new AuthAccountCommand(userData, registrationDate));
-
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
+        
         return Ok(response);
     }
 }

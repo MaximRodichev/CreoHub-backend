@@ -1,3 +1,4 @@
+using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
 using CreoHub.Application.Services;
@@ -7,7 +8,9 @@ namespace CreoHub.Infrastructure.Persistence.Services;
 public class R2StorageService : IStorageService
 {
     private readonly IAmazonS3 _s3Client;
-    private const string BucketName = "creohub";
+    private const string BucketMainName = "creohub";
+    private const string BucketPreviewName = "creohub-preview";
+    private const string BucketContentType = "creohub-content";
 
     public R2StorageService(IAmazonS3 s3Client)
     {
@@ -18,15 +21,28 @@ public class R2StorageService : IStorageService
     {
         var request = new PutObjectRequest
         {
-            BucketName = BucketName,
+            BucketName = BucketMainName,
             Key = key,
             FilePath = filePath,
             ContentType = contentType,
-            DisablePayloadSigning = true // Обязательно для Cloudflare R2
+            DisablePayloadSigning = true
         };
 
         var response = await _s3Client.PutObjectAsync(request);
         
-        return $"https://pub-27e74704e7594d30b9ff3e6cc1000e9b.r2.dev/{key}";
+        return response.HttpStatusCode.ToString();
+    }
+
+    public async Task<bool> DeleteFileAsync(string key)
+    {
+        var request = new DeleteObjectRequest()
+        {
+            BucketName = BucketMainName,
+            Key = key
+        };
+
+        var response = await _s3Client.DeleteObjectAsync(request);
+        
+        return response.HttpStatusCode == System.Net.HttpStatusCode.NoContent;
     }
 }

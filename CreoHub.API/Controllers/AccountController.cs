@@ -115,10 +115,6 @@ public class AccountController : ControllerBase
     {
         Guid id = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
         var response = await _mediator.Send(new GetProfileQuery(id));
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response);
-        }
         
         return Ok(response);
     }

@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.DTO.StatsDTOs;
+using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
@@ -45,7 +46,8 @@ public class ProductRepository : IProductRepository
 
     public Product Update(Product entity)
     {
-        throw new NotImplementedException();
+        return  _db.Products.Update(entity).Entity;
+        
     }
 
     public async Task<(List<ProductViewDTO>, int)> GetProductsByFilters(FiltersDto filters)
@@ -102,6 +104,7 @@ public class ProductRepository : IProductRepository
                 Date = x.CreatedAt,
                 ProductType = x.ProductType,
                 PriceWithoutDiscount = x.BundleItems.Select(y=>y.Product.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()).Sum(),
+                PreviewMediaKey = x.MediaProducts.First().StorageObject.Key
             })
             .ToListAsync();
 
@@ -115,7 +118,11 @@ public class ProductRepository : IProductRepository
 
     public async Task<Product> GetProductById(int id)
     {
-        return (await _db.Products.FirstOrDefaultAsync(x => x.Id == id));
+        return (await _db.Products
+            .Include(x=>x.Prices)
+            .Include(x=>x.MediaProducts)
+            .Include(x=>x.Tags)
+            .FirstOrDefaultAsync(x => x.Id == id));
     }
 
     public Task<Guid> GetShopIdByProductId(int id)
@@ -151,6 +158,11 @@ public class ProductRepository : IProductRepository
                         .OrderByDescending(p => p.Date)
                         .Select(p => p.Value)
                         .FirstOrDefault(),
+                }).ToList(),
+                MediaViews = x.MediaProducts.Select(x=> new StorageObjectViewDTO()
+                {
+                    Id = x.StorageObjectId,
+                    Key = x.StorageObject.Key
                 }).ToList()
             })
             .FirstAsync(x => x.Name == name);
@@ -164,6 +176,8 @@ public class ProductRepository : IProductRepository
             .Include(p=>p.BundleItems)
                 .ThenInclude(bi => bi.Product)
                 .ThenInclude(p => p.Prices)
+            .Include(x=>x.MediaProducts)
+                .ThenInclude(x=>x.StorageObject)
             .Where(x => x.Id == id)
             .Select(x => new 
             {
@@ -177,7 +191,8 @@ public class ProductRepository : IProductRepository
                 SellsList = x.OrderItems.Select(y => y.Order.OrderDate).ToList(),
                 x.ProductStatus,
                 x.ProductType,
-                x.BundleItems
+                x.BundleItems,
+                x.MediaProducts
             })
             .FirstOrDefaultAsync();
 
@@ -203,6 +218,11 @@ public class ProductRepository : IProductRepository
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.Value)
                     .FirstOrDefault(),
+            }).ToList(),
+            MediaViews = rawData.MediaProducts.Select(x=> new StorageObjectViewDTO()
+            {
+                Id = x.StorageObjectId,
+                Key = x.StorageObject.Key
             }).ToList()
         };
     }
@@ -221,8 +241,8 @@ public class ProductRepository : IProductRepository
                 SellsCount = x.OrderItems.Count,
                 ProductStatus = x.ProductStatus,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
-                Date = x.CreatedAt
-                
+                Date = x.CreatedAt,
+                PreviewMediaKey = x.MediaProducts.First().StorageObject.Key
             }).ToListAsync();
     }
 

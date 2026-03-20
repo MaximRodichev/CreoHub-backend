@@ -9,6 +9,7 @@ public class Shop
     
     //FK
     public ICollection<Product> Products { get; set; }
+    public ICollection<StorageObject> Files { get; set; }
     public User Owner { get; set; }
     public Guid OwnerId { get; set; }
 

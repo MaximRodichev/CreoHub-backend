@@ -3,6 +3,7 @@ using System;
 using CreoHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CreoHub.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260320101452_AddStorageObjectsAndMediaProductsTables")]
+    partial class AddStorageObjectsAndMediaProductsTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,14 +36,9 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("ThumbnailId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("ProductId", "StorageObjectId");
 
                     b.HasIndex("StorageObjectId");
-
-                    b.HasIndex("ThumbnailId");
 
                     b.ToTable("MediaProducts");
                 });
@@ -223,10 +221,6 @@ namespace CreoHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<long>("FileSize")
                         .HasMaxLength(1024)
                         .HasColumnType("bigint");
@@ -366,16 +360,9 @@ namespace CreoHub.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CreoHub.Domain.Entities.StorageObject", "Thumbnail")
-                        .WithMany()
-                        .HasForeignKey("ThumbnailId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Product");
 
                     b.Navigation("StorageObject");
-
-                    b.Navigation("Thumbnail");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.Order", b =>

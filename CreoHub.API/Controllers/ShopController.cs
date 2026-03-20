@@ -33,10 +33,6 @@ public class ShopController : ControllerBase
         var command = new CreateShopCommand(id, dto);
         var response = await _mediator.Send(command);
         
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
         
         return Ok(response);
     }
@@ -48,10 +44,6 @@ public class ShopController : ControllerBase
         var command = new GetProductsExtendViewsQuery(ShopId);
         var response = await _mediator.Send(command);
         
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
         
         return Ok(response);
     }
@@ -64,10 +56,6 @@ public class ShopController : ControllerBase
         var command = new GetProductsNameByShopIdQuery(shopId);
         var response = await _mediator.Send(command);
         
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
         
         return Ok(response);
     }
@@ -109,11 +97,7 @@ public class ShopController : ControllerBase
     {
         var command = new GetShopDashboardQuery(ShopId, from, to);
         var response = await _mediator.Send(command);
-
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
+        
         
         return Ok(response);
     }

@@ -25,14 +25,8 @@ public class OrderController : ControllerBase
     [Route("create")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDevDTO request)
     {
-        
         var command = new CreateOrderDevCommand(request);
         var response =  await _mediator.Send(command);
-
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
 
         return Ok(response);
     }
@@ -45,11 +39,7 @@ public class OrderController : ControllerBase
         Guid shopId = Guid.Parse(User.FindFirst("shop_id").Value);
         var query = new GetOrdersShortInfoByShopIdQuery(shopId);
         var response = await _mediator.Send(query);
-
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
+        
         return Ok(response);
     }
 }

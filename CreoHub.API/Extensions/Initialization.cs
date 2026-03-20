@@ -48,6 +48,8 @@ public static class Initialization
         services.AddScoped<IPriceRepository, PriceRepository>();
         services.AddScoped<IProductBundleRepository, ProductBundleRepository>();
         services.AddScoped<IStorageService, R2StorageService>();
+        services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
+        services.AddScoped<IMediaProductRepository, MediaProductRepository>();
         
         services.AddScoped<JwtService>();
         

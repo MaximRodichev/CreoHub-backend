@@ -15,7 +15,12 @@ public class AppDbContext : DbContext
     public DbSet<ProductBundle> ProductBundles { get; set; }
     public DbSet<Shop> Shops { get; set; }
     public DbSet<Tag> Tags { get; set; }
-        
+    
+    //update s3 logic layer
+    public DbSet<StorageObject> StorageObjects  {get; set;}
+    // public DbSet<ContentFile> ContentFiles { get; set; }
+    public DbSet<MediaProduct> MediaProducts { get; set; }
+    
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

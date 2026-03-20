@@ -22,10 +22,7 @@ public class TagController : ControllerBase
     {
         var query = new GetTagsListCommand();
         var response = await _mediator.Send(query);
-        if (response.Status == ResponseStatus.Error)
-        {
-            return BadRequest(response.ErrorMessage);
-        }
+
         return Ok(response);
     }
 
