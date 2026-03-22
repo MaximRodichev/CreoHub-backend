@@ -4,6 +4,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using CreoHub.Application.Commands.StorageCommands;
 using CreoHub.Application.DTO;
+using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Queries.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -72,4 +73,21 @@ public class S3Controller : ControllerBase
         return Ok(response);
     }
     
+    [Authorize]
+    [HttpPost("attachMedia")]
+    public async Task<IActionResult> AttachMedia([FromBody] AttachMediaDTO attachMediaDTO)
+    {
+        var command = new AttachMediaCommand(ShopId, attachMediaDTO.ProductId, attachMediaDTO.StorageObjectId);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpDelete("detachMedia")]
+    public async Task<IActionResult> DetachMedia([FromBody] DetachMediaDTO detachMediaDTO)
+    {
+        var command = new DetachMediaCommand(ShopId, detachMediaDTO.StorageObjectId);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
 }

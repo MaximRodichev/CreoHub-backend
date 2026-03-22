@@ -18,9 +18,9 @@ public class ProductRepository : IProductRepository
         _db = db;
     }
     
-    public Task<Product?> GetByIdAsync(int id)
+    public async Task<Product?> GetByIdAsync(int id)
     {
-        throw new NotImplementedException();
+        return await _db.Products.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public Task<List<Product>> GetByIdsAsync(List<int> rangeKeys)

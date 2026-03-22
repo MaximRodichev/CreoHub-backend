@@ -12,4 +12,6 @@ public class StorageObjectResponseDTO
     public string FileName { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public FileType FileType { get; set; }
+    public int? ProductId { get; set; }
+    public string? ProductName { get; set; }
 }

@@ -29,12 +29,13 @@ public class MediaProductRepository : IMediaProductRepository
 
     public async Task<MediaProduct> AddAsync(MediaProduct entity)
     {
-        throw new NotImplementedException();
+        var response = await _db.MediaProducts.AddAsync(entity);
+        return response.Entity;
     }
 
     public void Remove(MediaProduct entity)
     {
-        throw new NotImplementedException();
+        _db.MediaProducts.Remove(entity);
     }
 
     public MediaProduct Update(MediaProduct entity)

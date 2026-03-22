@@ -14,6 +14,10 @@ public class StorageObject
     public FileType FileType { get; private set; } = FileType.Unregistred;
     public Shop Owner { get; set; }
     public Guid OwnerId { get; set; }
+    
+    public MediaProduct? MediaProduct { get; set; }
+    //TODO: UNCOMMITED
+    // public ContentFile? ContentFile { get; set; }
 
     public StorageObject ChangeFileType(FileType fileType)
     {

@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
@@ -16,7 +17,7 @@ public class StorageObjectRepository : IStorageObjectRepository
     
     public async Task<StorageObject?> GetByIdAsync(Guid id)
     {
-        return await  _db.StorageObjects.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        return await  _db.StorageObjects.Include(x=> x.MediaProduct).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public async Task<List<StorageObject>> GetByIdsAsync(List<Guid> rangeKeys)
@@ -41,7 +42,7 @@ public class StorageObjectRepository : IStorageObjectRepository
 
     public StorageObject Update(StorageObject entity)
     {
-        throw new NotImplementedException();
+       return _db.StorageObjects.Update(entity).Entity;
     }
 
     public StorageObject Attach(StorageObject entity)
@@ -61,7 +62,10 @@ public class StorageObjectRepository : IStorageObjectRepository
                 Id = x.Id,
                 Key = x.Key,
                 MimeType = x.MimeType,
+                ProductId = x.MediaProduct != null ? x.MediaProduct.ProductId : null,
+                ProductName = x.MediaProduct != null ? x.MediaProduct.Product.Name : null,
             });
+        
         
         return await query.ToListAsync();
     }

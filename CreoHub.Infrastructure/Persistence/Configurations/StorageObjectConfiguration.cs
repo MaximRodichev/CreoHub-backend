@@ -27,6 +27,10 @@ public class StorageObjectConfiguration : IEntityTypeConfiguration<StorageObject
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
         
+        builder.HasOne(x=>x.MediaProduct)
+            .WithOne(x=>x.StorageObject)
+            .HasForeignKey<MediaProduct>(x=>x.StorageObjectId);
+        
         builder.HasOne(x=>x.Owner).WithMany(x=>x.Files).HasForeignKey(f=>f.OwnerId).OnDelete(DeleteBehavior.Restrict);
     }
 }
