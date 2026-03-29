@@ -2,6 +2,7 @@ using AutoMapper;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using MediatR;
 
@@ -15,12 +16,12 @@ public record GetProductsByFilterQuery(FiltersDto filters) : IRequest<BaseRespon
 public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQuery, BaseResponse<PageViewDTO>>
 {
     private readonly IProductRepository _productRepository;
-    private readonly IMapper _mapper;
+    private readonly IStorageService _storageService;
 
-    public GetProductsByFilterHandler(IProductRepository ProductRepository,  IMapper Mapper)
+    public GetProductsByFilterHandler(IProductRepository ProductRepository, IStorageService StorageService)
     {
         _productRepository = ProductRepository;
-        _mapper = Mapper;
+        _storageService = StorageService;
     }
     
     public async Task<BaseResponse<PageViewDTO>> Handle(GetProductsByFilterQuery request, CancellationToken cancellationToken)
@@ -28,6 +29,7 @@ public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQue
         try
         {
             (IReadOnlyList<ProductViewDTO> products, int count) = await _productRepository.GetProductsByFilters(request.filters);
+            
             PageViewDTO page = new PageViewDTO()
             {
                 Products = products,

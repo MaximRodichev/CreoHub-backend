@@ -36,22 +36,19 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
     {
         try
         {
-            User? customer = await _accountRepository.GetByIdAsync(request.dto.ClientId);
-            List<Product> products = await _productRepository.GetProductsByIds(request.dto.ProductsIds);
+            var customer = await _accountRepository.GetByIdAsync(request.dto.ClientId)
+                           ?? throw new InvalidOperationException("Customer not found.");
+
+            var products = await _productRepository.GetProductsByIds(request.dto.ProductsIds);
             
-            foreach (Product product in products)
-            {   
-                Price _ = await _priceRepository.AddAsync(new Price()
-                {
-                    Date = DateTime.Now,
-                    ProductId = product.Id,
-                    Value = products.Count > 1 ? product.Prices.Last().Value : request.dto.Price
-                });
-            }
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            //decimal price = products.Sum(x=>x.Prices.Last().Value);
-            
-            Order order = Order.Open(request.dto.Price, String.Empty, products, customer.Id);
+            if (products.Count != request.dto.ProductsIds.Count)
+                throw new InvalidOperationException("Some products were not found.");
+
+            var order = Order.Open(
+                description: "", // тут бы что-то осмысленное
+                products: products,
+                customerId: customer.Id
+            );
 
             await _orderRepository.AddAsync(order);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.DTO.StatsDTOs;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Domain.Types;
@@ -14,6 +15,7 @@ public record ProductAnalyticsDTO
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductStatus ProductStatus { get; set; }
     public Dictionary<DateTime, decimal> PriceHistory { get; set; }
+    public List<OrderSellDTO> SellsHistory { get; set; }
     public ICollection<DateTime> SellsDateTimes { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductType ProductType { get; set; }

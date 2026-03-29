@@ -17,13 +17,13 @@ public class R2StorageService : IStorageService
         _s3Client = s3Client;
     }
     
-    public async Task<string> UploadFileAsync(string filePath, string key, string contentType)
+    public async Task<string> UploadFileAsync(Stream fileStream, string key, string contentType)
     {
         var request = new PutObjectRequest
         {
             BucketName = BucketMainName,
             Key = key,
-            FilePath = filePath,
+            InputStream = fileStream,
             ContentType = contentType,
             DisablePayloadSigning = true
         };
@@ -44,5 +44,30 @@ public class R2StorageService : IStorageService
         var response = await _s3Client.DeleteObjectAsync(request);
         
         return response.HttpStatusCode == System.Net.HttpStatusCode.NoContent;
+    }
+
+    public async Task DownloadFileAsync(string key, string destinationPath)
+    {
+        var request = new GetObjectRequest
+        {
+            BucketName = BucketMainName,
+            Key = key
+        };
+        var response = await _s3Client.GetObjectAsync(request);
+        await response.WriteResponseStreamToFileAsync(destinationPath, false, CancellationToken.None);
+    }
+    
+    public string GeneratePresignedUrl(string key, int expiresInMinutes = 60)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = BucketMainName,
+            Key = key,
+            Expires = DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            Protocol = Protocol.HTTPS,
+            Verb = HttpVerb.GET
+        };
+
+        return _s3Client.GetPreSignedURL(request);
     }
 }

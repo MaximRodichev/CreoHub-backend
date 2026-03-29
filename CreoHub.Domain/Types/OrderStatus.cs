@@ -8,7 +8,7 @@ public enum OrderStatus
     Created = 1,
 
     [Description("Отменён")]
-    Canceled = 2,
+    Cancelled = 2,
 
     [Description("Завершён")]
     Completed = 3

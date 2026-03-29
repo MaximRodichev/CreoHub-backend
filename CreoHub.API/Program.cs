@@ -6,11 +6,14 @@ using CreoHub.AssetsGrabber.Grabbers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
+using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,6 +79,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024;
+});
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 1073741824; // 1GB
+});
 
 var app = builder.Build();
 
@@ -132,5 +143,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+var ffmpegPath = Path.Combine(Directory.GetCurrentDirectory(), "ffmpeg");
+if (!Directory.Exists(ffmpegPath))
+{
+    Directory.CreateDirectory(ffmpegPath);
+    await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+}
+FFmpeg.SetExecutablesPath(ffmpegPath);
 
 app.Run();

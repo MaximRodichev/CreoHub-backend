@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using MediatR;
 
 namespace CreoHub.Application.Queries.Storage;
@@ -10,10 +11,12 @@ public record GetStorageObjectsQuery(Guid shopId) : IRequest<BaseResponse<List<S
 public class GetStorageObjectHandler : IRequestHandler<GetStorageObjectsQuery, BaseResponse<List<StorageObjectResponseDTO>>>
 {
     private readonly IStorageObjectRepository _storageObjectRepository;
+    private readonly IStorageService _storageService;
 
-    public GetStorageObjectHandler(IStorageObjectRepository storageObjectRepository)
+    public GetStorageObjectHandler(IStorageObjectRepository storageObjectRepository,  IStorageService storageService)
     {
         _storageObjectRepository = storageObjectRepository;
+        _storageService = storageService;
     }
     
     public async Task<BaseResponse<List<StorageObjectResponseDTO>>> Handle(GetStorageObjectsQuery request, CancellationToken cancellationToken)
@@ -21,7 +24,7 @@ public class GetStorageObjectHandler : IRequestHandler<GetStorageObjectsQuery, B
         try
         {
             var response = await _storageObjectRepository.GetAllByShopId(request.shopId);
-            
+
             return BaseResponse<List<StorageObjectResponseDTO>>.Success(response);
         }
         catch (Exception ex)

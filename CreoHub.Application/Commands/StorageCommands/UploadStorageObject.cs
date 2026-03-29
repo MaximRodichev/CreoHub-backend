@@ -30,24 +30,11 @@ public class UploadStorageObjectHandler : IRequestHandler<UploadStorageObjectCom
     {
         try
         {
-            var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(request.FileName));
-            using (var fs = new FileStream(tempPath, FileMode.Create))
-            {
-                await request.FileStream.CopyToAsync(fs);
-            }
-
+            
             var key = $"{request.shopId}/{Guid.NewGuid()}{Path.GetExtension(request.FileName)}";
             var fileSize = request.FileStream.Length;
             
-            try
-            {
-                await _storageService.UploadFileAsync(tempPath, key, request.FileType);
-            }
-            finally
-            {
-                if (File.Exists(tempPath))
-                    File.Delete(tempPath);
-            }
+            await _storageService.UploadFileAsync(request.FileStream, key, request.FileType);
             
             var fileObject = new StorageObject()
             {

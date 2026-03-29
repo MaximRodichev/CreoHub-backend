@@ -4,57 +4,80 @@ namespace CreoHub.Domain.Entities;
 
 public class Order
 {
-    public Guid Id  { get; private set; } = Guid.NewGuid();
-    public decimal Price { get; private set; }
-    public string Description { get; private set; } = string.Empty;
-    public DateTime OrderDate { get; private set; } =  DateTime.Now;
+    private readonly List<OrderItem> _items = new();
+    private decimal _price;
+    
+    public Guid Id { get; private init; } = Guid.NewGuid();
+    public decimal Price 
+    { 
+        get => _price; 
+        private init => _price = value > 0 ? value 
+            : throw new ArgumentException("Price must be greater than zero."); 
+    }
+    public string Description { get; private init; } = string.Empty;
+
+    public DateTime OrderDate { get; private init; } = DateTime.UtcNow;
     public OrderStatus Status { get; private set; } = OrderStatus.Created;
     
     //FK
-    public User Customer { get; private set; }
-    public Guid CustomerId { get; private set; }
-    
-    public List<OrderItem> Items { get; set; } = new List<OrderItem>();
+    public User Customer { get; private init; }
+    public Guid CustomerId { get; private init; }
+    public Transaction? Transaction { get; private set; }
+    public Guid? TransactionId { get; private set; }
+    public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
-    public Order()
-    {
-        
-    }
+    private Order() {}
 
     /// <summary>
     /// Создание заказа
     /// </summary>
     /// <returns></returns>
-    public static Order Open(decimal price, string description, List<Product> products, Guid customerId)
+    public static Order Open(string description, List<Product> products, Guid customerId)
     {
-        List<OrderItem> items = new List<OrderItem>(products.Count);
-        
-        Order thisOrder = new Order()
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("Description cannot be empty.", nameof(description));
+        if (products == null || products.Count == 0)
+            throw new ArgumentException("Products cannot be empty.", nameof(products));
+
+        var order = new Order
         {
-            Id = Guid.NewGuid(),
-            Price = price,
             Description = description,
             CustomerId = customerId,
         };
 
         foreach (var product in products)
         {
-            items.Add(new OrderItem()
-            {
-                OrderId = thisOrder.Id,
-                ProductId = product.Id,
-                PriceAtPurchase = product.Prices.Last().Value,
-            });
+            var price = product.Prices
+                            .OrderByDescending(p => p.Date)
+                            .FirstOrDefault()
+                        ?? throw new InvalidOperationException(
+                            $"Product {product.Id} has no prices.");
+
+            order._items.Add(new OrderItem(
+                orderId: order.Id,
+                productId: product.Id,
+                priceAtPurchase: price.Value
+            ));
         }
-        
-        thisOrder.Items = items;
-        
-        return thisOrder;
+
+        order._price = order._items.Sum(i => i.PriceAtPurchase);
+
+        return order;
     }
 
-    public Order InjectOrderDate(DateTime orderDate)
+    public Order Complete()
     {
-        OrderDate =  orderDate;
+        if (Status != OrderStatus.Created)
+            throw new InvalidOperationException("Only created orders can be completed.");
+        Status = OrderStatus.Completed;
+        return this;
+    }
+
+    public Order Cancel()
+    {
+        if (Status != OrderStatus.Created)
+            throw new InvalidOperationException("Only created orders can be cancelled.");
+        Status = OrderStatus.Cancelled;
         return this;
     }
 }

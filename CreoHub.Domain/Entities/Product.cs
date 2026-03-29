@@ -6,63 +6,131 @@ namespace CreoHub.Domain.Entities;
 
 public class Product
 {
+    private readonly List<ProductBundle> _bundleItems = new();
+    private readonly List<Price> _prices = new();
+    private readonly List<OrderItem> _orderItems = new();
+    private readonly List<MediaProduct> _mediaProducts = new();
+    private readonly List<Tag> _tags = new();
+
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Description { get; set; }
-    public DateTime CreatedAt { get; private set; } = DateTime.Now;
+    public int Id { get; private init; }
+    public string Name { get; private set; }
+    public string Description { get; private set; }
+    public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
 
-    public ProductType ProductType { get; set; } = ProductType.Single;
-    public ProductStatus ProductStatus { get; set; }
-    public ICollection<ProductBundle> BundleItems { get; private set; }
-    
-    //FK Ef-core
-    public Shop Owner { get; set; }
-    public Guid OwnerId { get; set; }
-    public ICollection<Tag> Tags { get; set; }
-    public List<Price> Prices { get; set; }
-    public List<OrderItem> OrderItems { get; set; }
-    
-    public List<MediaProduct> MediaProducts { get; set; }
+    public ProductType ProductType { get; private set; } = ProductType.Single;
+    public ProductStatus ProductStatus { get; private set; }
 
-    public Product()
+    public Shop Owner { get; private init; }
+    public Guid OwnerId { get; private init; }
+
+    public IReadOnlyCollection<ProductBundle> BundleItems => _bundleItems.AsReadOnly();
+    public IReadOnlyCollection<Tag> Tags => _tags.AsReadOnly();
+    public IReadOnlyCollection<Price> Prices => _prices.AsReadOnly();
+    public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
+    public IReadOnlyCollection<MediaProduct> MediaProducts => _mediaProducts.AsReadOnly();
+
+    private Product() {}
+
+    public Product(string name, string description, Guid ownerId, IEnumerable<Tag>? tags = null)
     {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Description = description ?? throw new ArgumentNullException(nameof(description));
+        OwnerId = ownerId;
         
-    }
-
-    public Product(string name, string description, Shop owner, ICollection<Tag> tags)
-    {
-        Name = name;
-        Description = description;
-        Owner = owner;
-        Tags = tags;
-    }
-
-    public Product InjectDate(DateTime date)
-    {
-        CreatedAt = date;
-        return this;
+        if (tags != null)
+        {
+            foreach (var tag in tags)
+                AddTag(tag);
+        }
     }
 
     public Product AddBundleItems(List<Product> products)
     {
-        this.ProductType = ProductType.Bundle;
-        
-        var newBundles = products.Select(p => new ProductBundle(this.Id, p.Id)).ToList();
-        if (this.BundleItems == null)
+        if (products == null || products.Count == 0)
+            throw new ArgumentException("Products cannot be empty.", nameof(products));
+
+        ProductType = ProductType.Bundle;
+
+        foreach (var product in products)
         {
-            this.BundleItems = new List<ProductBundle>();
-        }
-        
-        foreach (var item in newBundles)
-        {
-            // Проверка на дубликаты, чтобы не упал Primary Key в БД
-            if (!this.BundleItems.Any(existing => existing.ProductId == item.ProductId))
+            if (_bundleItems.All(b => b.ProductId != product.Id))
             {
-                this.BundleItems.Add(item);
+                _bundleItems.Add(new ProductBundle(Id, product.Id));
             }
         }
 
         return this;
+    }
+
+    public void UpdateName(string name)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+    }
+
+    public void UpdateDescription(string description)
+    {
+        Description = description ?? throw new ArgumentNullException(nameof(description));
+    }
+
+    public void AddPrice(decimal amount)
+    {
+        _prices.Add(new Price(amount, Id));
+    }
+
+    public decimal GetCurrentPrice()
+    {
+        return _prices
+            .OrderByDescending(p => p.Date)
+            .FirstOrDefault()
+            ?.Value 
+            ?? throw new InvalidOperationException($"Product {Id} has no prices.");
+    }
+    
+    public void AddTag(Tag tag)
+    {
+        if (tag == null)
+            throw new ArgumentNullException(nameof(tag));
+    
+        if (_tags.All(t => t.Id != tag.Id))
+            _tags.Add(tag);
+    }
+
+    public void RemoveTag(Tag tag)
+    {
+        if (tag == null)
+            throw new ArgumentNullException(nameof(tag));
+    
+        var existing = _tags.FirstOrDefault(t => t.Id == tag.Id)
+                       ?? throw new InvalidOperationException("Tag not found.");
+    
+        _tags.Remove(existing);
+    }
+    
+    public void RemoveMedia(MediaProduct media)
+    {
+        if (media == null)
+            throw new ArgumentNullException(nameof(media));
+
+        if (!_mediaProducts.Remove(media))
+            throw new InvalidOperationException("Media not found.");
+    }
+    
+    public void AddMedia(MediaProduct media)
+    {
+        if (media == null)
+            throw new ArgumentNullException(nameof(media));
+
+        _mediaProducts.Add(media);
+    }
+    
+    public void ReplaceTags(IEnumerable<Tag> newTags)
+    {
+        if (newTags == null)
+            throw new ArgumentNullException(nameof(newTags));
+
+        _tags.Clear();
+        foreach (var tag in newTags)
+            AddTag(tag);
     }
 }

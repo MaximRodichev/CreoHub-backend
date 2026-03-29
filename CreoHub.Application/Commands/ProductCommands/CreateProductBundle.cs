@@ -39,7 +39,7 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
             var responseProducts = await _productRepository.GetProductsByIds(request.dto.ProductIds.ToList());
             var shopOwner = await _shopRepository.GetByOwnerIdAsync(request.userId);
 
-            var productBundle = new Product(request.dto.Name, request.dto.Description, shopOwner, null);
+            var productBundle = new Product(request.dto.Name, request.dto.Description, shopOwner.Id, null);
             
             var price = new Price(request.dto.Price, productBundle);
             

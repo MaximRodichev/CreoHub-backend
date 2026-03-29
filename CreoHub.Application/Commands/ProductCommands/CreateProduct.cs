@@ -35,15 +35,14 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
         {
             Shop shop = await _shopRepository.GetByOwnerIdAsync(request.userId);
             var tags = await _tagRepository.GetByNamesAsync(request.dto.Tags);
-            
+
             Product product = new Product(
                 request.dto.Name,
                 request.dto.Description,
-                shop,
+                shop.Id,
                 tags);
             
             var price = new Price(request.dto.Price, product);
-            
 
             await _productRepository.AddAsync(product);
             await _priceRepository.AddAsync(price);

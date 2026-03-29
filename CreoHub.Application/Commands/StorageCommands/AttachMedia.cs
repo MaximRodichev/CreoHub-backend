@@ -6,9 +6,9 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.StorageCommands;
 
-public record AttachMediaCommand(Guid shopId, int productId, Guid storageObjectId) : IRequest<BaseResponse<bool>>;
+public record AttachMedia(Guid shopId, int productId, Guid storageObjectId) : IRequest<BaseResponse<bool>>;
 
-public class AttachMediaHandler : IRequestHandler<AttachMediaCommand, BaseResponse<bool>>
+public class AttachMediaHandler : IRequestHandler<AttachMedia, BaseResponse<bool>>
 {
     private readonly IStorageObjectRepository _storageObjectRepository;
     private readonly IMediaProductRepository _mediaProductRepository;
@@ -23,7 +23,7 @@ public class AttachMediaHandler : IRequestHandler<AttachMediaCommand, BaseRespon
         _productRepository = productRepository;
     }
     
-    public async Task<BaseResponse<bool>> Handle(AttachMediaCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<bool>> Handle(AttachMedia request, CancellationToken cancellationToken)
     {
         try
         {

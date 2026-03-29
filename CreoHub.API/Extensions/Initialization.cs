@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.Channels;
 using Amazon.S3;
+using CreoHub.API.Services;
 using CreoHub.Application.Commands.AccountCommands;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
@@ -38,6 +40,10 @@ public static class Initialization
                 configuration.GetConnectionString("CloudflareStorageSecretAccessKey"), 
                 r2Config);
         });
+        services.AddSingleton<Channel<Guid>>(Channel.CreateUnbounded<Guid>());
+        services.AddSingleton<IVideoOptimizationQueueService, VideoOptimizationQueueService>();
+        
+        
         services.AddScoped<IStorageService, R2StorageService>();
         // Репозитории
         services.AddScoped<IAccountRepository, AccountRepository>();
@@ -51,10 +57,16 @@ public static class Initialization
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IMediaProductRepository, MediaProductRepository>();
         
+        services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
+        services.AddScoped<IVideoConversionService, VideoConversionService>();
+        
+        
         services.AddScoped<JwtService>();
         
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-
+        
+        services.AddHostedService<VideoOptimizationBackgroundService>();
+        
         // MediatR
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssemblyContaining<AuthAccountHandler>());
@@ -97,7 +109,9 @@ public static class Initialization
                     }
                 };*/
             });
-
+        
+        services.AddHttpClient<IPaymentGatewayService, OxaPayService>();
+        
         return services;
     }
 }

@@ -1,27 +1,32 @@
+using CreoHub.Domain.Types;
+
 namespace CreoHub.Domain.Entities;
 
 public class Shop
 {
-    public Guid Id { get; private set; } =  Guid.NewGuid();
+    private readonly List<Product> _products = new();
+    private readonly List<StorageObject> _files = new();
+
+    public Guid Id { get; private init; } = Guid.NewGuid();
     public string Name { get; private set; }
     public string Description { get; private set; }
-    public DateTime CreatedAt { get; private set; } = DateTime.Now;
-    
-    //FK
-    public ICollection<Product> Products { get; set; }
-    public ICollection<StorageObject> Files { get; set; }
-    public User Owner { get; set; }
-    public Guid OwnerId { get; set; }
+    public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
 
-    public Shop()
-    {
-        
-    }
+    public IReadOnlyCollection<Product> Products => _products.AsReadOnly();
+    public IReadOnlyCollection<StorageObject> Files => _files.AsReadOnly();
+    public User Owner { get; private init; }
+    public Guid OwnerId { get; private init; }
+    public IReadOnlyCollection<Transaction> Transactions { get; private set; }
+    public Balance Balance { get; private init; }
+    public Guid BalanceId { get; private init; }
+
+    private Shop() {}
 
     public Shop(string name, string description, Guid ownerId)
     {
-        Name = name;
-        Description = description;
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Description = description ?? throw new ArgumentNullException(nameof(description));
         OwnerId = ownerId;
+        Balance = new Balance(Id, OwnerType.Shop);
     }
 }

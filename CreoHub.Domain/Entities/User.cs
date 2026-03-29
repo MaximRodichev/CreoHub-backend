@@ -19,6 +19,10 @@ public class User
     public Shop Shop { get; set; }
     public Guid? ShopId { get; set; }
     
+    public IReadOnlyCollection<Transaction> Transactions { get; private set; }
+    public Balance Balance { get; private init; }
+    public Guid BalanceId { get; private init; }
+    
     public User()
     {
         

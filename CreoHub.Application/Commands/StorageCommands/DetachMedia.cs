@@ -6,9 +6,9 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.StorageCommands;
 
-public record DetachMediaCommand(Guid shopId, Guid storageObjectId) : IRequest<BaseResponse<bool>>;
+public record DetachMedia(Guid shopId, Guid storageObjectId) : IRequest<BaseResponse<bool>>;
 
-public class DetachMediaHandler : IRequestHandler<DetachMediaCommand, BaseResponse<bool>>
+public class DetachMediaHandler : IRequestHandler<DetachMedia, BaseResponse<bool>>
 {
     private readonly IStorageObjectRepository _storageObjectRepository;
     private readonly IMediaProductRepository _mediaProductRepository;
@@ -22,7 +22,7 @@ public class DetachMediaHandler : IRequestHandler<DetachMediaCommand, BaseRespon
         
     }
     
-    public async Task<BaseResponse<bool>> Handle(DetachMediaCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<bool>> Handle(DetachMedia request, CancellationToken cancellationToken)
     {
         try
         {

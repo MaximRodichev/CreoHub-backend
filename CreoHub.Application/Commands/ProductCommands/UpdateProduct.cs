@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
@@ -38,21 +40,17 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
 
             if (response.Name != request.dto.Name)
             {
-                response.Name = request.dto.Name;
+                response.UpdateName(response.Name);
             }
 
             if (response.Description != request.dto.Description)
             {
-                response.Description = request.dto.Description;
+                response.UpdateDescription(response.Description);
             }
 
             if (response.Prices.OrderBy(x=>x.Date).Last().Value != request.dto.Price)
             {
-                var newPrice = new Price()
-                {
-                    Value = request.dto.Price,
-                    ProductId = request.dto.Id
-                };
+                var newPrice = new Price(request.dto.Price, request.dto.Id);
                 
                 await _priceRepository.AddAsync(newPrice);
             }
@@ -74,7 +72,7 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                 {
                     var storageObject = await _storageObjectRepository.GetByIdAsync(media.StorageObjectId);
                     storageObject.ChangeFileType(FileType.Unregistred);
-                    response.MediaProducts.Remove(media);
+                    response.RemoveMedia(media);
                 }
 
                 // Добавить новые
@@ -85,7 +83,7 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                     var storageObject = await _storageObjectRepository.GetByIdAsync(storageObjectId);
                     storageObject.ChangeFileType(FileType.Media);
 
-                    response.MediaProducts.Add(new MediaProduct
+                    response.AddMedia(new MediaProduct
                     {
                         ProductId = response.Id,
                         StorageObject = storageObject,
@@ -94,11 +92,11 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                     });
                 }
             }
-            var incomingTagIds = request.dto.Tags.Select(x => x).ToHashSet();
+            var incomingTagIds = request.dto.Tags.ToHashSet();
             var existingTagIds = response.Tags.Select(x => x.Name).ToHashSet();
             if (!incomingTagIds.SetEquals(existingTagIds))
             {
-                response.Tags = await _tagRepository.GetByNamesAsync(request.dto.Tags);
+                response.ReplaceTags(await _tagRepository.GetByNamesAsync(request.dto.Tags));
             }
             
             _productRepository.Update(response);
@@ -111,4 +109,5 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
             return BaseResponse<bool>.Fail(ex.Message);
         }
     }
+    
 }

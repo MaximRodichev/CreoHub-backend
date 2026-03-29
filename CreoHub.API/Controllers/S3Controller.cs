@@ -16,7 +16,21 @@ namespace CreoHub.API.Controllers;
 [Route("[controller]")]
 public class S3Controller : ControllerBase
 {
+    private static readonly Dictionary<string, long> Limits = new()
+    {
+        { "video",       50L  * 1024 * 1024 },   // 50MB
+        { "image",       5L   * 1024 * 1024 },   // 5MB
+        { "application", 1024L * 1024 * 1024 },  // 1GB
+    };
+
+    public static long GetLimit(string mimeType)
+    {
+        var category = mimeType.Split('/')[0]; // "video/mp4" → "video"
     
+        return Limits.TryGetValue(category, out var limit)
+            ? limit
+            : 10L * 1024 * 1024; // 10MB по умолчанию
+    }
     private readonly IMediator _mediator;
     protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
     protected Guid ShopId => Guid.Parse(User.FindFirst("shop_id")?.Value ?? Guid.Empty.ToString());
@@ -25,27 +39,33 @@ public class S3Controller : ControllerBase
         _mediator = mediator;
     }
     
-    [HttpPost("{id:int}/media")]
-    public async Task<IActionResult> UploadMedia(int id, IFormFile file)
+    [Authorize]
+    [HttpPost("optimize/{storageObjectId}")]
+    public async Task<IActionResult> Optimize(Guid storageObjectId)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("Файл не выбран");
-
-        using var stream = file.OpenReadStream();
-
-        var command = new UploadProductMediaCommand(stream, file.FileName, id);
-        
-        await _mediator.Send(command);
-
-        return Accepted(new { Message = "Загрузка началась, видео обрабатывается" });
+        var command = new OptimizeStorageObjectCommand(storageObjectId, ShopId);
+        var response = await _mediator.Send(command);
+    
+        if (response.Status == ResponseStatus.Error)
+            return BadRequest(new { error = response.ErrorMessage });
+    
+        return Ok(response);
     }
 
-
     [Authorize]
+    [RequestSizeLimit(1024 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 1073741824)]
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {   
         using var stream = file.OpenReadStream();
+        var fileSize = stream.Length;
+        var limit = GetLimit(file.ContentType);
+        if (fileSize > limit)
+        {
+            var limitMb = limit / 1024 / 1024;
+            return Ok(BaseResponse<bool>.Fail($"Файл слишком большоий. Максимум для {file.ContentType}: {limitMb}MB"));
+        }
         var command = new UploadStorageObjectCommand(stream, file.FileName, file.ContentType, ShopId);
 
         var response = await _mediator.Send(command);
@@ -57,7 +77,7 @@ public class S3Controller : ControllerBase
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteFile(Guid id)
     {
-        var command = new DeleteFileCommand(id, ShopId);
+        var command = new DeleteFile(id, ShopId);
         var response = await _mediator.Send(command);
 
         return Ok(response);
@@ -77,7 +97,7 @@ public class S3Controller : ControllerBase
     [HttpPost("attachMedia")]
     public async Task<IActionResult> AttachMedia([FromBody] AttachMediaDTO attachMediaDTO)
     {
-        var command = new AttachMediaCommand(ShopId, attachMediaDTO.ProductId, attachMediaDTO.StorageObjectId);
+        var command = new AttachMedia(ShopId, attachMediaDTO.ProductId, attachMediaDTO.StorageObjectId);
         var response = await _mediator.Send(command);
         return Ok(response);
     }
@@ -86,7 +106,7 @@ public class S3Controller : ControllerBase
     [HttpDelete("detachMedia")]
     public async Task<IActionResult> DetachMedia([FromBody] DetachMediaDTO detachMediaDTO)
     {
-        var command = new DetachMediaCommand(ShopId, detachMediaDTO.StorageObjectId);
+        var command = new DetachMedia(ShopId, detachMediaDTO.StorageObjectId);
         var response = await _mediator.Send(command);
         return Ok(response);
     }

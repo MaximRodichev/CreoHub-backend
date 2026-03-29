@@ -6,9 +6,9 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.StorageCommands;
 
-public record DeleteFileCommand(Guid id, Guid shopId) : IRequest<BaseResponse<bool>>;
+public record DeleteFile(Guid id, Guid shopId) : IRequest<BaseResponse<bool>>;
 
-public class DeleteFileHandler : IRequestHandler<DeleteFileCommand, BaseResponse<bool>>
+public class DeleteFileHandler : IRequestHandler<DeleteFile, BaseResponse<bool>>
 {
     private readonly IStorageObjectRepository _storageObjectRepository;
     private readonly IStorageService _storageService;
@@ -21,7 +21,7 @@ public class DeleteFileHandler : IRequestHandler<DeleteFileCommand, BaseResponse
         _storageService = storageService;
     }
     
-    public async Task<BaseResponse<bool>> Handle(DeleteFileCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<bool>> Handle(DeleteFile request, CancellationToken cancellationToken)
     {
         try
         {
