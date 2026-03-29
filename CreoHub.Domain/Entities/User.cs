@@ -4,55 +4,77 @@ namespace CreoHub.Domain.Entities;
 
 public class User
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string Name { get; set; }
-    public double Discount { get; set; } = 0;
-    public long? TelegramId { get; set; }
-    public string? TelegramUsername { get; set; }
-    public string? EmailAddress { get; set; }
-    public DateTime RegistrationDate { get; set; } =  DateTime.Now;
+    public Guid Id { get; private init; } = Guid.NewGuid();
+    public string Name { get; private set; }
+    public decimal Discount { get; private set; } = 0;
+    public long? TelegramId { get; private init; }
+    public string? TelegramUsername { get; private init; }
+    public string? EmailAddress { get; private set; }
+    public DateTime RegistrationDate { get; private init; } = DateTime.UtcNow;
 
-    public UserRole Role { get; set; } = UserRole.User;
-    
+    public UserRole Role { get; private set; } = UserRole.User;
+
     // FK
-    public ICollection<Order> Orders { get; set; }
-    public Shop Shop { get; set; }
-    public Guid? ShopId { get; set; }
-    
-    public IReadOnlyCollection<Transaction> Transactions { get; private set; }
-    public Balance Balance { get; private init; }
-    public Guid BalanceId { get; private init; }
-    
-    public User()
-    {
-        
-    }
+    public IReadOnlyCollection<Order> Orders { get; private set; }
+    public Shop? Shop { get; private set; }
+    public Guid? ShopId { get; private set; }
 
-    public static User Create(string name, string? email = null, long? telegramId = null, string TelegramUsername = null)
+    public IReadOnlyCollection<Transaction> Transactions { get; private set; }
+    public Balance Balance { get; private set; }
+    public Guid BalanceId { get; private set; }
+
+    private User() {}
+
+    public static User Create(string name, string? email = null,
+        long? telegramId = null, string? telegramUsername = null)
     {
-        return new User
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
+
+        var user = new User
         {
             Name = name,
             EmailAddress = email,
             TelegramId = telegramId,
-            TelegramUsername = TelegramUsername,
+            TelegramUsername = telegramUsername,
         };
+
+        user.Balance = new Balance(user.Id, OwnerType.User);
+        user.BalanceId = user.Balance.Id;
+
+        return user;
     }
 
-    public User ChangeRole(UserRole role)
+    public void AssignShop(Shop shop)
+    {
+        if (shop == null)
+            throw new ArgumentNullException(nameof(shop));
+        if (Shop != null)
+            throw new InvalidOperationException("User already has a shop.");
+
+        Shop = shop;
+        ShopId = shop.Id;
+        ChangeRole(UserRole.Shop);
+    }
+
+    public void ChangeRole(UserRole role)
     {
         if (Role == UserRole.Admin)
-        {
-            return this;
-        }
+            throw new InvalidOperationException("Cannot change admin role.");
         Role = role;
-        return this;
     }
 
-    public User InjectDate(DateTime date)
+    public void RecalculateDiscount(decimal totalPurchases)
     {
-        RegistrationDate = date;
-        return this;
-    }
+        if (totalPurchases < 0)
+            throw new ArgumentException("Total purchases cannot be negative.");
 
+        Discount = totalPurchases switch
+        {
+            >= 1000 => 7,
+            >= 500 => 5,
+            >= 300 => 3,
+            _ => 0
+        };
+    }
 }

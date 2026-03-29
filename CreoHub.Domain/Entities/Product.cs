@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
 using CreoHub.Domain.Types;
 
 namespace CreoHub.Domain.Entities;
@@ -10,7 +9,10 @@ public class Product
     private readonly List<Price> _prices = new();
     private readonly List<OrderItem> _orderItems = new();
     private readonly List<MediaProduct> _mediaProducts = new();
+    private readonly List<ContentFile> _contentFiles = new();
     private readonly List<Tag> _tags = new();
+
+    private const decimal PartialPurchaseMarkup = 0.30m;
 
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; private init; }
@@ -19,7 +21,7 @@ public class Product
     public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
 
     public ProductType ProductType { get; private set; } = ProductType.Single;
-    public ProductStatus ProductStatus { get; private set; }
+    public ProductStatus ProductStatus { get; private set; } = ProductStatus.Active;
 
     public Shop Owner { get; private init; }
     public Guid OwnerId { get; private init; }
@@ -29,6 +31,7 @@ public class Product
     public IReadOnlyCollection<Price> Prices => _prices.AsReadOnly();
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
     public IReadOnlyCollection<MediaProduct> MediaProducts => _mediaProducts.AsReadOnly();
+    public IReadOnlyCollection<ContentFile> ContentFiles => _contentFiles.AsReadOnly();
 
     private Product() {}
 
@@ -45,7 +48,7 @@ public class Product
         }
     }
 
-    public Product AddBundleItems(List<Product> products)
+    public void AddBundleItems(List<Product> products)
     {
         if (products == null || products.Count == 0)
             throw new ArgumentException("Products cannot be empty.", nameof(products));
@@ -59,8 +62,6 @@ public class Product
                 _bundleItems.Add(new ProductBundle(Id, product.Id));
             }
         }
-
-        return this;
     }
 
     public void UpdateName(string name)
@@ -132,5 +133,57 @@ public class Product
         _tags.Clear();
         foreach (var tag in newTags)
             AddTag(tag);
+    }
+
+    public decimal CalculatePrice(List<ContentFile> selectedFiles)
+    {
+        if (selectedFiles == null || selectedFiles.Count == 0)
+            throw new ArgumentException("Files cannot be empty.", nameof(selectedFiles));
+
+        var totalWeight = _contentFiles.Sum(f => f.PriceWeight);
+        if (totalWeight == 0)
+            throw new InvalidOperationException("Product has no content files.");
+
+        var selectedWeight = selectedFiles.Sum(f => f.PriceWeight);
+        var ratio = (decimal)selectedWeight / totalWeight;
+        var basePrice = GetCurrentPrice() * ratio;
+        var markup = PartialPurchaseMarkup * (1 - ratio);
+
+        return Math.Round(basePrice * (1 + markup), 2);
+    }
+
+    public void Activate()
+    {
+        if (ProductStatus != ProductStatus.Hidden)
+            throw new InvalidOperationException("Only hidden products can be activated.");
+        ProductStatus = ProductStatus.Active;
+    }
+
+    public void Hide()
+    {
+        if (ProductStatus != ProductStatus.Active)
+            throw new InvalidOperationException("Only active products can be hidden.");
+        ProductStatus = ProductStatus.Hidden;
+    }
+
+    public void SendToModeration()
+    {
+        if (ProductStatus != ProductStatus.Active)
+            throw new InvalidOperationException("Only active products can be sent to moderation.");
+        ProductStatus = ProductStatus.OnModerating;
+    }
+
+    public void ApproveModeration()
+    {
+        if (ProductStatus != ProductStatus.OnModerating)
+            throw new InvalidOperationException("Only products on moderation can be approved.");
+        ProductStatus = ProductStatus.Active;
+    }
+
+    public void RejectModeration()
+    {
+        if (ProductStatus != ProductStatus.OnModerating)
+            throw new InvalidOperationException("Only products on moderation can be rejected.");
+        ProductStatus = ProductStatus.ModerationFailed;
     }
 }

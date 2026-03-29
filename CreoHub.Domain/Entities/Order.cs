@@ -31,13 +31,14 @@ public class Order
     /// <summary>
     /// Создание заказа
     /// </summary>
-    /// <returns></returns>
-    public static Order Open(string description, List<Product> products, Guid customerId)
+    public static Order Open(string description,
+        List<(Product product, List<ContentFile> selectedFiles)> items,
+        Guid customerId)
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("Description cannot be empty.", nameof(description));
-        if (products == null || products.Count == 0)
-            throw new ArgumentException("Products cannot be empty.", nameof(products));
+        if (items == null || items.Count == 0)
+            throw new ArgumentException("Items cannot be empty.", nameof(items));
 
         var order = new Order
         {
@@ -45,18 +46,14 @@ public class Order
             CustomerId = customerId,
         };
 
-        foreach (var product in products)
+        foreach (var (product, selectedFiles) in items)
         {
-            var price = product.Prices
-                            .OrderByDescending(p => p.Date)
-                            .FirstOrDefault()
-                        ?? throw new InvalidOperationException(
-                            $"Product {product.Id} has no prices.");
+            var price = product.CalculatePrice(selectedFiles);
 
             order._items.Add(new OrderItem(
                 orderId: order.Id,
                 productId: product.Id,
-                priceAtPurchase: price.Value
+                priceAtPurchase: price
             ));
         }
 
@@ -65,19 +62,31 @@ public class Order
         return order;
     }
 
-    public Order Complete()
+    public void AttachTransaction(Transaction transaction)
+    {
+        if (transaction == null)
+            throw new ArgumentNullException(nameof(transaction));
+        if (Transaction != null)
+            throw new InvalidOperationException("Order already has a transaction.");
+
+        Transaction = transaction;
+        TransactionId = transaction.Id;
+    }
+
+    public void Complete()
     {
         if (Status != OrderStatus.Created)
             throw new InvalidOperationException("Only created orders can be completed.");
+        if (Transaction == null)
+            throw new InvalidOperationException("Cannot complete order without a transaction.");
+
         Status = OrderStatus.Completed;
-        return this;
     }
 
-    public Order Cancel()
+    public void Cancel()
     {
         if (Status != OrderStatus.Created)
             throw new InvalidOperationException("Only created orders can be cancelled.");
         Status = OrderStatus.Cancelled;
-        return this;
     }
 }

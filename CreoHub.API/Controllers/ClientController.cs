@@ -47,7 +47,7 @@ public class ClientController : ControllerBase
             TelegramUsername = telegramUsername
         };
 
-        var response = await _mediator.Send(new AuthAccountCommand(userData, registrationDate));
+        var response = await _mediator.Send(new AuthAccountCommand(userData));
         
         return Ok(response);
     }

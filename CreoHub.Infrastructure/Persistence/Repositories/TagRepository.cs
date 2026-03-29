@@ -59,10 +59,7 @@ public class TagRepository : ITagRepository
         // 3. Создаем новые объекты для недостающих имен
         if (missingNames.Any())
         {
-            var newTags = missingNames.Select(name => new Tag 
-            { 
-                Name = name 
-            }).ToList();
+            var newTags = missingNames.Select(name => new Tag(name)).ToList();
 
             _db.Tags.AddRange(newTags);
             await _db.SaveChangesAsync();

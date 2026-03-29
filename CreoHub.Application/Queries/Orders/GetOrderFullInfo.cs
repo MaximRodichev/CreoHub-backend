@@ -1,6 +1,5 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
-using CreoHub.Application.Exceptions;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
@@ -30,7 +29,7 @@ public class GetOrderFullInfoQueryHandler : IRequestHandler<GetOrderFullInfoQuer
             var order = await _orderRepository.GetOrderInfoById(request.orderId);
             if (order.CustomerId != request.userId)
             {
-                throw new AccessOrderException(request.orderId);
+                throw new InvalidOperationException($"Access denied: no rights to view order {request.orderId}");
             }
             return BaseResponse<OrderFullInfoDTO>.Success(order);
         }

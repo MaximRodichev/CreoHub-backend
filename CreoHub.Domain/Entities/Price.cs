@@ -1,5 +1,4 @@
-using CreoHub.CRM.Domain.Exceptions;
-using CreoHub.Domain.Entities;
+namespace CreoHub.Domain.Entities;
 
 public class Price
 {
@@ -14,21 +13,9 @@ public class Price
     public Price(decimal amount, int productId)
     {
         if (amount <= 0)
-            throw new NegativeOrZeroPriceException();
+            throw new ArgumentException("Price must be greater than zero.", nameof(amount));
 
         Value = amount;
         ProductId = productId;
-    }
-
-    public Price(decimal amount, Product product)
-    {
-        if (amount <= 0)
-            throw new NegativeOrZeroPriceException();
-        if (product == null)
-            throw new ArgumentNullException(nameof(product));
-
-        Value = amount;
-        Product = product;
-        ProductId = product.Id;
     }
 }

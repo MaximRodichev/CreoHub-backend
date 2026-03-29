@@ -40,13 +40,17 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
                            ?? throw new InvalidOperationException("Customer not found.");
 
             var products = await _productRepository.GetProductsByIds(request.dto.ProductsIds);
-            
+    
             if (products.Count != request.dto.ProductsIds.Count)
                 throw new InvalidOperationException("Some products were not found.");
 
+            var items = products
+                .Select(p => (p, p.ContentFiles.ToList()))
+                .ToList();
+
             var order = Order.Open(
-                description: "", // тут бы что-то осмысленное
-                products: products,
+                description: "",
+                items: items,
                 customerId: customer.Id
             );
 

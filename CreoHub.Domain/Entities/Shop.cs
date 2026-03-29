@@ -29,4 +29,14 @@ public class Shop
         OwnerId = ownerId;
         Balance = new Balance(Id, OwnerType.Shop);
     }
+    
+    public void UpdateName(string name)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+    }
+
+    public void UpdateDescription(string description)
+    {
+        Description = description ?? throw new ArgumentNullException(nameof(description));
+    }
 }

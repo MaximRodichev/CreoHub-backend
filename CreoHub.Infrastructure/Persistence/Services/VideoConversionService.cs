@@ -52,10 +52,8 @@ public class VideoConversionService : IVideoConversionService
             using var stream = File.OpenRead(outputPath);
             await _storageService.UploadFileAsync(stream, newKey, "video/webm");
             await _storageService.DeleteFileAsync(video.Key);
-
-            video.Key = newKey;
-            video.MimeType = "video/webm";
-            video.FileSize = new FileInfo(outputPath).Length;
+            
+            video.ReplaceFile(newKey, video.FileName, new FileInfo(outputPath).Length, "video/webm");
             
             _storageObjectRepository.Update(video);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

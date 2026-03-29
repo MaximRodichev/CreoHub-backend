@@ -7,7 +7,7 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.AccountCommands;
 
-public record AuthAccountCommand(AuthAccountDTO dto, DateTime registerDate) :  IRequest<BaseResponse<IdentityDTO>>{}
+public record AuthAccountCommand(AuthAccountDTO dto) :  IRequest<BaseResponse<IdentityDTO>>{}
 
 public class AuthAccountHandler : IRequestHandler<AuthAccountCommand, BaseResponse<IdentityDTO>>
 {
@@ -30,15 +30,9 @@ public class AuthAccountHandler : IRequestHandler<AuthAccountCommand, BaseRespon
             if (user == null)
             {
                 user = User.Create(request.dto.Name, request.dto.Email, request.dto.TelegramId, request.dto.TelegramUsername);
-                if (request.registerDate != DateTime.MinValue)
-                {
-                    user.InjectDate(request.registerDate); //TODO УБРАТЬ НА ПРОДЕ
-                }
                 await _accountRepository.AddAsync(user);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
-
-
 
             var identity = _mapper.Map<IdentityDTO>(user);
             return BaseResponse<IdentityDTO>.Success(identity);

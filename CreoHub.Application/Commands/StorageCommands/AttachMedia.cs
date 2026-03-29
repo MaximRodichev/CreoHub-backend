@@ -41,11 +41,7 @@ public class AttachMediaHandler : IRequestHandler<AttachMedia, BaseResponse<bool
             if (productObject.OwnerId != storageObject.OwnerId)
                 return BaseResponse<bool>.Fail("Этот продукт не принадлежит файл, ошибка прав доступа");
 
-            MediaProduct mediaProduct = new MediaProduct()
-            {
-                ProductId = productObject.Id,
-                StorageObjectId = storageObject.Id,
-            };
+            MediaProduct mediaProduct = new MediaProduct(productObject.Id, storageObject.Id, 0);
             storageObject.ChangeFileType(FileType.Media);
             await _mediaProductRepository.AddAsync(mediaProduct);
             _storageObjectRepository.Update(storageObject);

@@ -85,7 +85,7 @@ public class AccountController : ControllerBase
             TelegramId = null
         };
 
-        var response = await _mediator.Send(new AuthAccountCommand(userData, DateTime.MinValue));
+        var response = await _mediator.Send(new AuthAccountCommand(userData));
         if (response.Status != ResponseStatus.Success)
             return BadRequest(response.ErrorMessage);
 

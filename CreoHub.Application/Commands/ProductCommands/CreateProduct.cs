@@ -1,10 +1,8 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
-using CreoHub.Application.Exceptions;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
-using CreoHub.Domain.Entities;
 
 namespace CreoHub.Application.Commands.ProductCommands;
 public record CreateProductCommand(Guid userId, CreateProductDTO dto) : IRequest<BaseResponse<bool>>;
@@ -13,19 +11,17 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
 {
     private readonly IProductRepository _productRepository;
     private readonly IAccountRepository _accountRepository;
-    private readonly IPriceRepository _priceRepository;
     private readonly IShopRepository _shopRepository;
     private readonly ITagRepository _tagRepository;
     private readonly IUnitOfWork _unitOfWork;
     
     
-    public CreateProductHandler(IProductRepository productRepository,  IAccountRepository accountRepository, IShopRepository shopRepository, ITagRepository tagRepository, IPriceRepository priceRepository, IUnitOfWork unitOfWork)
+    public CreateProductHandler(IProductRepository productRepository, IAccountRepository accountRepository, IShopRepository shopRepository, ITagRepository tagRepository, IUnitOfWork unitOfWork)
     {
         _productRepository = productRepository;
         _accountRepository = accountRepository;
         _shopRepository = shopRepository;
         _tagRepository = tagRepository;
-        _priceRepository = priceRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -41,11 +37,10 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
                 request.dto.Description,
                 shop.Id,
                 tags);
-            
-            var price = new Price(request.dto.Price, product);
+
+            product.AddPrice(request.dto.Price);
 
             await _productRepository.AddAsync(product);
-            await _priceRepository.AddAsync(price);
             
             
             await _unitOfWork.SaveChangesAsync(cancellationToken);

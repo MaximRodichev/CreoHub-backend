@@ -10,24 +10,18 @@ public record CreateProductBundleCommand(Guid userId, CreateProductBundleDTO dto
 
 public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCommand, BaseResponse<bool>>
 {
-    IProductRepository _productRepository;
-    IProductBundleRepository _productBundleRepository;
-    IPriceRepository _priceRepository;
-    ITagRepository _tagRepository;
-    IUnitOfWork _unitOfWork;
-    IShopRepository _shopRepository;
+    private readonly IProductRepository _productRepository;
+    private readonly IProductBundleRepository _productBundleRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IShopRepository _shopRepository;
 
     public CreateProductBundleHandler(IProductRepository productRepository,
         IProductBundleRepository productBundleRepository,
         IUnitOfWork unitOfWork,
-        IPriceRepository priceRepository,
-        ITagRepository tagRepository,
         IShopRepository shopRepository)
     {
         _productRepository = productRepository;
         _productBundleRepository = productBundleRepository;
-        _priceRepository = priceRepository;
-        _tagRepository = tagRepository;
         _shopRepository = shopRepository;
         _unitOfWork = unitOfWork;
     }
@@ -40,14 +34,12 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
             var shopOwner = await _shopRepository.GetByOwnerIdAsync(request.userId);
 
             var productBundle = new Product(request.dto.Name, request.dto.Description, shopOwner.Id, null);
-            
-            var price = new Price(request.dto.Price, productBundle);
-            
-            await _productRepository.AddAsync(productBundle);
+
+            productBundle.AddPrice(request.dto.Price);
             productBundle.AddBundleItems(responseProducts);
+
+            await _productRepository.AddAsync(productBundle);
             await _productBundleRepository.AddRangeAsync(productBundle.BundleItems.ToList());
-            await _priceRepository.AddAsync(price);
-            Console.WriteLine(productBundle);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<bool>.Success(true);
         }

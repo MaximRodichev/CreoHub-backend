@@ -36,8 +36,14 @@ public class CreateShopHandler : IRequestHandler<CreateShopCommand, BaseResponse
                     request.UserId
                 );
             await _shopRepository.AddAsync(shop);
+            
             User? user = await _accountRepository.GetByIdAsync(request.UserId);
-            _accountRepository.Update(user.ChangeRole(UserRole.Shop));
+            if (user == null)
+                throw new Exception("User not found");
+            user.AssignShop(shop);
+
+            _accountRepository.Update(user);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<Guid>.Success(shop.Id);
         }

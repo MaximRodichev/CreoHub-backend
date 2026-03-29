@@ -13,42 +13,31 @@ public class Transaction
     private decimal _platformFeePercent;
     
     public Guid Id { get; private init; } = Guid.NewGuid();
-    public OwnerType OwnerType { get; private set; }
-    public Guid OwnerId { get; private set; }
+    public OwnerType OwnerType { get; private init; }
+    public Guid OwnerId { get; private init; }
 
     public decimal FullAmount
     {
-        get 
-        {
-            return _amount;
-        }
-        
+        get => _amount;
         private init
         {
             if (value <= 0)
-            {
                 throw new ArgumentException("Amount must be greater than zero.");
-            }
             _amount = value;
         }
     }
 
     public decimal PlatformFeePercent
     {
-        get
-        {
-            return _platformFeePercent;
-        }
+        get => _platformFeePercent;
         private init
         {
             if (value < 0 || value > 25)
-            {
                 throw new ArgumentException("Platform fee percent must be between 0 and 25.");
-            }
-
             _platformFeePercent = value;
         }
     }
+
     public decimal PlatformFeeAmount { get; private init; }
     public decimal NetAmount { get; private init; }
     
@@ -56,30 +45,23 @@ public class Transaction
 
     public TransactionStatus TransactionStatus
     {
-        get
-        {
-            return _transactionStatus;
-        }
+        get => _transactionStatus;
         private set
         {
             if (_transactionStatus != TransactionStatus.Pending)
-            {
-                throw new ArgumentException("The transaction status must be pending.");
-            }
-
+                throw new InvalidOperationException("Only pending transactions can change status.");
             _transactionStatus = value;
         }
     }
 
     public string? TxHash { get; private set; }
     public string? SenderAddress { get; private set; }
-    public string? TrackId { get; private set; }
+    public string TrackId { get; private init; }
     
     public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
-    public DateTime PaidAt { get; private set; }
+    public DateTime? PaidAt { get; private set; }
     
-    //Fk for Ef Core
-    public Order? Order { get; init; }
+    public Order? Order { get; private init; }
 
     private Transaction() {}
     
@@ -87,46 +69,40 @@ public class Transaction
         decimal amount, 
         OwnerType ownerType, 
         Guid ownerId, 
-        string trackId
-        )
+        string trackId)
     {
         if (trackId == null) throw new ArgumentNullException(nameof(trackId));
         
-        return new Transaction()
+        return new Transaction
         {
-            OwnerType =  ownerType,
-            OwnerId =  ownerId,
-            
-            FullAmount =  amount,
+            OwnerType = ownerType,
+            OwnerId = ownerId,
+            FullAmount = amount,
             PlatformFeePercent = WithdrawalFeePercent,
-            PlatformFeeAmount =  amount * (WithdrawalFeePercent/100m),
-            NetAmount =   amount - (amount * (WithdrawalFeePercent/100m)),
-            
-            TransactionType =  TransactionType.Withdrawal,
-            TrackId =  trackId,
+            PlatformFeeAmount = amount * (WithdrawalFeePercent / 100m),
+            NetAmount = amount - (amount * (WithdrawalFeePercent / 100m)),
+            TransactionType = TransactionType.Withdrawal,
+            TrackId = trackId,
         };
     }
     
     public static Transaction CreateUpBalance(
         decimal amount, 
         Guid ownerId, 
-        string trackId
-    )
+        string trackId)
     {
         if (trackId == null) throw new ArgumentNullException(nameof(trackId));
         
-        return new Transaction()
+        return new Transaction
         {
-            OwnerType =  OwnerType.User,
-            OwnerId =  ownerId,
-            
-            FullAmount =  amount,
+            OwnerType = OwnerType.User,
+            OwnerId = ownerId,
+            FullAmount = amount,
             PlatformFeePercent = 0,
-            PlatformFeeAmount =  0,
-            NetAmount =   amount,
-            
-            TransactionType =  TransactionType.UpBalance,
-            TrackId =  trackId,
+            PlatformFeeAmount = 0,
+            NetAmount = amount,
+            TransactionType = TransactionType.UpBalance,
+            TrackId = trackId,
         };
     }
     
@@ -134,26 +110,22 @@ public class Transaction
         decimal amount,
         Guid ownerId, 
         string trackId,
-        Order order
-    )
+        Order order)
     {
         if (trackId == null) throw new ArgumentNullException(nameof(trackId));
         if (order == null) throw new ArgumentNullException(nameof(order));
 
-        return new Transaction()
+        return new Transaction
         {
-            OwnerType =  OwnerType.User,
-            OwnerId =  ownerId,
-            
-            FullAmount =  amount,
+            OwnerType = OwnerType.User,
+            OwnerId = ownerId,
+            FullAmount = amount,
             PlatformFeePercent = 0,
-            PlatformFeeAmount =  0,
-            NetAmount =   amount,
-            
-            TransactionType =  TransactionType.Purchase,
-            TrackId =  trackId,
-            
-            Order =  order,
+            PlatformFeeAmount = 0,
+            NetAmount = amount,
+            TransactionType = TransactionType.Purchase,
+            TrackId = trackId,
+            Order = order,
         };
     }
     
@@ -162,26 +134,22 @@ public class Transaction
         Guid ownerId, 
         string trackId,
         Order order,
-        decimal shopFeePercent = 20
-    )
+        decimal shopFeePercent = 20)
     {
         if (trackId == null) throw new ArgumentNullException(nameof(trackId));
         if (order == null) throw new ArgumentNullException(nameof(order));
 
-        return new Transaction()
+        return new Transaction
         {
-            OwnerType =  OwnerType.Shop,
-            OwnerId =  ownerId,
-            
-            FullAmount =  amount,
+            OwnerType = OwnerType.Shop,
+            OwnerId = ownerId,
+            FullAmount = amount,
             PlatformFeePercent = shopFeePercent,
-            PlatformFeeAmount =  amount *  (shopFeePercent/100m),
-            NetAmount =   amount- (amount *  (shopFeePercent/100m)),
-            
-            TransactionType =  TransactionType.ShopSale,
-            TrackId =  trackId,
-            
-            Order =  order,
+            PlatformFeeAmount = amount * (shopFeePercent / 100m),
+            NetAmount = amount - (amount * (shopFeePercent / 100m)),
+            TransactionType = TransactionType.ShopSale,
+            TrackId = trackId,
+            Order = order,
         };
     }
     
@@ -198,27 +166,21 @@ public class Transaction
         return (purchase, shopSale);
     }
 
-    public Transaction Success(
-        string senderAddress,
-        string txHash
-    )
+    public void Success(string senderAddress, string txHash)
     {
-        this.TransactionStatus = TransactionStatus.Completed;
-        this.SenderAddress = senderAddress ?? throw new ArgumentNullException(nameof(senderAddress));
-        this.TxHash = txHash ?? throw new ArgumentNullException(nameof(txHash));
+        TransactionStatus = TransactionStatus.Completed;
+        SenderAddress = senderAddress ?? throw new ArgumentNullException(nameof(senderAddress));
+        TxHash = txHash ?? throw new ArgumentNullException(nameof(txHash));
         PaidAt = DateTime.UtcNow;
-        return this;
     }
 
-    public Transaction Fail()
+    public void Fail()
     {
-        this.TransactionStatus = TransactionStatus.Failed;
-        return this;
+        TransactionStatus = TransactionStatus.Failed;
     }
 
-    public Transaction Expired()
+    public void Expire()
     {
-        this.TransactionStatus = TransactionStatus.Expired;
-        return this;
+        TransactionStatus = TransactionStatus.Expired;
     }
 }

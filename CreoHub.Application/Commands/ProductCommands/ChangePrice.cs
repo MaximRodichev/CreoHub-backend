@@ -1,6 +1,5 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
-using CreoHub.Application.Exceptions;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
@@ -34,7 +33,7 @@ public class ChangePriceHandler : IRequestHandler<ChangePriceCommand, BaseRespon
             Guid shopUserVerification = await _accountRepository.GetShopByUserId(request.userId);
             Guid shopProductVerification = await _productRepository.GetShopIdByProductId(request.dto.ProductId);
             if (shopUserVerification != shopProductVerification)
-                throw new ProductAccessDeniedException();
+                throw new InvalidOperationException("Access denied: you don't own this product.");
 
             Price newPrice = new Price(request.dto.Price, request.dto.ProductId);
             await _priceRepository.AddAsync(newPrice);

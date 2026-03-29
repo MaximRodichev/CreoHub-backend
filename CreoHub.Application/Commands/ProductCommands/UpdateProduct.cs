@@ -13,11 +13,11 @@ public record UpdateProductCommand(Guid shopId, UpdateProductInfoDTO dto) : IReq
 
 public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseResponse<bool>>
 {
-    IProductRepository _productRepository;
-    IUnitOfWork _unitOfWork;
-    ITagRepository _tagRepository;
-    IPriceRepository _priceRepository;
-    IStorageObjectRepository _storageObjectRepository;
+    private readonly IProductRepository _productRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ITagRepository _tagRepository;
+    private readonly IPriceRepository _priceRepository;
+    private readonly IStorageObjectRepository _storageObjectRepository;
     
     public UpdateProductHandler(IProductRepository productRepository, IUnitOfWork unitOfWork,  ITagRepository tagRepository, IPriceRepository priceRepository, IStorageObjectRepository storageObjectRepository)
     {
@@ -40,12 +40,12 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
 
             if (response.Name != request.dto.Name)
             {
-                response.UpdateName(response.Name);
+                response.UpdateName(request.dto.Name);
             }
 
             if (response.Description != request.dto.Description)
             {
-                response.UpdateDescription(response.Description);
+                response.UpdateDescription(request.dto.Description);
             }
 
             if (response.Prices.OrderBy(x=>x.Date).Last().Value != request.dto.Price)
@@ -83,13 +83,10 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                     var storageObject = await _storageObjectRepository.GetByIdAsync(storageObjectId);
                     storageObject.ChangeFileType(FileType.Media);
 
-                    response.AddMedia(new MediaProduct
-                    {
-                        ProductId = response.Id,
-                        StorageObject = storageObject,
-                        ThumbnailId = null,
-                        SortOrder = (response.MediaProducts.Count + 1) * 10
-                    });
+                    response.AddMedia(new MediaProduct(
+                        response.Id,
+                        storageObject.Id,
+                        0));
                 }
             }
             var incomingTagIds = request.dto.Tags.ToHashSet();

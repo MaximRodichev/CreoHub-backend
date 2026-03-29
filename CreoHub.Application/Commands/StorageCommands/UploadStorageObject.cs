@@ -35,15 +35,14 @@ public class UploadStorageObjectHandler : IRequestHandler<UploadStorageObjectCom
             var fileSize = request.FileStream.Length;
             
             await _storageService.UploadFileAsync(request.FileStream, key, request.FileType);
-            
-            var fileObject = new StorageObject()
-            {
-                FileSize = fileSize,
-                Key = key,
-                MimeType = request.FileType,
-                OwnerId = request.shopId,
-                FileName = request.FileName,
-            };
+
+            var fileObject = new StorageObject(
+                key,
+                request.FileName,
+                fileSize,
+                request.FileType,
+                request.shopId
+            );
             
             var response = await _objectRepository.AddAsync(fileObject);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

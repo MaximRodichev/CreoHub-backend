@@ -5,20 +5,19 @@ namespace CreoHub.Domain.Entities;
 /// </summary>
 public class ProductBundle
 {
-    /// <summary>
-    /// Идентификатор якорного продукта
-    /// </summary>
-    public Product Bundle { get; private set; }
-    public int BundleId { get; private set; }
-    public Product Product { get; private set; }
-    public int ProductId { get; private set; }
+    public Product Bundle { get; private init; }
+    public int BundleId { get; private init; }
+    public Product Product { get; private init; }
+    public int ProductId { get; private init; }
 
-    private ProductBundle(){}
-    
+    private ProductBundle() {}
+
     public ProductBundle(int bundleId, int productId)
     {
-        this.BundleId = bundleId;
-        this.ProductId = productId;
-        
+        if (bundleId == productId)
+            throw new ArgumentException("Bundle cannot contain itself.");
+
+        BundleId = bundleId;
+        ProductId = productId;
     }
 }
