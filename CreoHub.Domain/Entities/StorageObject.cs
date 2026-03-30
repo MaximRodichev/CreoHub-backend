@@ -41,8 +41,10 @@ public class StorageObject
 
     public void ChangeFileType(FileType fileType)
     {
-        if (FileType == FileType.Content)
-            throw new InvalidOperationException("Cannot change file type of content files.");
+        if (FileType == FileType.Content &&  fileType == FileType.Media)
+            throw new InvalidOperationException("Cannot change file type content to media.");
+        if (FileType == FileType.Media &&  fileType == FileType.Content)
+            throw new InvalidOperationException("Cannot change file type media to content.");
         FileType = fileType;
     }
 }

@@ -21,7 +21,7 @@ public class ProductRepository : IProductRepository
     
     public async Task<Product?> GetByIdAsync(int id)
     {
-        return await _db.Products.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        return await _db.Products.FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public Task<List<Product>> GetByIdsAsync(List<int> rangeKeys)
@@ -36,8 +36,7 @@ public class ProductRepository : IProductRepository
 
     public async Task<Product> AddAsync(Product entity)
     {
-        await _db.Products.AddAsync(entity);
-        return null;
+        return (await _db.Products.AddAsync(entity)).Entity;
     }
 
     public void Remove(Product entity)
@@ -159,6 +158,12 @@ public class ProductRepository : IProductRepository
                         .OrderByDescending(p => p.Date)
                         .Select(p => p.Value)
                         .FirstOrDefault(),
+                }).ToList(),
+                ContentFileInfos = x.ContentFiles.Select(x => new ContentFileInfo()
+                {
+                    Id = x.Id,
+                    PreviewName = x.PreviewName,
+                    PriceWeight = x.PriceWeight
                 }).ToList(),
             })
             .FirstOrDefaultAsync();
@@ -291,7 +296,12 @@ public class ProductRepository : IProductRepository
 
     public Task<List<Product>> GetProductsByIds(List<int> ids)
     {
-        return _db.Products.AsNoTracking().Include(x=>x.Prices).Where(x => ids.Contains(x.Id)).ToListAsync();
+        return _db.Products
+            .AsNoTracking()
+            .Include(x => x.Prices)
+            .Include(x => x.ContentFiles)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync();
     }
 
     public async Task<int> GetProductsCount()

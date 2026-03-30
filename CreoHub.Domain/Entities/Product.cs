@@ -186,4 +186,18 @@ public class Product
             throw new InvalidOperationException("Only products on moderation can be rejected.");
         ProductStatus = ProductStatus.ModerationFailed;
     }
+    
+    public void AddContentFile(ContentFile contentFile)
+    {
+        if (contentFile == null)
+            throw new ArgumentNullException(nameof(contentFile));
+        _contentFiles.Add(contentFile);
+    }
+
+    public void RemoveContentFile(ContentFile contentFile)
+    {
+        if (contentFile == null)
+            throw new ArgumentNullException(nameof(contentFile));
+        _contentFiles.Remove(contentFile);
+    }
 }

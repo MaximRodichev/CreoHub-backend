@@ -22,6 +22,22 @@ public class OrderConfiguration :  IEntityTypeConfiguration<Order>
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
 
+        // UserTransaction (purchase) — Order хранит ссылку на оплату
+        builder.HasOne(x => x.Transaction)
+            .WithOne()
+            .HasForeignKey<Order>(x => x.TransactionId)
+            .IsRequired(false);
+        builder.HasIndex(x => x.TransactionId)
+            .IsUnique()
+            .HasFilter("\"TransactionId\" IS NOT NULL");
+
+        // ShopTransaction тоже ссылается на Order (через навигацию Order в BaseTransaction)
+        builder.HasMany<ShopTransaction>()
+            .WithOne(x => x.Order)
+            .HasForeignKey("OrderId")
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(x => x.Items)
             .WithOne(x => x.Order)
             .HasForeignKey(x => x.OrderId)

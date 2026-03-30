@@ -7,7 +7,7 @@ namespace CreoHub.Infrastructure.Persistence.Repositories;
 
 public class TagRepository : ITagRepository
 {
-    private AppDbContext _db;
+    private readonly AppDbContext _db;
 
     public TagRepository(AppDbContext db)
     {
@@ -62,9 +62,9 @@ public class TagRepository : ITagRepository
             var newTags = missingNames.Select(name => new Tag(name)).ToList();
 
             _db.Tags.AddRange(newTags);
-            await _db.SaveChangesAsync();
 
             // Добавляем созданные теги к списку существующих для возврата
+            // SaveChanges вызовет хэндлер через UnitOfWork
             existingTags.AddRange(newTags);
         }
 

@@ -15,7 +15,9 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
         builder.HasIndex(x => x.Name).IsUnique();
         builder.HasIndex(x=>x.EmailAddress).IsUnique();
         builder.HasIndex(x => x.TelegramId).IsUnique();
-        builder.Property(x => x.Discount).IsRequired();
+        builder.Property(x => x.Discount)
+            .HasPrecision(5,2)
+            .IsRequired();
         builder.HasIndex(x => x.TelegramUsername).IsUnique();
            
         builder.ToTable(t =>
@@ -37,5 +39,19 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
 
         builder.HasOne(x => x.Shop).WithOne(x => x.Owner).HasForeignKey<User>(x => x.ShopId);
         builder.HasMany(x => x.Orders).WithOne(x => x.Customer).HasForeignKey(x => x.CustomerId);
+        builder.HasMany(x=>x.ContentAccesses).WithOne(x => x.User).HasForeignKey(x=>x.UserId);
+
+        builder.HasOne(x => x.Balance)
+            .WithOne()
+            .HasForeignKey<User>(x => x.BalanceId)
+            .IsRequired(false);
+        builder.HasIndex(x => x.BalanceId)
+            .IsUnique()
+            .HasFilter("\"BalanceId\" IS NOT NULL");
+
+        builder.HasMany(x => x.Transactions)
+            .WithOne()
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

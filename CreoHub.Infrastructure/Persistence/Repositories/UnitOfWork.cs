@@ -1,4 +1,4 @@
-using CreoHub.Application.Exceptions;
+using CreoHub.Infrastructure;
 using CreoHub.Application.Repositories;
 using Microsoft.EntityFrameworkCore;
 

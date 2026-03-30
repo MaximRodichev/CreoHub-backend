@@ -6,6 +6,7 @@ using CreoHub.Application.Commands.StorageCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Queries.Storage;
+using CreoHub.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -107,6 +108,24 @@ public class S3Controller : ControllerBase
     public async Task<IActionResult> DetachMedia([FromBody] DetachMediaDTO detachMediaDTO)
     {
         var command = new DetachMedia(ShopId, detachMediaDTO.StorageObjectId);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("attachContent")]
+    public async Task<IActionResult> AttachContent([FromBody] AttachContentFileDTO dto)
+    {
+        var command = new AttachContentFileCommand(ShopId, dto);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+    
+    [Authorize]
+    [HttpDelete("detachContent")]
+    public async Task<IActionResult> DetachContent([FromBody] DetachContentFileDTO dto)
+    {
+        var command = new DetachContentFileCommand(ShopId, dto);
         var response = await _mediator.Send(command);
         return Ok(response);
     }

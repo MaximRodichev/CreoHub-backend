@@ -13,7 +13,8 @@ public class StorageObjectConfiguration : IEntityTypeConfiguration<StorageObject
         builder.HasIndex(x => x.Key).IsUnique();
         builder.Property(x => x.Key).IsRequired();
         
-        builder.Property(x => x.FileSize).IsRequired().HasMaxLength(1024);
+        builder.Property(x => x.FileSize)
+            .IsRequired();
         
         builder.Property(x=>x.MimeType).IsRequired().HasMaxLength(50);
         

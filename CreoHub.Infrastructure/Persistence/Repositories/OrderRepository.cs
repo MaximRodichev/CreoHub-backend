@@ -29,7 +29,7 @@ public class OrderRepository : IOrderRepository
 
     public async Task<List<Order>> GetAllAsync()
     {
-        return _db.Orders.ToList();
+        return await _db.Orders.ToListAsync();
     }
 
     public async Task<Order> AddAsync(Order entity)

@@ -1,0 +1,61 @@
+using CreoHub.Application.DTO;
+using CreoHub.Application.DTO.StorageDTOs;
+using CreoHub.Application.Repositories;
+using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
+using MediatR;
+
+namespace CreoHub.Application.Commands.StorageCommands;
+
+public record AttachContentFileCommand(Guid ShopId, AttachContentFileDTO Dto) : IRequest<BaseResponse<bool>>;
+
+public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand, BaseResponse<bool>>
+{
+    private readonly IProductRepository _productRepository;
+    private readonly IStorageObjectRepository _storageObjectRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly  IContentFileRepository _contentFileRepository;
+    
+
+    public AttachContentFileHandler(IContentFileRepository contentFileRepository, IProductRepository productRepository, IUnitOfWork unitOfWork,  IStorageObjectRepository storageObjectRepository)
+    {
+        _productRepository = productRepository;
+        _unitOfWork = unitOfWork;
+        _storageObjectRepository = storageObjectRepository;
+        _contentFileRepository = contentFileRepository;
+    }
+    
+    public async Task<BaseResponse<bool>> Handle(AttachContentFileCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Product? product = await _productRepository.GetByIdAsync(request.Dto.ProductId);
+            if (product == null)
+                return BaseResponse<bool>.Fail("Товар не найден.");
+            if (product.OwnerId != request.ShopId)
+                return BaseResponse<bool>.Fail("У вас нет прав для редактирования этого товара");
+            
+            StorageObject? storageObject = await _storageObjectRepository.GetByIdAsync(request.Dto.StorageObjectId);
+            if (storageObject == null)
+                return BaseResponse<bool>.Fail("Not found StorageObject");
+
+            storageObject.ChangeFileType(FileType.Content);
+                
+            ContentFile contentFile = new ContentFile(
+                request.Dto.PriceWeight,
+                request.Dto.PreviewName,
+                request.Dto.StorageObjectId,
+                request.Dto.ProductId);
+            
+            product.AddContentFile(contentFile);
+            _storageObjectRepository.Update(storageObject);
+            await _contentFileRepository.AddAsync(contentFile);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return BaseResponse<bool>.Success(true);
+        }
+        catch(Exception ex)
+        {
+            return BaseResponse<bool>.Fail(ex.Message);
+        }
+    }
+}

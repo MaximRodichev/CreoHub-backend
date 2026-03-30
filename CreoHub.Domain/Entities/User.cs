@@ -2,6 +2,7 @@ using CreoHub.Domain.Types;
 
 namespace CreoHub.Domain.Entities;
 
+
 public class User
 {
     public Guid Id { get; private init; } = Guid.NewGuid();
@@ -15,13 +16,15 @@ public class User
     public UserRole Role { get; private set; } = UserRole.User;
 
     // FK
-    public IReadOnlyCollection<Order> Orders { get; private set; }
+    public IReadOnlyCollection<Order> Orders { get; private set; } = new List<Order>();
     public Shop? Shop { get; private set; }
     public Guid? ShopId { get; private set; }
 
-    public IReadOnlyCollection<Transaction> Transactions { get; private set; }
-    public Balance Balance { get; private set; }
-    public Guid BalanceId { get; private set; }
+    public IReadOnlyCollection<UserTransaction> Transactions { get; private set; } = new List<UserTransaction>();
+    public UserBalance Balance { get; private set; }
+    public Guid? BalanceId { get; private set; }
+    
+    public IReadOnlyCollection<ContentAccess> ContentAccesses { get; private set; } = new List<ContentAccess>();
 
     private User() {}
 
@@ -39,7 +42,7 @@ public class User
             TelegramUsername = telegramUsername,
         };
 
-        user.Balance = new Balance(user.Id, OwnerType.User);
+        user.Balance = new UserBalance(user.Id);
         user.BalanceId = user.Balance.Id;
 
         return user;

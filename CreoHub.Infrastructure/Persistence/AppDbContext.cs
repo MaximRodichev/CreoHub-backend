@@ -18,8 +18,13 @@ public class AppDbContext : DbContext
     
     //update s3 logic layer
     public DbSet<StorageObject> StorageObjects  {get; set;}
-    // public DbSet<ContentFile> ContentFiles { get; set; }
+    public DbSet<ContentFile> ContentFiles { get; set; }
     public DbSet<MediaProduct> MediaProducts { get; set; }
+    public DbSet<ContentAccess> ContentAccesses { get; set; }
+    public DbSet<UserTransaction> UserTransactions { get; set; }
+    public DbSet<ShopTransaction> ShopTransactions { get; set; }
+    public DbSet<UserBalance> UserBalances { get; set; }
+    public DbSet<ShopBalance> ShopBalances { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

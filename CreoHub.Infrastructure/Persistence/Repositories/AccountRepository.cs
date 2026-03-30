@@ -17,7 +17,7 @@ public class AccountRepository : IAccountRepository
     
     public async Task<User?> GetByIdAsync(Guid id)
     {
-       return await _db.Users.FirstAsync(x=>x.Id == id);
+       return await _db.Users.FirstOrDefaultAsync(x=>x.Id == id);
     }
 
     public Task<List<User>> GetByIdsAsync(List<Guid> rangeKeys)

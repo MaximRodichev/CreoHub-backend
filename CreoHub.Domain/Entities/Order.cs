@@ -22,7 +22,7 @@ public class Order
     //FK
     public User Customer { get; private init; }
     public Guid CustomerId { get; private init; }
-    public Transaction? Transaction { get; private set; }
+    public UserTransaction? Transaction { get; private set; }
     public Guid? TransactionId { get; private set; }
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
@@ -62,7 +62,7 @@ public class Order
         return order;
     }
 
-    public void AttachTransaction(Transaction transaction)
+    public void AttachTransaction(UserTransaction transaction)
     {
         if (transaction == null)
             throw new ArgumentNullException(nameof(transaction));

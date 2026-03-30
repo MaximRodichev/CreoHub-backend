@@ -1,15 +1,11 @@
-using CreoHub.Domain.Types;
-
 namespace CreoHub.Domain.Entities;
 
-public class Balance
+public abstract class BaseBalance
 {
-    private decimal _availableAmount;
-    private decimal _pendingAmount;
-    
+    protected decimal _availableAmount;
+    protected decimal _pendingAmount;
+
     public Guid Id { get; private init; } = Guid.NewGuid();
-    public OwnerType OwnerType { get; private init; }
-    public Guid OwnerId { get; private init; }
 
     public decimal AvailableAmount
     {
@@ -33,12 +29,8 @@ public class Balance
         }
     }
 
-    private Balance() {}
-
-    public Balance(Guid ownerId, OwnerType ownerType)
+    protected BaseBalance()
     {
-        OwnerId = ownerId;
-        OwnerType = ownerType;
         AvailableAmount = 0;
         PendingAmount = 0;
     }

@@ -6,4 +6,5 @@ namespace CreoHub.Application.Repositories;
 public interface IContentFileRepository : IRepository<ContentFile, Guid>
 {
     Task<List<ContentFile>> GetByProductIdAsync(int productId);
+    Task<List<ContentFile>> GetByStorageObjectIdAsync(Guid contentFileId);
 }

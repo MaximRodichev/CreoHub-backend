@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using CreoHub.Application.DTO.StorageDTOs;
+using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 
 namespace CreoHub.Application.DTO.ProductDTOs;
@@ -17,7 +18,8 @@ public record ProductInfoDTO
     public List<string> Tags { get; set; }
     public DateTime Date { get; set; }
     public List<StorageObjectViewDTO> MediaViews { get; set; }
-    
+    public List<ContentFileInfo> ContentFileInfos { get; set; }
+
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductType ProductType { get; set; }
     public List<ProductShortInfoDTO>? inBundleProducts { get; set; }

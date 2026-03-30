@@ -56,6 +56,12 @@ public static class Initialization
         services.AddScoped<IStorageService, R2StorageService>();
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IMediaProductRepository, MediaProductRepository>();
+        services.AddScoped<IContentFileRepository, ContentFileRepository>();
+        services.AddScoped<IContentAccessRepository, ContentAccessRepository>();
+        services.AddScoped<IUserTransactionRepository, UserTransactionRepository>();
+        services.AddScoped<IShopTransactionRepository, ShopTransactionRepository>();
+        services.AddScoped<IUserBalanceRepository, UserBalanceRepository>();
+        services.AddScoped<IShopBalanceRepository, ShopBalanceRepository>();
         
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
