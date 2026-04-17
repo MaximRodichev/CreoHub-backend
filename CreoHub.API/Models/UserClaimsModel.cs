@@ -11,6 +11,8 @@ public class UserClaimsModel
     public long? TelegramId { get; set; }
     public Guid? ShopId { get; set; }
 
+    public UserClaimsModel() { }
+
     public UserClaimsModel(IdentityDTO user)
     {
         this.Id =  user.Id;

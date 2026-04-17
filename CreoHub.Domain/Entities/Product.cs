@@ -12,7 +12,11 @@ public class Product
     private readonly List<ContentFile> _contentFiles = new();
     private readonly List<Tag> _tags = new();
 
-    private const decimal PartialPurchaseMarkup = 0.30m;
+    /// <summary>
+    /// Агрессивность наценки при частичной покупке (0 = нет наценки, 1 = линейно).
+    /// 0.5 — умеренная кривая: покупка 20% файлов стоит ~45% от полной цены.
+    /// </summary>
+    private const double PartialPurchaseAlpha = 0.5;
 
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; private init; }
@@ -135,21 +139,27 @@ public class Product
             AddTag(tag);
     }
 
+    /// <summary>
+    /// Цена за подмножество файлов по степенной кривой:
+    ///   price = basePrice × ratio^(1 − α)
+    /// где ratio = selectedPts / totalPts, α = PartialPurchaseAlpha.
+    /// При ratio = 1 возвращает полную цену без наценки.
+    /// </summary>
     public decimal CalculatePrice(List<ContentFile> selectedFiles)
     {
-        if (selectedFiles == null || selectedFiles.Count == 0)
-            throw new ArgumentException("Files cannot be empty.", nameof(selectedFiles));
-
         var totalWeight = _contentFiles.Sum(f => f.PriceWeight);
         if (totalWeight == 0)
             throw new InvalidOperationException("Product has no content files.");
 
-        var selectedWeight = selectedFiles.Sum(f => f.PriceWeight);
-        var ratio = (decimal)selectedWeight / totalWeight;
-        var basePrice = GetCurrentPrice() * ratio;
-        var markup = PartialPurchaseMarkup * (1 - ratio);
+        if (selectedFiles == null || selectedFiles.Count == 0)
+            throw new ArgumentException("Files cannot be empty.", nameof(selectedFiles));
 
-        return Math.Round(basePrice * (1 + markup), 2);
+        var selectedWeight = selectedFiles.Sum(f => f.PriceWeight);
+        var ratio = (double)selectedWeight / totalWeight;
+
+        var price = (double)GetCurrentPrice() * Math.Pow(ratio, 1.0 - PartialPurchaseAlpha);
+
+        return Math.Round((decimal)price, 2);
     }
 
     public void Activate()

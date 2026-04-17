@@ -15,9 +15,12 @@ public class OrderRepository : IOrderRepository
         _db = db;
     }
     
-    public Task<Order?> GetByIdAsync(Guid id)
+    public async Task<Order?> GetByIdAsync(Guid id)
     {
-        throw new NotImplementedException();
+        return await _db.Orders
+            .Include(o => o.Items)
+            .Include(o => o.Transaction)
+            .FirstOrDefaultAsync(o => o.Id == id);
     }
     
     public async Task<List<Order>> GetByIdsAsync(List<Guid> rangeKeys)
@@ -45,6 +48,39 @@ public class OrderRepository : IOrderRepository
     public Order Update(Order entity)
     {
         throw new NotImplementedException();
+    }
+
+    public async Task<List<OrderUserInfoDTO>> GetUserOrders(Guid userId, int page = 0, int limit = 99)
+    {
+        var query = await _db.Orders
+            .AsNoTracking()
+            .Include(x=> x.Transaction)
+            .Include(x=> x.Items)
+                .ThenInclude(x=> x.Product)
+            .Where(o => o.CustomerId == userId)
+            .Select(x => new OrderUserInfoDTO()
+            {
+                OrderId = x.Id,
+                OrderDate = x.OrderDate,
+                Items = x.Items.Select(y=> new OrderItemDTO()
+                {
+                    PriceAtPurchase = y.PriceAtPurchase,
+                    ProductId = y.ProductId,
+                    ProductName = y.Product.Name
+                }).ToList(),
+                PaidAt = x.Transaction.PaidAt,
+                Status = x.Status,
+                TotalPrice = x.Price,
+                TxHash = x.Transaction.TxHash,
+                TransactionStatus = x.Transaction.TransactionStatus,
+                TransactionId = x.Transaction.Id,
+            })
+            .OrderByDescending(x=>x.OrderDate)
+            .Skip(page * limit)
+            .Take(limit)
+            .ToListAsync();
+        
+        return query;
     }
 
     public async Task<OrderFullInfoDTO> GetOrderInfoById(Guid id)
@@ -120,4 +156,12 @@ public class OrderRepository : IOrderRepository
         return _db.Orders.Attach(entity).Entity;
     }
 
+    public async Task<Order?> GetByTransactionIdWithItemsAsync(Guid transactionId)
+    {
+        return await _db.Orders
+            .Include(o => o.Transaction)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Files)
+            .FirstOrDefaultAsync(o => o.TransactionId == transactionId);
+    }
 }

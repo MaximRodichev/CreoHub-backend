@@ -20,10 +20,16 @@ public class VideoOptimizationBackgroundService : BackgroundService
         await foreach (var storageObjectId in _queue.DequeueAllAsync(stoppingToken))
         {
             using var scope = _scopeFactory.CreateScope();
-            var handler = scope.ServiceProvider
+
+            // 1. Конвертируем mp4 → webm
+            var conversionService = scope.ServiceProvider
                 .GetRequiredService<IVideoConversionService>();
-            
-            await handler.ConvertAsync(storageObjectId, stoppingToken);
+            await conversionService.ConvertAsync(storageObjectId, stoppingToken);
+
+            // 2. Генерируем thumbnail из webm (кадр на 1-й секунде → jpg)
+            var thumbnailService = scope.ServiceProvider
+                .GetRequiredService<IThumbnailGenerationService>();
+            await thumbnailService.GenerateAsync(storageObjectId, stoppingToken);
         }
     }
 }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del \"C:\\\\Users\\\\Maxim-Design\\\\.claude\\\\projects\\\\H--Works-Development-creohub-CreoHub-backend\\\\memory\\\\project_deadline.md\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\Maxim-Design\\\\.claude\\\\projects\\\\H--Works-Development-creohub-CreoHub-backend\\\\memory\\\\project_deadline.md\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"done\")"
+    ]
+  }
+}

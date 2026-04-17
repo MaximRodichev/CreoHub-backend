@@ -69,4 +69,16 @@ public class ContentAccessRepository : IContentAccessRepository
             .Where(ca => ca.OrderId == orderId)
             .ToListAsync();
     }
+
+    public async Task<List<ContentAccess>> GetUserFilesAsync(Guid userId)
+    {
+        return await _db.ContentAccesses
+            .Where(ca => ca.UserId == userId)
+            .Include(ca => ca.ContentFile)
+                .ThenInclude(cf => cf.Product)
+                    .ThenInclude(p => p.MediaProducts)
+            .OrderBy(ca => ca.ContentFile.ProductId)
+            .ThenBy(ca => ca.GrantedAt)
+            .ToListAsync();
+    }
 }

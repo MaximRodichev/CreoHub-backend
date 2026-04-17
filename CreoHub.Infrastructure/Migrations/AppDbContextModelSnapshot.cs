@@ -22,6 +22,69 @@ namespace CreoHub.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.Cart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("Carts");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.CartItem", b =>
+                {
+                    b.Property<Guid>("CartId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("CartId", "ProductId");
+
+                    b.HasIndex("CartId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("CartItems");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.CartItemFile", b =>
+                {
+                    b.Property<Guid>("CartItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CartItemCartId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CartItemProductId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CartItemId", "ContentFileId");
+
+                    b.HasIndex("ContentFileId");
+
+                    b.HasIndex("CartItemCartId", "CartItemProductId");
+
+                    b.ToTable("CartItemFiles");
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.ContentAccess", b =>
                 {
                     b.Property<Guid>("Id")
@@ -174,6 +237,21 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.OrderItemFile", b =>
+                {
+                    b.Property<int>("OrderItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ContentFileId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("OrderItemId", "ContentFileId");
+
+                    b.HasIndex("ContentFileId");
+
+                    b.ToTable("OrderItemFiles");
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.Price", b =>
                 {
                     b.Property<int>("ProductId")
@@ -260,7 +338,7 @@ namespace CreoHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("BalanceId")
+                    b.Property<Guid>("BalanceId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -447,7 +525,10 @@ namespace CreoHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("BalanceId")
+                    b.Property<Guid>("BalanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CartId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Discount")
@@ -481,8 +562,7 @@ namespace CreoHub.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BalanceId")
-                        .IsUnique()
-                        .HasFilter("\"BalanceId\" IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("EmailAddress")
                         .IsUnique();
@@ -608,6 +688,55 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("ProductTag");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.Cart", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.User", "User")
+                        .WithOne("Cart")
+                        .HasForeignKey("CreoHub.Domain.Entities.Cart", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.CartItem", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.Cart", "Cart")
+                        .WithMany("Items")
+                        .HasForeignKey("CartId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreoHub.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cart");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.CartItemFile", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.ContentFile", "ContentFile")
+                        .WithMany()
+                        .HasForeignKey("ContentFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreoHub.Domain.Entities.CartItem", "CartItem")
+                        .WithMany("SelectedFiles")
+                        .HasForeignKey("CartItemCartId", "CartItemProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CartItem");
+
+                    b.Navigation("ContentFile");
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.ContentAccess", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.ContentFile", "ContentFile")
@@ -644,7 +773,7 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("CreoHub.Domain.Entities.StorageObject", "StorageObject")
-                        .WithMany()
+                        .WithMany("ContentFiles")
                         .HasForeignKey("StorageObjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -716,6 +845,21 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.OrderItemFile", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.ContentFile", null)
+                        .WithMany()
+                        .HasForeignKey("ContentFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreoHub.Domain.Entities.OrderItem", null)
+                        .WithMany("Files")
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.Price", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.Product", "Product")
@@ -761,7 +905,9 @@ namespace CreoHub.Infrastructure.Migrations
                 {
                     b.HasOne("CreoHub.Domain.Entities.ShopBalance", "Balance")
                         .WithOne()
-                        .HasForeignKey("CreoHub.Domain.Entities.Shop", "BalanceId");
+                        .HasForeignKey("CreoHub.Domain.Entities.Shop", "BalanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Balance");
                 });
@@ -797,7 +943,9 @@ namespace CreoHub.Infrastructure.Migrations
                 {
                     b.HasOne("CreoHub.Domain.Entities.UserBalance", "Balance")
                         .WithOne()
-                        .HasForeignKey("CreoHub.Domain.Entities.User", "BalanceId");
+                        .HasForeignKey("CreoHub.Domain.Entities.User", "BalanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("CreoHub.Domain.Entities.Shop", "Shop")
                         .WithOne("Owner")
@@ -838,9 +986,24 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.Cart", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.CartItem", b =>
+                {
+                    b.Navigation("SelectedFiles");
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.Order", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.OrderItem", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.Product", b =>
@@ -870,11 +1033,16 @@ namespace CreoHub.Infrastructure.Migrations
 
             modelBuilder.Entity("CreoHub.Domain.Entities.StorageObject", b =>
                 {
+                    b.Navigation("ContentFiles");
+
                     b.Navigation("MediaProduct");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.User", b =>
                 {
+                    b.Navigation("Cart")
+                        .IsRequired();
+
                     b.Navigation("ContentAccesses");
 
                     b.Navigation("Orders");

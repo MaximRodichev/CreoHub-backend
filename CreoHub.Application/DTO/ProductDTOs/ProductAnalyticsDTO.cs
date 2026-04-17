@@ -15,6 +15,7 @@ public record ProductAnalyticsDTO
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductStatus ProductStatus { get; set; }
     public Dictionary<DateTime, decimal> PriceHistory { get; set; }
+    public List<ContentFileInfo> ContentFileInfos { get; set; }
     public List<OrderSellDTO> SellsHistory { get; set; }
     public ICollection<DateTime> SellsDateTimes { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]

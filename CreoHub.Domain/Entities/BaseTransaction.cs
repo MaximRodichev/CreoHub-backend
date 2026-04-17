@@ -7,7 +7,7 @@ namespace CreoHub.Domain.Entities;
 /// </summary>
 public abstract class BaseTransaction
 {
-    protected const decimal WithdrawalFeePercent = 2m;
+    protected const decimal WithdrawalFeePercent = 0m;
     protected TransactionStatus _transactionStatus = TransactionStatus.Pending;
     protected decimal _amount;
     protected decimal _platformFeePercent;
@@ -79,5 +79,14 @@ public abstract class BaseTransaction
     public void Expire()
     {
         TransactionStatus = TransactionStatus.Expired;
+    }
+
+    /// <summary>
+    /// Завершение внутренней транзакции (оплата с баланса) — без txHash и senderAddress.
+    /// </summary>
+    public void SuccessInternal()
+    {
+        TransactionStatus = TransactionStatus.Completed;
+        PaidAt = DateTime.UtcNow;
     }
 }

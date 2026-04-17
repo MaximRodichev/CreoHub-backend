@@ -22,7 +22,10 @@ public class User
 
     public IReadOnlyCollection<UserTransaction> Transactions { get; private set; } = new List<UserTransaction>();
     public UserBalance Balance { get; private set; }
-    public Guid? BalanceId { get; private set; }
+    public Guid BalanceId { get; private set; }
+    
+    public Cart Cart { get; private set; }
+    public Guid CartId { get; private set; }
     
     public IReadOnlyCollection<ContentAccess> ContentAccesses { get; private set; } = new List<ContentAccess>();
 
@@ -41,7 +44,8 @@ public class User
             TelegramId = telegramId,
             TelegramUsername = telegramUsername,
         };
-
+        user.Cart = Entities.Cart.Create(user.Id);
+        user.CartId = user.Cart.Id;
         user.Balance = new UserBalance(user.Id);
         user.BalanceId = user.Balance.Id;
 

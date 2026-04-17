@@ -19,15 +19,22 @@ public class JwtService
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
         // Переносим данные из вашей модели в Claims
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, model.Id.ToString()),
             new Claim(ClaimTypes.Name, model.Name),
-            new Claim(JwtRegisteredClaimNames.Email, model.EmailAddress),
-            new Claim("telegram_id", model.TelegramId.ToString()),
-            new Claim("shop_id", model.ShopId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim("telegram_id", model.TelegramId?.ToString() ?? ""),
         };
+
+        // Only add shop_id when the user actually has a shop (avoid Guid.Parse("") crash)
+        if (model.ShopId.HasValue && model.ShopId.Value != Guid.Empty)
+            claims.Add(new Claim("shop_id", model.ShopId.Value.ToString()));
+        
+        if (!string.IsNullOrEmpty(model.EmailAddress))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, model.EmailAddress));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],

@@ -5,6 +5,10 @@ using CreoHub.Application.Commands.AccountCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.AccountDTOs;
 using CreoHub.Application.Queries.Account;
+using CreoHub.Application.Queries.Orders;
+using CreoHub.Application.Queries.Content;
+using CreoHub.Application.Queries.Account;
+using CreoHub.Application.Queries.Product;
 using CreoHub.Domain.Entities;
 using Google.Apis.Auth;
 using MediatR;
@@ -23,6 +27,9 @@ public class AccountController : ControllerBase
     private readonly IMediator _mediator;
     private readonly JwtService _jwtService;
     private readonly IConfiguration _configuration;
+    
+    protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
+    protected Guid ShopId => Guid.Parse(User.FindFirst("shop_id")?.Value ?? Guid.Empty.ToString());
     
     public AccountController(IMediator mediator,  JwtService jwtService, IConfiguration configuration)
     {
@@ -73,16 +80,19 @@ public class AccountController : ControllerBase
         return Redirect($"{frontendUrl}?token={token}");
     }
     */
-    [HttpPost("auth/google-response")]
-    public async Task<IActionResult> GoogleResponse([FromForm] string credential)
+    [HttpGet("auth/google-response")]
+    public async Task<IActionResult> GoogleResponse()
     {
-        var payload = await GoogleJsonWebSignature.ValidateAsync(credential);
+        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (!result.Succeeded)
+            return BadRequest("Ошибка авторизации Google");
 
         var userData = new AuthAccountDTO
         {
-            Name = payload.Name,
-            Email = payload.Email,
-            TelegramId = null
+            Name = result.Principal.Identity.Name,
+            Email = result.Principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value,
+            TelegramId = null,
         };
 
         var response = await _mediator.Send(new AuthAccountCommand(userData));
@@ -90,15 +100,7 @@ public class AccountController : ControllerBase
             return BadRequest(response.ErrorMessage);
 
         var token = _jwtService.GenerateToken(new UserClaimsModel(response.Data));
-        HttpContext.Response.Cookies.Append("jwt_token", token, new CookieOptions
-        {
-            HttpOnly = true,         
-            Secure = false,          
-            SameSite = SameSiteMode.Lax, 
-            Path = "/",              
-            Expires = DateTime.UtcNow.AddDays(7)
-        });
-        return Redirect($"{_configuration["Frontend"]}/");
+        return Redirect($"{_configuration["Frontend"]}/auth-callback?token={token}");
     }
 
     [HttpPost("auth/logout")]
@@ -113,11 +115,47 @@ public class AccountController : ControllerBase
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
-        Guid id = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        var response = await _mediator.Send(new GetProfileQuery(id));
+        var response = await _mediator.Send(new GetProfileQuery(UserId));
         
         return Ok(response);
     }
-    
-    
+
+    [Authorize]
+    [HttpGet("orders")]
+    public async Task<IActionResult> GetOrders([FromQuery] int pageSize, [FromQuery] int page)
+    {
+        var response = await _mediator.Send(new GetUserOrdersQuery(UserId, pageSize, page));
+
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("product-status/{id}")]
+    public async Task<IActionResult> GetCustomerProductStatus([FromRoute] int id)
+    {
+        var response = await _mediator.Send(new GetCustomerProductStatusQuery(UserId, id));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Все купленные файлы текущего пользователя, сгруппированные по продуктам.
+    /// </summary>
+    [Authorize]
+    [HttpGet("my-files")]
+    public async Task<IActionResult> GetMyFiles()
+    {
+        var response = await _mediator.Send(new GetMyFilesQuery(UserId));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Получить presigned URL для скачивания купленного файла (действует 10 минут).
+    /// </summary>
+    [Authorize]
+    [HttpGet("download/{contentFileId}")]
+    public async Task<IActionResult> DownloadContentFile([FromRoute] Guid contentFileId)
+    {
+        var response = await _mediator.Send(new GetDownloadLinkQuery(UserId, contentFileId));
+        return Ok(response);
+    }
 }

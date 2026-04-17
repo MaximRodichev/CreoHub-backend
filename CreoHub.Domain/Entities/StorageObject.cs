@@ -15,6 +15,7 @@ public class StorageObject
     public Guid OwnerId { get; private init; }
     
     public MediaProduct? MediaProduct { get; private set; }
+    public ICollection<ContentFile>  ContentFiles { get; private set; } = new List<ContentFile>();
 
     private StorageObject() {}
 

@@ -18,6 +18,7 @@ public interface IProductRepository : IRepository<Product, int>
     public Task<List<ProductViewExtendedDTO>> GetProductsExtendedInfo(Guid shopId);
     public Task<List<ProductShortInfoDTO>> GetProductsNamesByShopId(Guid shopId);
     public Task<List<Product>> GetProductsByIds(List <int> ids);
+    public Task<List<ContentFile>> GetContentFilesOfProduct(int productId);
     public Task<int> GetProductsCount();
     public Task<List<ProductStatsDTO>> GetProductsStatsByShopIdAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null);
 }

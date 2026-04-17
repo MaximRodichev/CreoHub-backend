@@ -16,4 +16,5 @@ public class ProductViewDTO
     public decimal Price { get; set; }
     public List<string> Tags { get; set; }
     public string PreviewKey { get; set; }
+    public string? PreviewThumbnailKey { get; set; }
 }

@@ -9,7 +9,7 @@ public class Order
     
     public Guid Id { get; private init; } = Guid.NewGuid();
     public decimal Price 
-    { 
+    {
         get => _price; 
         private init => _price = value > 0 ? value 
             : throw new ArgumentException("Price must be greater than zero."); 
@@ -28,6 +28,8 @@ public class Order
 
     private Order() {}
 
+
+    
     /// <summary>
     /// Создание заказа
     /// </summary>
@@ -35,8 +37,8 @@ public class Order
         List<(Product product, List<ContentFile> selectedFiles)> items,
         Guid customerId)
     {
-        if (string.IsNullOrWhiteSpace(description))
-            throw new ArgumentException("Description cannot be empty.", nameof(description));
+        // if (string.IsNullOrWhiteSpace(description))
+        //     throw new ArgumentException("Description cannot be empty.", nameof(description));
         if (items == null || items.Count == 0)
             throw new ArgumentException("Items cannot be empty.", nameof(items));
 
@@ -48,12 +50,27 @@ public class Order
 
         foreach (var (product, selectedFiles) in items)
         {
-            var price = product.CalculatePrice(selectedFiles);
+            IEnumerable<Guid>? purchasedFileIds;
+            decimal price;
+
+            if (selectedFiles == null || selectedFiles.Count == 0)
+            {
+                // Полная покупка — берём текущую цену, файлы не фиксируем
+                price = product.GetCurrentPrice();
+                purchasedFileIds = null;
+            }
+            else
+            {
+                // Частичная покупка — цена по весу выбранных файлов
+                price = product.CalculatePrice(selectedFiles);
+                purchasedFileIds = selectedFiles.Select(f => f.Id);
+            }
 
             order._items.Add(new OrderItem(
                 orderId: order.Id,
                 productId: product.Id,
-                priceAtPurchase: price
+                priceAtPurchase: price,
+                selectedFileIds: purchasedFileIds
             ));
         }
 

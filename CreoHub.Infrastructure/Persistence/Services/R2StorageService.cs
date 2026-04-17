@@ -8,7 +8,8 @@ namespace CreoHub.Infrastructure.Persistence.Services;
 public class R2StorageService : IStorageService
 {
     private readonly IAmazonS3 _s3Client;
-    private const string BucketMainName = "creohub";
+    //TODO: test bucket now usages
+    private const string BucketMainName = "creohub-raw";
     private const string BucketPreviewName = "creohub-preview";
     private const string BucketContentType = "creohub-content";
 

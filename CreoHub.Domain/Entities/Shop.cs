@@ -16,7 +16,7 @@ public class Shop
     public Guid OwnerId { get; private init; }
     public IReadOnlyCollection<ShopTransaction> Transactions { get; private set; } = new List<ShopTransaction>();
     public ShopBalance Balance { get; private init; }
-    public Guid? BalanceId { get; private init; }
+    public Guid BalanceId { get; private init; }
 
     private Shop() {}
 

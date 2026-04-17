@@ -104,7 +104,10 @@ public class ProductRepository : IProductRepository
                 Date = x.CreatedAt,
                 ProductType = x.ProductType,
                 PriceWithoutDiscount = x.BundleItems.Select(y=>y.Product.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()).Sum(),
-                PreviewKey = x.MediaProducts.First().StorageObject.Key
+                PreviewKey = x.MediaProducts.First().StorageObject.Key,
+                PreviewThumbnailKey = x.MediaProducts.First().Thumbnail != null
+                    ? x.MediaProducts.First().Thumbnail.Key
+                    : null
             })
             .ToListAsync();
 
@@ -176,7 +179,8 @@ public class ProductRepository : IProductRepository
             .Select(m => new StorageObjectViewDTO
             {
                 Id = m.StorageObjectId,
-                Key = m.StorageObject.Key
+                Key = m.StorageObject.Key,
+                ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
             })
             .ToListAsync();
 
@@ -187,7 +191,8 @@ public class ProductRepository : IProductRepository
             .Select(m => new StorageObjectViewDTO
             {
                 Id = m.StorageObjectId,
-                Key = m.StorageObject.Key
+                Key = m.StorageObject.Key,
+                ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
             })
             .ToListAsync();
 
@@ -206,9 +211,12 @@ public class ProductRepository : IProductRepository
                 .ThenInclude(p => p.Prices)
             .Include(x=>x.MediaProducts)
                 .ThenInclude(x=>x.StorageObject)
+            .Include(x=>x.MediaProducts)
+                .ThenInclude(x=>x.Thumbnail)
             .Include(x=>x.OrderItems)
                 .ThenInclude(x=>x.Order)
                 .ThenInclude(x=>x.Customer)
+            .Include(x=>x.ContentFiles)
             .Where(x => x.Id == id)
             .Select(x => new 
             {
@@ -224,6 +232,7 @@ public class ProductRepository : IProductRepository
                 x.ProductType,
                 x.BundleItems,
                 x.MediaProducts,
+                ContentFile = x.ContentFiles,
                 CustomerBuyHistory = x.OrderItems.Select(y=> new OrderSellDTO(){BuyDate = y.Order.OrderDate, CustomerName= y.Order.Customer.Name}).ToList(),
             })
             .FirstOrDefaultAsync();
@@ -254,9 +263,16 @@ public class ProductRepository : IProductRepository
             MediaViews = rawData.MediaProducts.Select(x=> new StorageObjectViewDTO()
             {
                 Id = x.StorageObjectId,
-                Key = x.StorageObject.Key
+                Key = x.StorageObject.Key,
+                ThumbnailKey = x.Thumbnail?.Key
             }).ToList(),
-            SellsHistory = rawData.CustomerBuyHistory
+            SellsHistory = rawData.CustomerBuyHistory,
+            ContentFileInfos = rawData.ContentFile.Select(x=> new ContentFileInfo()
+            {
+                Id = x.Id,
+                PreviewName = x.PreviewName,
+                PriceWeight = x.PriceWeight
+            }).ToList(),
         };
     }
 
@@ -275,7 +291,10 @@ public class ProductRepository : IProductRepository
                 ProductStatus = x.ProductStatus,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
                 Date = x.CreatedAt,
-                PreviewKey = x.MediaProducts.First().StorageObject.Key
+                PreviewKey = x.MediaProducts.First().StorageObject.Key,
+                PreviewThumbnailKey = x.MediaProducts.First().Thumbnail != null
+                    ? x.MediaProducts.First().Thumbnail.Key
+                    : null
             }).ToListAsync();
     }
 
@@ -302,6 +321,16 @@ public class ProductRepository : IProductRepository
             .Include(x => x.ContentFiles)
             .Where(x => ids.Contains(x.Id))
             .ToListAsync();
+    }
+
+    public async Task<List<ContentFile>> GetContentFilesOfProduct(int productId)
+    {
+        var response = await _db.Products
+            .AsNoTracking()
+            .Include(x => x.ContentFiles)
+            .FirstOrDefaultAsync(x => x.Id == productId);
+        
+         return response.ContentFiles.ToList();
     }
 
     public async Task<int> GetProductsCount()

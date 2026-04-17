@@ -8,4 +8,6 @@ public interface IContentAccessRepository : IRepository<ContentAccess, Guid>
     Task<bool> HasAccessAsync(Guid userId, Guid contentFileId);
     Task<List<ContentAccess>> GetByUserIdAsync(Guid userId);
     Task<List<ContentAccess>> GetByOrderIdAsync(Guid orderId);
+    /// <summary>Все ContentAccess юзера с загруженными ContentFile → Product, StorageObject.</summary>
+    Task<List<ContentAccess>> GetUserFilesAsync(Guid userId);
 }

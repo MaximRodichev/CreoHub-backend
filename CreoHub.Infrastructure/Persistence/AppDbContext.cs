@@ -1,5 +1,6 @@
 using CreoHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace CreoHub.Infrastructure.Persistence;
 
@@ -10,11 +11,15 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<OrderItemFile> OrderItemFiles { get; set; }
     public DbSet<Price> Prices { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<ProductBundle> ProductBundles { get; set; }
     public DbSet<Shop> Shops { get; set; }
     public DbSet<Tag> Tags { get; set; }
+    public DbSet<Cart> Carts { get; set; }
+    public DbSet<CartItem> CartItems { get; set; }
+    public DbSet<CartItemFile> CartItemFiles { get; set; }
     
     //update s3 logic layer
     public DbSet<StorageObject> StorageObjects  {get; set;}
@@ -34,4 +39,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
+
+    // protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    // {
+    //     optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+    //     base.OnConfiguring(optionsBuilder);
+    // }
 }

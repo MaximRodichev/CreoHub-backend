@@ -63,4 +63,19 @@ public class ContentFileRepository : IContentFileRepository
             .Where(c => c.StorageObjectId == storageObjectId)
             .ToListAsync();
     }
+
+    public async Task<List<ContentFile>> GetByProductIdsAsync(IEnumerable<int> productIds)
+    {
+        return await _db.ContentFiles
+            .AsNoTracking()
+            .Where(cf => productIds.Contains(cf.ProductId))
+            .ToListAsync();
+    }
+
+    public async Task<ContentFile?> GetByIdWithStorageAsync(Guid id)
+    {
+        return await _db.ContentFiles
+            .Include(cf => cf.StorageObject)
+            .FirstOrDefaultAsync(cf => cf.Id == id);
+    }
 }

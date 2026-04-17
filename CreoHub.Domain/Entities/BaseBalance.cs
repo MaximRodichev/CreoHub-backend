@@ -69,4 +69,16 @@ public abstract class BaseBalance
         AvailableAmount += PendingAmount;
         PendingAmount = 0;
     }
+
+    /// <summary>
+    /// Списание при оплате с баланса (Path B checkout).
+    /// </summary>
+    public void Spend(decimal amount)
+    {
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be greater than zero.", nameof(amount));
+        if (amount > AvailableAmount)
+            throw new InvalidOperationException("Insufficient funds.");
+        AvailableAmount -= amount;
+    }
 }

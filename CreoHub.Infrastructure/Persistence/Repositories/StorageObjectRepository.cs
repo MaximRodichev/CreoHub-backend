@@ -52,21 +52,44 @@ public class StorageObjectRepository : IStorageObjectRepository
 
     public async Task<List<StorageObjectResponseDTO>> GetAllByShopId(Guid shopId)
     {
-        var query = _db.StorageObjects.AsNoTracking()
+        var rawData = await _db.StorageObjects
+            .AsNoTracking()
             .Where(x => x.OwnerId == shopId)
-            .Select(x => new StorageObjectResponseDTO
+            .Select(x => new 
             {
-                FileName = x.FileName,
-                FileSize = x.FileSize,
-                FileType = x.FileType,
-                Id = x.Id,
-                Key = x.Key,
-                MimeType = x.MimeType,
-                ProductId = x.MediaProduct != null ? x.MediaProduct.ProductId : null,
-                ProductName = x.MediaProduct != null ? x.MediaProduct.Product.Name : null,
-            });
+                Storage = x,
+                // Получаем данные из файлов
+                Files = x.ContentFiles.Select(cf => new LinkedProductInfo
+                { 
+                    ProductId = cf.ProductId.ToString(), 
+                    ProductName = cf.Product.Name 
+                }).ToList(),
         
+                // Получаем данные из MediaProduct
+                HasMedia = x.MediaProduct != null,
+                MediaId = x.MediaProduct != null ? x.MediaProduct.ProductId.ToString() : null,
+                MediaName = x.MediaProduct != null ? x.MediaProduct.Product.Name : null
+            })
+            .ToListAsync();
+
+        var response = rawData.Select(x => new StorageObjectResponseDTO
+        {
+            Id = x.Storage.Id,
+            Key = x.Storage.Key,
+            MimeType = x.Storage.MimeType,
+            FileSize = x.Storage.FileSize,
+            FileName = x.Storage.FileName,
+            FileType = x.Storage.FileType,
+    
+            LinkedProducts = x.Files
+                .Concat(x.HasMedia 
+                    ? new[] { new LinkedProductInfo { ProductId = x.MediaId, ProductName = x.MediaName } } 
+                    : Enumerable.Empty<LinkedProductInfo>())
+                .GroupBy(p => p.ProductId) // Убираем дубликаты по Id
+                .Select(g => g.First())
+                .ToList()
+        }).ToList();
         
-        return await query.ToListAsync();
+        return response;
     }
 }

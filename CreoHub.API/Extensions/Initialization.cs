@@ -62,9 +62,11 @@ public static class Initialization
         services.AddScoped<IShopTransactionRepository, ShopTransactionRepository>();
         services.AddScoped<IUserBalanceRepository, UserBalanceRepository>();
         services.AddScoped<IShopBalanceRepository, ShopBalanceRepository>();
+        services.AddScoped<ICartRepository, CartRepository>();
         
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
+        services.AddScoped<IThumbnailGenerationService, ThumbnailGenerationService>();
         
         
         services.AddScoped<JwtService>();

@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO.ShopDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
@@ -85,10 +86,11 @@ public class ShopRepository : IShopRepository
 
     public async Task<ShopStatsDTO> GetShopStatsAsync(Guid shopId, DateTime? from = null, DateTime? to = null)
     {
-        // 1. Базовый запрос с фильтрами для текущих стат (за период)
+        // 1. Базовый запрос — только COMPLETED заказы, связанные с этим магазином
         var periodOrdersQuery = _db.Orders
             .AsNoTracking()
-            .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId));
+            .Where(o => o.Status == OrderStatus.Completed &&
+                        o.Items.Any(oi => oi.Product.OwnerId == shopId));
 
         if (from.HasValue) periodOrdersQuery = periodOrdersQuery.Where(o => o.OrderDate >= from);
         if (to.HasValue) periodOrdersQuery = periodOrdersQuery.Where(o => o.OrderDate <= to);
@@ -106,18 +108,14 @@ public class ShopRepository : IShopRepository
 
         var revenueData = await _db.Orders
             .AsNoTracking()
-            // 1. Фильтрация (пропускаем, если нужен отчет по всей базе как в SQL)
-            .Where(o => o.Items.Any(oi => oi.Product.OwnerId == shopId)) 
-    
-            // 2. Группировка (Эквивалент date_trunc по смыслу)
+            .Where(o => o.Status == OrderStatus.Completed &&
+                        o.Items.Any(oi => oi.Product.OwnerId == shopId))
             .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
-    
-            // 3. Агрегация (SUM и COUNT)
-            .Select(g => new 
+            .Select(g => new
             {
-                Date = new DateTime(g.Key.Year, g.Key.Month, 1), // Тот самый "month" из SQL
-                TotalSum = g.Sum(o => o.Price),                 // SUM(o."Price")
-                TransactionsCount = g.Count()                   // COUNT(DISTINCT o."Id")
+                Date = new DateTime(g.Key.Year, g.Key.Month, 1),
+                TotalSum = g.Sum(o => o.Price),
+                TransactionsCount = g.Count()
             })
             .OrderBy(x => x.Date)
             .ToListAsync();

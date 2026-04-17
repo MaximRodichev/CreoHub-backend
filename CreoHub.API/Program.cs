@@ -1,8 +1,5 @@
 using CreoHub.API.DI;
 using CreoHub.API.Models;
-using CreoHub.AssetsGrabber;
-using CreoHub.AssetsGrabber.Extensitions;
-using CreoHub.AssetsGrabber.Grabbers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -47,7 +44,6 @@ builder.Services.AddAuthentication(options =>
     {
         options.ClientId = builder.Configuration.GetConnectionString("GoogleClientId");
         options.ClientSecret = builder.Configuration.GetConnectionString("GoogleClientSecret");
-        ;
         options.CallbackPath = "/signin-google"; // Должен совпадать с тем, что в Google Console
     });
 /*
@@ -69,7 +65,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAstro", policy =>
     {
-        policy.WithOrigins("http://localhost:4321") // Адрес вашего Astro
+        policy.WithOrigins(builder.Configuration["Frontend"]) // Адрес вашего Astro
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); // Обязательно для работы с авторизацией
@@ -79,21 +75,31 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.WebHost.ConfigureKestrel(options =>
+builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024;
+    options.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2GB
 });
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 1073741824; // 1GB
+    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024; // 2GB
 });
-
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 var app = builder.Build();
-
+/*
+app.Use((context, next) =>
+{
+    context.Request.Scheme = "https";
+    return next();
+});
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
+*/
 
 app.UseSerilogRequestLogging();
 /*
@@ -133,6 +139,8 @@ app.UseAuthorization();
 
 app.UseMiddleware<SerilogUserActivityMiddleware>();
 
+app.MapGet("/", () => Results.Ok("CreoHub API"));
+
 app.MapControllers();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -141,8 +149,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
     app.MapSwagger();
 }
-
-app.UseHttpsRedirection();
 
 var ffmpegPath = Path.Combine(Directory.GetCurrentDirectory(), "ffmpeg");
 if (!Directory.Exists(ffmpegPath))

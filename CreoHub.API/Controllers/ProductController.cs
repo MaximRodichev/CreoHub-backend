@@ -4,6 +4,7 @@ using CreoHub.Application.Commands.ProductCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Queries.Product;
+using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Repositories;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -62,6 +63,16 @@ public class ProductController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Главная страница: 6 новинок и 6 самых популярных продуктов.
+    /// </summary>
+    [HttpGet("best")]
+    public async Task<IActionResult> GetBestProducts()
+    {
+        var response = await _mediator.Send(new GetBestProductsQuery());
+        return Ok(response);
+    }
+
     [HttpGet("get-product-info")]
     public async Task<IActionResult> GetProductInfo([FromQuery] string name)
     {
@@ -87,8 +98,40 @@ public class ProductController : ControllerBase
     {
         var command = new UpdateProductCommand(ShopId, dto);
         var response = await _mediator.Send(command);
-        
+
         return Ok(response);
     }
-    
+
+    /// <summary>
+    /// Список файлов продукта с рассчитанной ценой для каждого (степенная кривая).
+    /// Используется на странице продукта для отображения чекбоксов.
+    /// </summary>
+    [HttpGet("{id}/content-files")]
+    public async Task<IActionResult> GetContentFiles([FromRoute] int id)
+    {
+        var response = await _mediator.Send(new GetProductContentFilesQuery(id));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Переключить статус продукта: Active ↔ Hidden.
+    /// </summary>
+    [Authorize]
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> ChangeStatus([FromRoute] int id, [FromBody] ChangeProductStatusDTO dto)
+    {
+        var response = await _mediator.Send(new ChangeProductStatusCommand(ShopId, id, dto.TargetStatus));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Soft delete: скрыть продукт (Hidden). Отменить — через PATCH status.
+    /// </summary>
+    [Authorize]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct([FromRoute] int id)
+    {
+        var response = await _mediator.Send(new DeleteProductCommand(ShopId, id));
+        return Ok(response);
+    }
 }

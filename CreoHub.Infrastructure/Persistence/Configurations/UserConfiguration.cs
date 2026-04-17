@@ -43,11 +43,10 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
 
         builder.HasOne(x => x.Balance)
             .WithOne()
-            .HasForeignKey<User>(x => x.BalanceId)
-            .IsRequired(false);
+            .HasForeignKey<User>(x => x.BalanceId);
+        
         builder.HasIndex(x => x.BalanceId)
-            .IsUnique()
-            .HasFilter("\"BalanceId\" IS NOT NULL");
+            .IsUnique();
 
         builder.HasMany(x => x.Transactions)
             .WithOne()

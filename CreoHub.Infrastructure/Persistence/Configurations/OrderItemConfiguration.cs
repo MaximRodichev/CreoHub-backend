@@ -23,5 +23,10 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
 
         builder.Property(x => x.PriceAtPurchase)
             .HasPrecision(18, 2);
+
+        builder.HasMany(x => x.Files)
+            .WithOne()
+            .HasForeignKey("OrderItemId")
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

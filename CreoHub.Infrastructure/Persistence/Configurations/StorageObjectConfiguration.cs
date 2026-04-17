@@ -32,6 +32,10 @@ public class StorageObjectConfiguration : IEntityTypeConfiguration<StorageObject
             .WithOne(x=>x.StorageObject)
             .HasForeignKey<MediaProduct>(x=>x.StorageObjectId);
         
+        builder.HasMany(x=>x.ContentFiles)
+            .WithOne(x=>x.StorageObject)
+            .HasForeignKey(x=>x.StorageObjectId);
+        
         builder.HasOne(x=>x.Owner).WithMany(x=>x.Files).HasForeignKey(f=>f.OwnerId).OnDelete(DeleteBehavior.Restrict);
     }
 }

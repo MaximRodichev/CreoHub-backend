@@ -74,4 +74,23 @@ public class OxaPayService : IPaymentGatewayService
 
         return new CreatePayoutResult(result!.Data.TrackId);
     }
+
+    public async Task<GetInvoiceResult> GetInvoiceAsync(string trackId)
+    {
+        var payload = new { trackId };
+
+        _httpClient.DefaultRequestHeaders.Clear();
+        _httpClient.DefaultRequestHeaders.Add("merchant_api_key", _merchantApiKey);
+
+        var response = await _httpClient.PostAsJsonAsync(
+            "https://api.oxapay.com/v1/payment/inquiry", payload);
+
+        var result = await response.Content.ReadFromJsonAsync<OxaPayInquiryResponse>();
+
+        return new GetInvoiceResult(
+            PaymentUrl: result!.Data.PaymentUrl,
+            Status:     result.Data.Status,
+            ExpiredAt:  DateTimeOffset.FromUnixTimeSeconds(result.Data.ExpiredAt).UtcDateTime
+        );
+    }
 }

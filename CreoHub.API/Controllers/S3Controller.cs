@@ -6,7 +6,6 @@ using CreoHub.Application.Commands.StorageCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Queries.Storage;
-using CreoHub.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +20,7 @@ public class S3Controller : ControllerBase
     {
         { "video",       50L  * 1024 * 1024 },   // 50MB
         { "image",       5L   * 1024 * 1024 },   // 5MB
-        { "application", 1024L * 1024 * 1024 },  // 1GB
+        { "application", 2L * 1024 * 1024 * 1024 },  // 2GB
     };
 
     public static long GetLimit(string mimeType)
@@ -47,15 +46,12 @@ public class S3Controller : ControllerBase
         var command = new OptimizeStorageObjectCommand(storageObjectId, ShopId);
         var response = await _mediator.Send(command);
     
-        if (response.Status == ResponseStatus.Error)
-            return BadRequest(new { error = response.ErrorMessage });
-    
         return Ok(response);
     }
 
     [Authorize]
-    [RequestSizeLimit(1024 * 1024 * 1024)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 1073741824)]
+    [RequestSizeLimit(2L * 1024 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024)]
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {   
@@ -127,6 +123,46 @@ public class S3Controller : ControllerBase
     {
         var command = new DetachContentFileCommand(ShopId, dto);
         var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Обновить порядок отображения медиа-превью продукта (SortOrder).
+    /// Body: { "productId": 5, "storageObjectId": "guid", "sortOrder": 2 }
+    /// </summary>
+    [Authorize]
+    [HttpPatch("media/sort-order")]
+    public async Task<IActionResult> UpdateMediaSortOrder([FromBody] UpdateMediaSortOrderDTO dto)
+    {
+        var response = await _mediator.Send(
+            new UpdateMediaSortOrderCommand(ShopId, dto.ProductId, dto.StorageObjectId, dto.SortOrder));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Редактировать ContentFile: имя и/или PriceWeight (1–10).
+    /// Body: { "previewName": "...", "priceWeight": 7 } — null = не менять.
+    /// </summary>
+    [Authorize]
+    [HttpPatch("content/{contentFileId}")]
+    public async Task<IActionResult> UpdateContentFile(
+        [FromRoute] Guid contentFileId,
+        [FromBody] UpdateContentFileDTO dto)
+    {
+        var response = await _mediator.Send(
+            new UpdateContentFileCommand(ShopId, contentFileId, dto));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Одноразовый admin-endpoint: генерирует thumbnail для всех видео шопа у которых его нет.
+    /// Возвращает { total, succeeded, failed, errors[] }. Блокирующий вызов.
+    /// </summary>
+    [Authorize]
+    [HttpPost("backfill-thumbnails")]
+    public async Task<IActionResult> BackfillThumbnails()
+    {
+        var response = await _mediator.Send(new BackfillThumbnailsCommand(ShopId));
         return Ok(response);
     }
 }
