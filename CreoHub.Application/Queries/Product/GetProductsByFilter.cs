@@ -29,7 +29,15 @@ public class GetProductsByFilterHandler : IRequestHandler<GetProductsByFilterQue
         try
         {
             (IReadOnlyList<ProductViewDTO> products, int count) = await _productRepository.GetProductsByFilters(request.filters);
-            
+
+            foreach (var p in products)
+            {
+                if (!string.IsNullOrEmpty(p.PreviewKey))
+                    p.PreviewKey = _storageService.GeneratePresignedUrl(p.PreviewKey, 60);
+                if (!string.IsNullOrEmpty(p.PreviewThumbnailKey))
+                    p.PreviewThumbnailKey = _storageService.GeneratePresignedUrl(p.PreviewThumbnailKey, 60);
+            }
+
             PageViewDTO page = new PageViewDTO()
             {
                 Products = products,

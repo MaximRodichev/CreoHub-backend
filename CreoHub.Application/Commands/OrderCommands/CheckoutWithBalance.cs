@@ -2,7 +2,10 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Services;
+using CreoHub.Domain.Types;
 using MediatR;
+using static CreoHub.Domain.Services.BundleCalculator;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
@@ -25,6 +28,7 @@ public class CheckoutWithBalanceHandler
     private readonly ICartRepository _cartRepository;
     private readonly IShopTransactionRepository _shopTransactionRepository;
     private readonly IShopBalanceRepository _shopBalanceRepository;
+    private readonly IAccountRepository _accountRepository;
 
     public CheckoutWithBalanceHandler(
         IUnitOfWork unitOfWork,
@@ -36,7 +40,8 @@ public class CheckoutWithBalanceHandler
         IContentAccessRepository accessRepository,
         ICartRepository cartRepository,
         IShopTransactionRepository shopTransactionRepository,
-        IShopBalanceRepository shopBalanceRepository)
+        IShopBalanceRepository shopBalanceRepository,
+        IAccountRepository accountRepository)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -48,6 +53,7 @@ public class CheckoutWithBalanceHandler
         _cartRepository = cartRepository;
         _shopTransactionRepository = shopTransactionRepository;
         _shopBalanceRepository = shopBalanceRepository;
+        _accountRepository = accountRepository;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -70,10 +76,50 @@ public class CheckoutWithBalanceHandler
 
             var productMap = products.ToDictionary(p => p.Id);
 
+            // ── Загружаем дочерние продукты для бандлов ──────────────
+            var bundleChildIds = products
+                .Where(p => p.ProductType == ProductType.Bundle)
+                .SelectMany(p => p.BundleItems.Select(b => b.ProductId))
+                .Distinct()
+                .Except(productMap.Keys)
+                .ToList();
+
+            if (bundleChildIds.Count > 0)
+            {
+                var childProducts = await _productRepository.GetProductsByIds(bundleChildIds);
+                foreach (var cp in childProducts)
+                    productMap.TryAdd(cp.Id, cp);
+            }
+
+            // ── Проверка коллизии: товар И бандл с этим товаром одновременно ──
+            // Например: Chicken Coin + ChickenDrisnya (содержит Chicken Coin).
+            // Это вызвало бы дублирующий ContentAccess и UNIQUE constraint violation.
+            var allBundleChildIdSet = products
+                .Where(p => p.ProductType == ProductType.Bundle)
+                .SelectMany(p => p.BundleItems.Select(b => b.ProductId))
+                .ToHashSet();
+
+            var conflictIds = productIds
+                .Where(id => productMap.TryGetValue(id, out var p)
+                             && p.ProductType != ProductType.Bundle
+                             && allBundleChildIdSet.Contains(id))
+                .ToList();
+
+            if (conflictIds.Any())
+            {
+                var names = string.Join(", ", conflictIds.Select(id => $"«{productMap[id].Name}»"));
+                return BaseResponse<CheckoutResultDTO>.Fail(
+                    $"Нельзя купить одновременно товар и набор, в который он входит: {names}. " +
+                    "Удалите отдельный товар из корзины — он уже включён в набор.");
+            }
+
             // ── Загружаем уже купленные файлы пользователя ───────────
             // Делается ДО любых изменений баланса или БД.
             var ownedAccesses = await _accessRepository.GetByUserIdAsync(request.UserId);
             var ownedFileIds  = ownedAccesses.Select(a => a.ContentFileId).ToHashSet();
+
+            // Словарь скорректированных цен бандлов с частичным владением
+            var bundleAdjustedPrices = new Dictionary<int, decimal>();
 
             // ── Формируем позиции заказа + проверка владения ─────────
             var orderItems = new List<(Product product, List<ContentFile> selectedFiles)>();
@@ -84,19 +130,71 @@ public class CheckoutWithBalanceHandler
 
                 if (item.FileIds.Count == 0)
                 {
-                    // Полная покупка — автоматически исключаем уже купленные файлы
-                    var allFiles     = product.ContentFiles.ToList();
-                    var nonOwned     = allFiles.Where(cf => !ownedFileIds.Contains(cf.Id)).ToList();
+                    if (product.ProductType == ProductType.Bundle)
+                    {
+                        // ── Бандл: загружаем файлы всех дочерних продуктов одним запросом ──
+                        var childProductIds = product.BundleItems.Select(b => b.ProductId).ToList();
+                        var allChildFiles   = await _contentFileRepository.GetByProductIdsAsync(childProductIds);
+                        var filesByChild    = allChildFiles.GroupBy(f => f.ProductId)
+                                                           .ToDictionary(g => g.Key, g => g.ToList());
 
-                    if (nonOwned.Count == 0)
-                        return BaseResponse<CheckoutResultDTO>.Fail(
-                            $"Все файлы продукта «{product.Name}» уже куплены вами.");
+                        // Если у бандла нет дочерних файлов — продаём по полной цене без проверок
+                        if (allChildFiles.Count > 0)
+                        {
+                            // Все ли файлы уже куплены?
+                            if (allChildFiles.All(f => ownedFileIds.Contains(f.Id)))
+                                return BaseResponse<CheckoutResultDTO>.Fail(
+                                    $"Вы уже приобрели все файлы из набора «{product.Name}».");
 
-                    // Если часть файлов уже куплена — покупаем только оставшиеся (частичная покупка)
-                    // Если ни одного нет — настоящая полная покупка (пустой список = GetCurrentPrice)
-                    selectedFiles = nonOwned.Count < allFiles.Count
-                        ? nonOwned
-                        : new List<ContentFile>();
+                            // Строим параметры для BundleCalculator: (basePrice, totalWeight, ownedWeight)
+                            // Цену каждого дочернего продукта берём из productMap (если уже загружен),
+                            // либо запрашиваем при необходимости.
+                            var childParams = new List<(decimal BasePrice, int TotalWeight, int OwnedWeight)>();
+                            foreach (var bundleItem in product.BundleItems)
+                            {
+                                if (!productMap.TryGetValue(bundleItem.ProductId, out var childProduct))
+                                    continue; // продукт не в запросе — пропускаем
+
+                                var childFileList  = filesByChild.GetValueOrDefault(bundleItem.ProductId, new List<ContentFile>());
+                                var totalWeight    = childFileList.Sum(f => f.PriceWeight);
+                                var ownedWeight    = childFileList.Where(f => ownedFileIds.Contains(f.Id))
+                                                                  .Sum(f => f.PriceWeight);
+                                childParams.Add((childProduct.GetCurrentPrice(), totalWeight, ownedWeight));
+                            }
+
+                            if (childParams.Count > 0)
+                            {
+                                var adj = BundleCalculator.Calculate(product.GetCurrentPrice(), childParams);
+
+                                if (adj.ExceedsThreshold)
+                                    return BaseResponse<CheckoutResultDTO>.Fail(
+                                        $"Вы уже купили более 50% стоимости набора «{product.Name}». " +
+                                        "Приобретайте оставшиеся товары по отдельности.");
+
+                                // Переопределяем цену бандла в заказе через расчётную
+                                bundleAdjustedPrices[item.ProductId] = adj.FinalPrice;
+                            }
+                        }
+
+                        selectedFiles = new List<ContentFile>();
+                    }
+                    else
+                    {
+                        // Полная покупка — автоматически исключаем уже купленные файлы
+                        var allFiles = product.ContentFiles.ToList();
+                        var nonOwned = allFiles.Where(cf => !ownedFileIds.Contains(cf.Id)).ToList();
+
+                        // Только если у продукта есть файлы и все уже куплены — блокируем
+                        if (allFiles.Count > 0 && nonOwned.Count == 0)
+                            return BaseResponse<CheckoutResultDTO>.Fail(
+                                $"Все файлы продукта «{product.Name}» уже куплены вами.");
+
+                        // Если часть файлов уже куплена — покупаем только оставшиеся
+                        // Если файлов нет или ни одного не куплено — полная покупка (пустой список)
+                        selectedFiles = (allFiles.Count > 0 && nonOwned.Count < allFiles.Count)
+                            ? nonOwned
+                            : new List<ContentFile>();
+                    }
                 }
                 else
                 {
@@ -118,36 +216,51 @@ public class CheckoutWithBalanceHandler
                 orderItems.Add((product, selectedFiles));
             }
 
-            var order = Order.Open(description: string.Empty, items: orderItems, customerId: request.UserId);
+            var order = Order.Open(
+                description:    string.Empty,
+                items:          orderItems,
+                customerId:     request.UserId,
+                priceOverrides: bundleAdjustedPrices.Count > 0 ? bundleAdjustedPrices : null);
+
+            // ── Рассчитываем и сохраняем снимок скидок ──────────────
+            var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);
+            var lifetimeDisc = user?.GetLifetimeDiscount() ?? 0m;
+            var cartDisc     = DiscountCalculator.GetCartVolumeDiscount(order.Subtotal);
+            order.ApplyDiscounts(lifetimeDisc, cartDisc);
+
+            var buyerPays = order.Price; // уже пересчитан после ApplyDiscounts
 
             // ── Проверяем и списываем баланс ─────────────────────────
-            if (balance.AvailableAmount < order.Price)
+            if (balance.AvailableAmount < buyerPays)
                 return BaseResponse<CheckoutResultDTO>.Fail(
-                    $"Insufficient balance. Required: {order.Price:F2}, available: {balance.AvailableAmount:F2}.");
+                    $"Insufficient balance. Required: {buyerPays:F2}, available: {balance.AvailableAmount:F2}.");
 
-            balance.Spend(order.Price);
+            balance.Spend(buyerPays);
             _balanceRepository.Update(balance);
 
-            // Сохраняем Order первым — чтобы его Id попал в БД до создания транзакции
+            // Order.Id — это GUID, генерируется на стороне клиента в конструкторе Order.
+            // Поэтому промежуточный SaveChanges не нужен: собираем всё в контексте,
+            // коммитим один раз в конце — атомарно.
             await _orderRepository.AddAsync(order);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // ── Транзакция + завершение заказа ──────────────────────
             var trackId     = $"balance-{Guid.NewGuid()}";
-            var transaction = UserTransaction.CreatePurchase(order.Price, request.UserId, trackId, order);
+            var transaction = UserTransaction.CreatePurchase(buyerPays, request.UserId, trackId, order);
             transaction.SuccessInternal();
 
             await _transactionRepository.AddAsync(transaction);
-            order.AttachTransaction(transaction);
+            // AttachTransaction НЕ вызываем: EF fix-up сам линкует order.Transaction
+            // при AddAsync(transaction) где transaction.Order = order.
+            // Явный вызов выбрасывал бы "Order already has a transaction".
             order.Complete();
 
             // ── Зачисляем выручку на баланс магазина (ShopBalance) ───
-            // Используем PriceAtPurchase из OrderItem — там уже корректная цена.
+            // Автор всегда получает от rawTotal (скидка поглощается платформой).
             // Группируем по shopId на случай будущего маркетплейса.
             var shopRevenue = order.Items
                 .GroupBy(item => productMap[item.ProductId].OwnerId)
                 .Select(g => new { ShopId = g.Key, Amount = g.Sum(i => i.PriceAtPurchase) })
-                .ToList();
+                .ToList();  // PriceAtPurchase записан из rawTotal через Order.Open()
 
             foreach (var revenue in shopRevenue)
             {
@@ -174,24 +287,65 @@ public class CheckoutWithBalanceHandler
             }
 
             // ── Выдаём ContentAccess ─────────────────────────────────
+            // grantedFileIds: дедупликация внутри одного чекаута.
+            // Защищает от UNIQUE constraint если один и тот же файл попадает
+            // сразу через обычный товар и через бандл (например, при валидационном пропуске).
+            var grantedFileIds = new HashSet<Guid>(ownedFileIds); // уже купленные тоже исключаем
+
             foreach (var item in order.Items)
             {
                 if (item.Files.Any())
                 {
+                    // Частичная покупка — только выбранные файлы
                     foreach (var file in item.Files)
-                        await _accessRepository.AddAsync(
-                            new ContentAccess(order.CustomerId, file.ContentFileId, order.Id));
+                    {
+                        if (grantedFileIds.Add(file.ContentFileId)) // Add возвращает false если уже есть
+                            await _accessRepository.AddAsync(
+                                new ContentAccess(order.CustomerId, file.ContentFileId, order.Id));
+                    }
                 }
                 else
                 {
-                    var allFiles = await _contentFileRepository.GetByProductIdAsync(item.ProductId);
-                    foreach (var file in allFiles)
-                        await _accessRepository.AddAsync(
-                            new ContentAccess(order.CustomerId, file.Id, order.Id));
+                    var product = productMap[item.ProductId];
+
+                    if (product.ProductType == ProductType.Bundle)
+                    {
+                        // Бандл — выдаём доступ ко всем файлам каждого дочернего продукта
+                        foreach (var bundleItem in product.BundleItems)
+                        {
+                            var childFiles = await _contentFileRepository.GetByProductIdAsync(bundleItem.ProductId);
+                            foreach (var file in childFiles)
+                            {
+                                if (grantedFileIds.Add(file.Id))
+                                    await _accessRepository.AddAsync(
+                                        new ContentAccess(order.CustomerId, file.Id, order.Id));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Обычный продукт — полная покупка всех файлов
+                        var allFiles = await _contentFileRepository.GetByProductIdAsync(item.ProductId);
+                        foreach (var file in allFiles)
+                        {
+                            if (grantedFileIds.Add(file.Id))
+                                await _accessRepository.AddAsync(
+                                    new ContentAccess(order.CustomerId, file.Id, order.Id));
+                        }
+                    }
                 }
             }
 
+            // Единый атомарный коммит: баланс + ордер + транзакции + доступы
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // ── Обновляем LifetimeSpent пользователя (F1) ───────────
+            if (user != null)
+            {
+                user.AddSpend(order.Subtotal); // списываем от полной суммы, не от buyerPays
+                _accountRepository.Update(user);
+                try { await _unitOfWork.SaveChangesAsync(cancellationToken); } catch { /* не критично */ }
+            }
 
             // ── Удаляем купленные товары из корзины ─────────────────
             // Делается после commit — если не удалится из корзины, это не критично

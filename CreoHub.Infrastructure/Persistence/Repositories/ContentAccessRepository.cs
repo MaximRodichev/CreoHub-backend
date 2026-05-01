@@ -77,6 +77,7 @@ public class ContentAccessRepository : IContentAccessRepository
             .Include(ca => ca.ContentFile)
                 .ThenInclude(cf => cf.Product)
                     .ThenInclude(p => p.MediaProducts)
+                        .ThenInclude(m => m.StorageObject)
             .OrderBy(ca => ca.ContentFile.ProductId)
             .ThenBy(ca => ca.GrantedAt)
             .ToListAsync();

@@ -2,6 +2,7 @@ using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
@@ -54,32 +55,58 @@ public class OrderRepository : IOrderRepository
     {
         var query = await _db.Orders
             .AsNoTracking()
-            .Include(x=> x.Transaction)
-            .Include(x=> x.Items)
-                .ThenInclude(x=> x.Product)
             .Where(o => o.CustomerId == userId)
             .Select(x => new OrderUserInfoDTO()
             {
                 OrderId = x.Id,
                 OrderDate = x.OrderDate,
-                Items = x.Items.Select(y=> new OrderItemDTO()
+                Status = x.Status,
+                Subtotal = x.Subtotal,
+                TotalPrice = x.Price,
+                PersonalDiscountPercent = x.PersonalDiscountPercent,
+                CartDiscountPercent = x.CartDiscountPercent,
+                DiscountPercent = x.DiscountPercent,
+                DiscountAmount = x.DiscountAmount,
+                PaidAt = x.Transaction != null ? x.Transaction.PaidAt : null,
+                TxHash = x.Transaction != null ? x.Transaction.TxHash : null,
+                TransactionStatus = x.Transaction != null ? x.Transaction.TransactionStatus : null,
+                TransactionId = x.Transaction != null ? x.Transaction.Id : null,
+                Items = x.Items.Select(y => new OrderItemDTO()
                 {
                     PriceAtPurchase = y.PriceAtPurchase,
                     ProductId = y.ProductId,
-                    ProductName = y.Product.Name
+                    ProductName = y.Product.Name,
+                    IsBundle = y.Product.ProductType == ProductType.Bundle,
+                    // Для одиночных продуктов — прямые файлы
+                    Files = _db.ContentAccesses
+                        .Where(ca => ca.OrderId == x.Id && ca.ContentFile.ProductId == y.ProductId)
+                        .Select(ca => new PurchasedFileDTO
+                        {
+                            ContentFileId = ca.ContentFileId,
+                            FileName = ca.ContentFile.PreviewName
+                        })
+                        .ToList(),
+                    // Для бандлов — дочерние продукты с файлами
+                    BundleItems = y.Product.BundleItems.Select(bi => new BundleOrderItemDTO
+                    {
+                        ProductId = bi.ProductId,
+                        ProductName = bi.Product.Name,
+                        Files = _db.ContentAccesses
+                            .Where(ca => ca.OrderId == x.Id && ca.ContentFile.ProductId == bi.ProductId)
+                            .Select(ca => new PurchasedFileDTO
+                            {
+                                ContentFileId = ca.ContentFileId,
+                                FileName = ca.ContentFile.PreviewName
+                            })
+                            .ToList()
+                    }).ToList()
                 }).ToList(),
-                PaidAt = x.Transaction.PaidAt,
-                Status = x.Status,
-                TotalPrice = x.Price,
-                TxHash = x.Transaction.TxHash,
-                TransactionStatus = x.Transaction.TransactionStatus,
-                TransactionId = x.Transaction.Id,
             })
-            .OrderByDescending(x=>x.OrderDate)
+            .OrderByDescending(x => x.OrderDate)
             .Skip(page * limit)
             .Take(limit)
             .ToListAsync();
-        
+
         return query;
     }
 
@@ -158,10 +185,12 @@ public class OrderRepository : IOrderRepository
 
     public async Task<Order?> GetByTransactionIdWithItemsAsync(Guid transactionId)
     {
+        // Мы ищем заказ, у которого в связанной транзакции совпадает Id.
+        // EF Core сам сделает правильный JOIN под капотом.
         return await _db.Orders
-            .Include(o => o.Transaction)
             .Include(o => o.Items)
-                .ThenInclude(i => i.Files)
-            .FirstOrDefaultAsync(o => o.TransactionId == transactionId);
+            .ThenInclude(i => i.Files)
+            .Include(o => o.Transaction) 
+            .FirstOrDefaultAsync(o => o.Transaction.Id == transactionId);
     }
 }

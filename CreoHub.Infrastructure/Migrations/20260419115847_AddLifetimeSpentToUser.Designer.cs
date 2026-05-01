@@ -3,6 +3,7 @@ using System;
 using CreoHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CreoHub.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260419115847_AddLifetimeSpentToUser")]
+    partial class AddLifetimeSpentToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -177,10 +180,6 @@ namespace CreoHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("CartDiscountPercent")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("numeric(5,4)");
-
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
@@ -189,20 +188,8 @@ namespace CreoHub.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<decimal>("DiscountAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("DiscountPercent")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("numeric(5,4)");
-
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("PersonalDiscountPercent")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("numeric(5,4)");
 
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
@@ -212,13 +199,16 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal>("Subtotal")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                    b.Property<Guid?>("TransactionId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("TransactionId")
+                        .IsUnique()
+                        .HasFilter("\"TransactionId\" IS NOT NULL");
 
                     b.ToTable("Orders");
                 });
@@ -639,11 +629,23 @@ namespace CreoHub.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<decimal>("NetAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<Guid?>("OrderId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("PlatformFeeAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("PlatformFeePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<string>("SenderAddress")
                         .HasColumnType("text");
@@ -668,8 +670,7 @@ namespace CreoHub.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId")
-                        .IsUnique();
+                    b.HasIndex("OrderId");
 
                     b.HasIndex("TrackId");
 
@@ -822,7 +823,13 @@ namespace CreoHub.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CreoHub.Domain.Entities.UserTransaction", "Transaction")
+                        .WithOne()
+                        .HasForeignKey("CreoHub.Domain.Entities.Order", "TransactionId");
+
                     b.Navigation("Customer");
+
+                    b.Navigation("Transaction");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.OrderItem", b =>
@@ -958,8 +965,8 @@ namespace CreoHub.Infrastructure.Migrations
             modelBuilder.Entity("CreoHub.Domain.Entities.UserTransaction", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.Order", "Order")
-                        .WithOne("Transaction")
-                        .HasForeignKey("CreoHub.Domain.Entities.UserTransaction", "OrderId");
+                        .WithMany()
+                        .HasForeignKey("OrderId");
 
                     b.HasOne("CreoHub.Domain.Entities.User", null)
                         .WithMany("Transactions")
@@ -998,8 +1005,6 @@ namespace CreoHub.Infrastructure.Migrations
             modelBuilder.Entity("CreoHub.Domain.Entities.Order", b =>
                 {
                     b.Navigation("Items");
-
-                    b.Navigation("Transaction");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.OrderItem", b =>

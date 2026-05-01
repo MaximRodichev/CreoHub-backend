@@ -22,20 +22,6 @@ public class UserTransactionConfiguration : IEntityTypeConfiguration<UserTransac
             .UsePropertyAccessMode(PropertyAccessMode.Field)
             .IsRequired();
 
-        builder.Property(x => x.PlatformFeeAmount)
-            .HasPrecision(18, 2)
-            .IsRequired();
-
-        builder.Property(x => x.NetAmount)
-            .HasPrecision(18, 2)
-            .IsRequired();
-
-        builder.Property(x => x.PlatformFeePercent)
-            .HasPrecision(5, 2)
-            .HasField("_platformFeePercent")
-            .UsePropertyAccessMode(PropertyAccessMode.Field)
-            .IsRequired();
-
         builder.Property(x => x.TransactionType)
             .HasConversion<string>();
 

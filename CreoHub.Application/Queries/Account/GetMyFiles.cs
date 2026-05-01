@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.AccountDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using MediatR;
 
 namespace CreoHub.Application.Queries.Account;
@@ -11,10 +12,12 @@ public class GetMyFilesHandler
     : IRequestHandler<GetMyFilesQuery, BaseResponse<List<MyFilesProductGroupDTO>>>
 {
     private readonly IContentAccessRepository _contentAccessRepository;
+    private readonly IStorageService _storageService;
 
-    public GetMyFilesHandler(IContentAccessRepository contentAccessRepository)
+    public GetMyFilesHandler(IContentAccessRepository contentAccessRepository, IStorageService storageService)
     {
         _contentAccessRepository = contentAccessRepository;
+        _storageService = storageService;
     }
 
     public async Task<BaseResponse<List<MyFilesProductGroupDTO>>> Handle(
@@ -30,10 +33,13 @@ public class GetMyFilesHandler
                 {
                     var product = g.First().ContentFile.Product;
 
-                    // Первый медиа-продукт → ключ превью для карточки
-                    var previewKey = product.MediaProducts
+                    // Первый медиа-продукт → signed URL превью для карточки
+                    var rawPreviewKey = product.MediaProducts
                         .OrderBy(m => m.SortOrder)
-                        .FirstOrDefault()?.StorageObjectId.ToString();
+                        .FirstOrDefault()?.StorageObject?.Key;
+                    var previewKey = rawPreviewKey != null
+                        ? _storageService.GeneratePresignedUrl(rawPreviewKey, 60)
+                        : null;
 
                     return new MyFilesProductGroupDTO
                     {

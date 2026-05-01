@@ -25,6 +25,14 @@ public class  GetProductsExtendViewsHandler : IRequestHandler<GetProductsExtendV
         {
             var response = await _productRepository.GetProductsExtendedInfo(request.shopId);
 
+            foreach (var p in response)
+            {
+                if (!string.IsNullOrEmpty(p.PreviewKey))
+                    p.PreviewKey = _storageService.GeneratePresignedUrl(p.PreviewKey, 60);
+                if (!string.IsNullOrEmpty(p.PreviewThumbnailKey))
+                    p.PreviewThumbnailKey = _storageService.GeneratePresignedUrl(p.PreviewThumbnailKey, 60);
+            }
+
             return BaseResponse<List<ProductViewExtendedDTO>>.Success(response);
         }
         catch(Exception ex)

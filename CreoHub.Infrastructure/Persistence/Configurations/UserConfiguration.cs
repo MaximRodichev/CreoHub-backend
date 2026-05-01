@@ -37,6 +37,8 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
         builder.Property(x => x.Role)
             .HasConversion<string>();
 
+        builder.HasOne(x => x.Cart).WithOne(x => x.User).HasForeignKey<Cart>(x => x.UserId);
+
         builder.HasOne(x => x.Shop).WithOne(x => x.Owner).HasForeignKey<User>(x => x.ShopId);
         builder.HasMany(x => x.Orders).WithOne(x => x.Customer).HasForeignKey(x => x.CustomerId);
         builder.HasMany(x=>x.ContentAccesses).WithOne(x => x.User).HasForeignKey(x=>x.UserId);

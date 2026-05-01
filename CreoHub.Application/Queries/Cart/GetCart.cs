@@ -2,6 +2,8 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.CartDTOs;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
+using CreoHub.Domain.Types;
 using MediatR;
 
 namespace CreoHub.Application.Queries.Cart;
@@ -14,17 +16,20 @@ public class GetCartHandler : IRequestHandler<GetCartQuery, BaseResponse<List<Ca
     private readonly IMediaProductRepository _mediaProductRepository;
     private readonly IContentFileRepository _contentFileRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IStorageService _storageService;
 
     public GetCartHandler(
         ICartRepository cartRepository,
         IMediaProductRepository mediaProductRepository,
         IContentFileRepository contentFileRepository,
-        IProductRepository productRepository)
+        IProductRepository productRepository,
+        IStorageService storageService)
     {
         _cartRepository = cartRepository;
         _mediaProductRepository = mediaProductRepository;
         _contentFileRepository = contentFileRepository;
         _productRepository = productRepository;
+        _storageService = storageService;
     }
 
     public async Task<BaseResponse<List<CartItemDTO>>> Handle(GetCartQuery request, CancellationToken cancellationToken)
@@ -50,6 +55,8 @@ public class GetCartHandler : IRequestHandler<GetCartQuery, BaseResponse<List<Ca
                     .Select(p => p.Value)
                     .FirstOrDefault() ?? 0m;
 
+                var isBundle = product?.ProductType == ProductType.Bundle;
+
                 return new CartItemDTO
                 {
                     CartItemId          = item.Id,
@@ -67,8 +74,29 @@ public class GetCartHandler : IRequestHandler<GetCartQuery, BaseResponse<List<Ca
                     SelectedContentItems = item.SelectedFiles.Select(f => f.ContentFileId).ToList(),
                     PreviewKey           = keys.Key,
                     PreviewThumbnailKey  = keys.ThumbnailKey,
+                    ProductType          = product?.ProductType.ToString() ?? "Single",
+                    BundleProducts       = isBundle
+                        ? item.Product?.BundleItems
+                            .Select(bi => new BundleProductInfo
+                            {
+                                Id    = bi.ProductId,
+                                Name  = bi.Product?.Name ?? $"Продукт #{bi.ProductId}",
+                                Price = bi.Product?.Prices
+                                    .OrderByDescending(p => p.Date)
+                                    .Select(p => p.Value)
+                                    .FirstOrDefault() ?? 0m
+                            }).ToList()
+                        : null,
                 };
             }).ToList();
+
+            foreach (var item in response)
+            {
+                if (!string.IsNullOrEmpty(item.PreviewKey))
+                    item.PreviewKey = _storageService.GeneratePresignedUrl(item.PreviewKey, 60);
+                if (!string.IsNullOrEmpty(item.PreviewThumbnailKey))
+                    item.PreviewThumbnailKey = _storageService.GeneratePresignedUrl(item.PreviewThumbnailKey, 60);
+            }
 
             return BaseResponse<List<CartItemDTO>>.Success(response);
         }

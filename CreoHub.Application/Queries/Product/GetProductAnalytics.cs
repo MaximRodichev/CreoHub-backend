@@ -29,7 +29,14 @@ public class GetProductAnalyticsHandler : IRequestHandler<GetProductAnalyticsQue
             {
                 throw new Exception("Shop id does not match shop id " + request.shopId);
             }
-            
+
+            foreach (var m in response.MediaViews)
+            {
+                m.Key = _storageService.GeneratePresignedUrl(m.Key, 60);
+                if (!string.IsNullOrEmpty(m.ThumbnailKey))
+                    m.ThumbnailKey = _storageService.GeneratePresignedUrl(m.ThumbnailKey, 60);
+            }
+
             return  BaseResponse<ProductAnalyticsDTO>.Success(response);
         }
         catch(Exception ex)

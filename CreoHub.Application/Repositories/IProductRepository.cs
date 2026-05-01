@@ -21,4 +21,6 @@ public interface IProductRepository : IRepository<Product, int>
     public Task<List<ContentFile>> GetContentFilesOfProduct(int productId);
     public Task<int> GetProductsCount();
     public Task<List<ProductStatsDTO>> GetProductsStatsByShopIdAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null);
+    /// <summary>Возвращает бандлы, которые содержат хотя бы один из указанных дочерних продуктов.</summary>
+    public Task<List<Product>> GetBundlesByChildProductIdsAsync(IEnumerable<int> childProductIds);
 }

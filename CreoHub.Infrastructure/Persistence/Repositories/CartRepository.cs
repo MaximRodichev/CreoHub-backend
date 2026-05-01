@@ -55,10 +55,13 @@ public class CartRepository : ICartRepository
             .Carts
             .AsNoTracking()
             .Include(x => x.Items)
-            .ThenInclude(x => x.Product)
+                .ThenInclude(x => x.Product)
+                    .ThenInclude(p => p.BundleItems)
+                        .ThenInclude(bi => bi.Product)
+                            .ThenInclude(p => p.Prices)
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.UserId == userId);
-        
+
         return response;
     }
 

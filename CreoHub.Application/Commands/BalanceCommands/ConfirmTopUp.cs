@@ -42,12 +42,12 @@ public class ConfirmTopUpHandler : IRequestHandler<ConfirmTopUpCommand, BaseResp
             if (balance is null)
             {
                 var newBalance = new Domain.Entities.UserBalance(transaction.UserId);
-                newBalance.AddFunds(transaction.NetAmount);
+                newBalance.AddFunds(transaction.FullAmount);
                 await _balanceRepository.AddAsync(newBalance);
             }
             else
             {
-                balance.AddFunds(transaction.NetAmount);
+                balance.AddFunds(transaction.FullAmount);
                 _balanceRepository.Update(balance);
             }
 

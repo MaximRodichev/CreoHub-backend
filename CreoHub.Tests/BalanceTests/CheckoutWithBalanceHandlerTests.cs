@@ -6,6 +6,7 @@ using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using NSubstitute;
+
 using NSubstitute.ReturnsExtensions;
 using Xunit.Abstractions;
 
@@ -43,7 +44,11 @@ public class CheckoutWithBalanceHandlerTests
 
     private CheckoutWithBalanceHandler MakeHandler() =>
         new(_unitOfWork, _orderRepo, _productRepo, _transactionRepo,
-            _balanceRepo, _contentFileRepo, _accessRepo);
+            _balanceRepo, _contentFileRepo, _accessRepo,
+            Substitute.For<ICartRepository>(),
+            Substitute.For<IShopTransactionRepository>(),
+            Substitute.For<IShopBalanceRepository>(),
+            Substitute.For<IAccountRepository>());
 
     /// <summary>Создаёт Product с ценой (через рефлексию не нужно — используем публичный API).</summary>
     private static Product MakeProductWithPrice(decimal price)
@@ -65,6 +70,8 @@ public class CheckoutWithBalanceHandlerTests
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
+        _accessRepo.GetByUserIdAsync(UserId).Returns(new List<ContentAccess>());
+        // accountRepo returns null → no lifetime discount; cart $50 → 3% discount → buyerPays = 48.50
 
         var items = new List<CheckoutItemDTO>
         {
@@ -78,8 +85,11 @@ public class CheckoutWithBalanceHandlerTests
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.NotEqual(Guid.Empty, result.Data!.OrderId);
         Assert.Equal(string.Empty, result.Data.PaymentUrl);
-        Assert.Equal(50m, balance.AvailableAmount); // 100 - 50
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        // cart 3% discount: buyerPays = 50 * 0.97 = 48.50 → balance = 100 - 48.50 = 51.50
+        Assert.Equal(51.50m, balance.AvailableAmount);
+        // SaveChanges вызывается 2 раза: единый атомарный коммит (Order+баланс+доступы)
+        // + коммит очистки корзины (try/catch). LifetimeSpent пропускается т.к. user == null.
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     // ── Недостаточный баланс ──────────────────────────────────────────────────
@@ -93,6 +103,7 @@ public class CheckoutWithBalanceHandlerTests
 
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
+        _accessRepo.GetByUserIdAsync(UserId).Returns(new List<ContentAccess>());
 
         var items = new List<CheckoutItemDTO>
         {

@@ -56,22 +56,28 @@ public class AccountRepository : IAccountRepository
         throw new NotImplementedException();
     }
 
-    public Task<UserProfileDTO> GetUserProfileByUserId(Guid userId)
+    public async Task<UserProfileDTO> GetUserProfileByUserId(Guid userId)
     {
-        return _db.Users
-            .Include(x=>x.Shop)
-            .Select(a => new UserProfileDTO
+        var user = await _db.Users
+            .Include(x => x.Shop)
+            .FirstOrDefaultAsync(x => x.Id == userId);
+
+        if (user == null) return null;
+
+        return new UserProfileDTO
         {
-            Name =  a.Name,
-            Email = a.EmailAddress,
-            Id = a.Id,
-            shopId = a.Shop.Id,
-            shopName = a.Shop.Name,
-            TelegramId = a.TelegramId,
-            TelegramUsername = a.TelegramUsername,
-            RegistrationDate =  a.RegistrationDate,
-            Role=a.Role.ToString()
-        }).FirstOrDefaultAsync(x => x.Id == userId);
+            Id                      = user.Id,
+            Name                    = user.Name,
+            Email                   = user.EmailAddress,
+            shopId                  = user.Shop?.Id,
+            shopName                = user.Shop?.Name,
+            TelegramId              = user.TelegramId,
+            TelegramUsername        = user.TelegramUsername,
+            RegistrationDate        = user.RegistrationDate,
+            Role                    = user.Role.ToString(),
+            LifetimeSpent           = user.LifetimeSpent,
+            LifetimeDiscountPercent = user.GetLifetimeDiscount() * 100m,
+        };
     }
 
     public async Task<User?> FindUserByCredentials(string? email = null, long? telegramId = null)
@@ -114,6 +120,6 @@ public class AccountRepository : IAccountRepository
 
     public Task<User?> GetFullInfoByIdAsync(Guid userId)
     {
-        throw new NotImplementedException();
+        return _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
     }
 }

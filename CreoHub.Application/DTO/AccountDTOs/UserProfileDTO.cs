@@ -13,4 +13,6 @@ public class UserProfileDTO
     public string shopName  { get; set; }
     public Guid? shopId { get; set; }
     public string Role { get; set; }
+    public decimal LifetimeSpent { get; set; }
+    public decimal LifetimeDiscountPercent { get; set; }
 }

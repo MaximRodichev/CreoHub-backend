@@ -4,7 +4,24 @@ namespace CreoHub.Domain.Entities;
 
 public class ShopTransaction : BaseTransaction
 {
+    private const decimal WithdrawalFeePercent = 0m;
+    private decimal _platformFeePercent;
+
     public Guid ShopId { get; private init; }
+
+    public decimal PlatformFeePercent
+    {
+        get => _platformFeePercent;
+        private init
+        {
+            if (value < 0 || value > 25)
+                throw new ArgumentException("Platform fee percent must be between 0 and 25.");
+            _platformFeePercent = value;
+        }
+    }
+
+    public decimal PlatformFeeAmount { get; private init; }
+    public decimal NetAmount { get; private init; }
 
     private ShopTransaction() {}
 

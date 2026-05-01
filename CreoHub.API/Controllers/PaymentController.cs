@@ -52,7 +52,7 @@ public class PaymentController : ControllerBase
     [HttpPost("calculate")]
     public async Task<IActionResult> Calculate([FromBody] List<CheckoutItemDTO> items)
     {
-        var response = await _mediator.Send(new CalculateOrderPriceQuery(items));
+        var response = await _mediator.Send(new CalculateOrderPriceQuery(items, UserId));
         return Ok(response);
     }
 

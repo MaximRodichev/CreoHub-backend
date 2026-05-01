@@ -57,6 +57,13 @@ public class ProductController : ControllerBase
     [HttpGet("get-products")]
     public async Task<IActionResult> GetProducts([FromQuery] FiltersDto filters)
     {
+        // Если запрос авторизован — передаём userId в фильтр,
+        // чтобы репозиторий мог отсортировать купленное в конец.
+        // [Authorize] не нужен: каталог публичный, userId просто опционален.
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdClaim, out var uid) && uid != Guid.Empty)
+            filters = filters with { UserId = uid };
+
         var command = new GetProductsByFilterQuery(filters);
         var response = await _mediator.Send(command);
 
@@ -132,6 +139,18 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> DeleteProduct([FromRoute] int id)
     {
         var response = await _mediator.Send(new DeleteProductCommand(ShopId, id));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Возвращает списки product ID, которые пользователь купил полностью или частично.
+    /// Используется каталогом и карточками товара для отображения значков «Куплено».
+    /// </summary>
+    [Authorize]
+    [HttpGet("ownership")]
+    public async Task<IActionResult> GetOwnership()
+    {
+        var response = await _mediator.Send(new GetProductOwnershipQuery(UserId));
         return Ok(response);
     }
 }

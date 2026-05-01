@@ -74,6 +74,7 @@ public static class Initialization
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         
         services.AddHostedService<VideoOptimizationBackgroundService>();
+        services.AddHostedService<ExpiredTransactionCleanupService>();
         
         // MediatR
         services.AddMediatR(cfg =>

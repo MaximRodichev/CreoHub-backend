@@ -19,9 +19,6 @@ public class UserTransaction : BaseTransaction
         {
             UserId = userId,
             FullAmount = amount,
-            PlatformFeePercent = 0,
-            PlatformFeeAmount = 0,
-            NetAmount = amount,
             TransactionType = TransactionType.UpBalance,
             TrackId = trackId,
         };
@@ -40,9 +37,6 @@ public class UserTransaction : BaseTransaction
         {
             UserId = userId,
             FullAmount = amount,
-            PlatformFeePercent = 0,
-            PlatformFeeAmount = 0,
-            NetAmount = amount,
             TransactionType = TransactionType.Purchase,
             TrackId = trackId,
             Order = order,
@@ -60,9 +54,6 @@ public class UserTransaction : BaseTransaction
         {
             UserId = userId,
             FullAmount = amount,
-            PlatformFeePercent = WithdrawalFeePercent,
-            PlatformFeeAmount = amount * (WithdrawalFeePercent / 100m),
-            NetAmount = amount - (amount * (WithdrawalFeePercent / 100m)),
             TransactionType = TransactionType.Withdrawal,
             TrackId = trackId,
         };

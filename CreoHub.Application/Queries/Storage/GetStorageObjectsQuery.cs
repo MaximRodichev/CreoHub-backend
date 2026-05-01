@@ -25,6 +25,12 @@ public class GetStorageObjectHandler : IRequestHandler<GetStorageObjectsQuery, B
         {
             var response = await _storageObjectRepository.GetAllByShopId(request.shopId);
 
+            foreach (var obj in response)
+            {
+                if (!string.IsNullOrEmpty(obj.Key))
+                    obj.Key = _storageService.GeneratePresignedUrl(obj.Key, 60);
+            }
+
             return BaseResponse<List<StorageObjectResponseDTO>>.Success(response);
         }
         catch (Exception ex)

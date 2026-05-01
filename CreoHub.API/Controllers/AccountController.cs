@@ -158,4 +158,17 @@ public class AccountController : ControllerBase
         var response = await _mediator.Send(new GetDownloadLinkQuery(UserId, contentFileId));
         return Ok(response);
     }
+
+    /// <summary>
+    /// История транзакций текущего пользователя (пополнения, покупки, выводы).
+    /// </summary>
+    [Authorize]
+    [HttpGet("transactions")]
+    public async Task<IActionResult> GetTransactions(
+        [FromQuery] int page = 0,
+        [FromQuery] int pageSize = 50)
+    {
+        var response = await _mediator.Send(new GetUserTransactionsQuery(UserId, page, pageSize));
+        return Ok(response);
+    }
 }

@@ -24,6 +24,14 @@ public class GetProductInfoByNameHandler : IRequestHandler<GetProductInfoByNameQ
         try
         {
             ProductInfoDTO productInfoDto = await _productRepository.GetProductByName(request.name);
+
+            foreach (var m in productInfoDto.MediaViews)
+            {
+                m.Key = _storageService.GeneratePresignedUrl(m.Key, 60);
+                if (!string.IsNullOrEmpty(m.ThumbnailKey))
+                    m.ThumbnailKey = _storageService.GeneratePresignedUrl(m.ThumbnailKey, 60);
+            }
+
             return BaseResponse<ProductInfoDTO>.Success(productInfoDto);
         }
         catch (Exception ex)

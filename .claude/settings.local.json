@@ -3,7 +3,32 @@
     "allow": [
       "Bash(del \"C:\\\\Users\\\\Maxim-Design\\\\.claude\\\\projects\\\\H--Works-Development-creohub-CreoHub-backend\\\\memory\\\\project_deadline.md\")",
       "Bash(Remove-Item \"C:\\\\Users\\\\Maxim-Design\\\\.claude\\\\projects\\\\H--Works-Development-creohub-CreoHub-backend\\\\memory\\\\project_deadline.md\" -ErrorAction SilentlyContinue)",
-      "Bash(Write-Host \"done\")"
+      "Bash(Write-Host \"done\")",
+      "WebSearch",
+      "Bash(xargs grep:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dir \"H:\\\\\\\\Works\\\\\\\\Development\\\\\\\\creohub\\\\\\\\creohub-frontend\\\\\\\\src\\\\\\\\pages\" /b /s)",
+      "Read(//h/Works/Development/creohub/creohub-frontend/src/pages/me/**)",
+      "Read(//h/Works/Development/creohub/creohub-frontend/src/**)",
+      "Read(//h/Works/Development/creohub/creohub-frontend/**)",
+      "Read(//h/Works/Development/creohub/CreoHub-backend/**)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/astro check:*)",
+      "Bash(node_modules/.bin/tsc --noEmit --project tsconfig.json)",
+      "Bash(find H:/Works/Development/creohub/CreoHub-backend -name \"UnitOfWork.cs\" -exec cat {} \\\\;)",
+      "Bash(Select-String -Pattern \"Test Run|Passed!|Failed|passed|failed\")",
+      "Bash(python3 -c ' *)",
+      "Bash(sed -n '1,10p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\favourites.astro\")",
+      "Bash(sed -n '203,213p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\favourites.astro\")",
+      "Bash(sed -n '55,75p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\components\\\\store\\\\StoreFilters.tsx\")",
+      "Bash(sed -n '340,350p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\components\\\\store\\\\StoreFilters.tsx\")",
+      "Bash(sed -n '570,580p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\components\\\\store\\\\StoreFilters.tsx\")",
+      "Bash(sed -n '1,15p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\store\\\\product\\\\[slug].astro\")",
+      "Bash(sed -n '50,60p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\store\\\\product\\\\[slug].astro\")",
+      "Bash(sed -n '464,472p' \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\store\\\\product\\\\[slug].astro\")",
+      "Bash(grep -n \"split.*\\\\\\\\..*pop\\\\|keyToType\\\\|isVideo\\\\|keyToKind\\\\|mimeToKind\" \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\favourites.astro\" \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\me\\\\my-files.astro\" \"H:\\\\Works\\\\Development\\\\creohub\\\\CreoHub-Frontend\\\\src\\\\pages\\\\shop\\\\products\\\\[id]\\\\analytics.astro\")"
     ]
   }
 }

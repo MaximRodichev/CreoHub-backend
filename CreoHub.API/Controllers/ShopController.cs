@@ -32,28 +32,9 @@ public class ShopController : ControllerBase
 
     [Authorize]
     [HttpPost("create")]
-    public async Task<IActionResult> Create([FromBody] CreateShopDTO dto)
+    public IActionResult Create([FromBody] CreateShopDTO dto)
     {
-        var userId = UserId;
-        var command = new CreateShopCommand(userId, dto);
-        var response = await _mediator.Send(command);
-
-        if (response.Status == ResponseStatus.Error)
-            return Ok(response);
-
-        // Issue a fresh JWT that includes the new shop_id so the client
-        // can access /api/shop/dashboard immediately without re-login.
-        var claimsModel = new UserClaimsModel
-        {
-            Id         = userId,
-            Name       = User.FindFirst(ClaimTypes.Name)?.Value ?? "",
-            EmailAddress = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value,
-            TelegramId = long.TryParse(User.FindFirst("telegram_id")?.Value, out var tid) ? tid : null,
-            ShopId     = response.Data,
-        };
-        var newToken = _jwtService.GenerateToken(claimsModel);
-
-        return Ok(BaseResponse<object>.Success(new { shopId = response.Data, token = newToken }));
+        return BadRequest(BaseResponse<string>.Fail("В разработке"));
     }
 
     [Authorize]

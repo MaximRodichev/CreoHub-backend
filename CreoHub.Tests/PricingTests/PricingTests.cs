@@ -168,7 +168,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -193,7 +193,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -219,7 +219,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { p1, p2 }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -237,7 +237,7 @@ public class PricingTests
     [Fact]
     public async Task CalculateOrderPrice_EmptyItems_ReturnsError()
     {
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>()),
             CancellationToken.None);
@@ -251,7 +251,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product>())); // пусто — продукт не найден
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -269,7 +269,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -288,7 +288,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Throws(new Exception("DB timeout"));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo);
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {

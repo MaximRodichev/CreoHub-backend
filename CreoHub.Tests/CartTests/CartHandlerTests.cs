@@ -114,13 +114,19 @@ public class CartHandlerTests
             new ContentFile(1, "preview1.png", Guid.NewGuid(), ProductId),
             new ContentFile(5, "preview2.png", Guid.NewGuid(), ProductId),
         };
-        var previewKeys = new Dictionary<int, string?> { { ProductId, "products/42/thumb.webp" } };
+        var previewKeys = new Dictionary<int, (string? Key, string? ThumbnailKey)>
+        {
+            { ProductId, ("products/42/thumb.webp", null) }
+        };
 
         _cartRepo.GetFullCartAsync(UserId).Returns(cart);
         _contentFileRepo.GetByProductIdsAsync(Arg.Any<IEnumerable<int>>()).Returns(contentFiles);
-        _mediaProductRepo.GetPreviewKeysByProductIds(Arg.Any<IEnumerable<int>>()).Returns(previewKeys);
+        _mediaProductRepo.GetPreviewKeysWithThumbnailByProductIds(Arg.Any<IEnumerable<int>>()).Returns(previewKeys);
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo);
+        var productRepo = Substitute.For<IProductRepository>();
+        productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product>());
+
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo);
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Items count: {result.Data?.Count}");
@@ -142,9 +148,13 @@ public class CartHandlerTests
 
         _cartRepo.GetFullCartAsync(UserId).Returns(cart);
         _contentFileRepo.GetByProductIdsAsync(Arg.Any<IEnumerable<int>>()).Returns(new List<ContentFile>());
-        _mediaProductRepo.GetPreviewKeysByProductIds(Arg.Any<IEnumerable<int>>()).Returns(new Dictionary<int, string?>());
+        _mediaProductRepo.GetPreviewKeysWithThumbnailByProductIds(Arg.Any<IEnumerable<int>>())
+            .Returns(new Dictionary<int, (string? Key, string? ThumbnailKey)>());
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo);
+        var productRepo = Substitute.For<IProductRepository>();
+        productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product>());
+
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo);
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Items count: {result.Data?.Count}");
@@ -158,7 +168,7 @@ public class CartHandlerTests
     {
         _cartRepo.GetFullCartAsync(UserId).Throws(new Exception("Cart not found"));
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo);
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, Substitute.For<IProductRepository>());
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");

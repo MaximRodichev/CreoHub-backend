@@ -7,10 +7,8 @@ namespace CreoHub.Domain.Entities;
 /// </summary>
 public abstract class BaseTransaction
 {
-    protected const decimal WithdrawalFeePercent = 0m;
     protected TransactionStatus _transactionStatus = TransactionStatus.Pending;
     protected decimal _amount;
-    protected decimal _platformFeePercent;
 
     public Guid Id { get; private init; } = Guid.NewGuid();
 
@@ -24,20 +22,6 @@ public abstract class BaseTransaction
             _amount = value;
         }
     }
-
-    public decimal PlatformFeePercent
-    {
-        get => _platformFeePercent;
-        protected init
-        {
-            if (value < 0 || value > 25)
-                throw new ArgumentException("Platform fee percent must be between 0 and 25.");
-            _platformFeePercent = value;
-        }
-    }
-
-    public decimal PlatformFeeAmount { get; protected init; }
-    public decimal NetAmount { get; protected init; }
 
     public TransactionType TransactionType { get; protected init; }
 
@@ -60,6 +44,7 @@ public abstract class BaseTransaction
     public DateTime? PaidAt { get; private set; }
 
     public Order? Order { get; protected init; }
+    public Guid? OrderId { get; protected init; }
 
     protected BaseTransaction() {}
 

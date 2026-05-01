@@ -72,20 +72,59 @@ public class ProductRepository : IProductRepository
         // Считаем общее количество до пагинации
         var totalCount = await query.CountAsync();
 
-        // 2. Сортировка по ОРИГИНАЛЬНОЙ сущности (до проекции в DTO)
-        // Здесь мы используем свойства Product (x.CreatedAt, x.Prices и т.д.)
-        query = filters.SortOrder switch
+        // 2. Определяем полностью купленные продукты (для сортировки в конец)
+        List<int> fullyOwnedIds = new();
+        if (filters.UserId.HasValue)
         {
-            SortOrder.AscendingPrice => query.OrderBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-            SortOrder.DescendingPrice => query.OrderByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-            SortOrder.Popularity => query.OrderByDescending(x => x.OrderItems.Count),
-            SortOrder.Latests => query.OrderByDescending(x => x.CreatedAt), // Сортируем по дате создания в БД
-            SortOrder.Oldest => query.OrderBy(x => x.CreatedAt),
-            _ => query.OrderBy(x => x.Id)
-        };
+            // Файлы, которыми владеет пользователь
+            var ownedFileIds = await _db.ContentAccesses
+                .Where(ca => ca.UserId == filters.UserId.Value)
+                .Select(ca => ca.ContentFileId)
+                .ToListAsync();
 
-        // 3. Пагинация и финальная проекция
-        var items = await query
+            if (ownedFileIds.Count > 0)
+            {
+                // Продукты, у которых ВСЕ файлы куплены (owned == total)
+                fullyOwnedIds = await _db.ContentFiles
+                    .GroupBy(cf => cf.ProductId)
+                    .Where(g => g.Count(cf => ownedFileIds.Contains(cf.Id)) == g.Count())
+                    .Select(g => g.Key)
+                    .ToListAsync();
+            }
+        }
+
+        // 3. Сортировка: купленные ВСЕГДА в конец (первичный ключ),
+        //    выбранный критерий — внутри каждой группы (вторичный ключ).
+        IOrderedQueryable<Product> sortedQuery;
+
+        if (fullyOwnedIds.Count > 0)
+        {
+            var byOwnership = query.OrderBy(p => fullyOwnedIds.Contains(p.Id) ? 1 : 0);
+            sortedQuery = filters.SortOrder switch
+            {
+                SortOrder.AscendingPrice  => byOwnership.ThenBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+                SortOrder.DescendingPrice => byOwnership.ThenByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+                SortOrder.Popularity      => byOwnership.ThenByDescending(x => x.OrderItems.Count),
+                SortOrder.Latests         => byOwnership.ThenByDescending(x => x.CreatedAt),
+                SortOrder.Oldest          => byOwnership.ThenBy(x => x.CreatedAt),
+                _                         => byOwnership.ThenBy(x => x.Id)
+            };
+        }
+        else
+        {
+            sortedQuery = filters.SortOrder switch
+            {
+                SortOrder.AscendingPrice  => query.OrderBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+                SortOrder.DescendingPrice => query.OrderByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+                SortOrder.Popularity      => query.OrderByDescending(x => x.OrderItems.Count),
+                SortOrder.Latests         => query.OrderByDescending(x => x.CreatedAt),
+                SortOrder.Oldest          => query.OrderBy(x => x.CreatedAt),
+                _                         => query.OrderBy(x => x.Id)
+            };
+        }
+
+        // 4. Пагинация и финальная проекция
+        var items = await sortedQuery
             .Include(x=>x.BundleItems)
                 .ThenInclude(x=>x.Product)
                 .ThenInclude(x=>x.Prices)
@@ -319,6 +358,7 @@ public class ProductRepository : IProductRepository
             .AsNoTracking()
             .Include(x => x.Prices)
             .Include(x => x.ContentFiles)
+            .Include(x => x.BundleItems)
             .Where(x => ids.Contains(x.Id))
             .ToListAsync();
     }
@@ -379,6 +419,17 @@ public class ProductRepository : IProductRepository
             ));
 
         return await query.ToListAsync();
+    }
+
+    public async Task<List<Product>> GetBundlesByChildProductIdsAsync(IEnumerable<int> childProductIds)
+    {
+        var ids = childProductIds.ToList();
+        return await _db.Products
+            .AsNoTracking()
+            .Where(p => p.ProductType == CreoHub.Domain.Types.ProductType.Bundle &&
+                        p.BundleItems.Any(bi => ids.Contains(bi.ProductId)))
+            .Include(p => p.BundleItems)
+            .ToListAsync();
     }
 
     public Product Attach(Product entity)
