@@ -155,23 +155,33 @@ document.getElementById("submit-button").addEventListener('click', async functio
     var d = getUpdatesOfSpin();
     console.log(JSON.stringify(d, '\n', 2));
 
-
-    if(d.isWinUpdate){
+    // Win: если есть хотя бы одно комбо — отправляем все сразу через setWinGridMulti
+    var activeCombos = winCombosMap[d.name] || [];
+    if (activeCombos.length > 0) {
+        adobeMiddleWare_.setWinGridMulti(d.name, activeCombos);
+    } else if (d.isWinUpdate) {
+        // Старый режим — одно выделение без комбо
         adobeMiddleWare_.setWinGrid(d.name, d.winData);
     }
+
     if(d.isResizeUpdate){
-        adobeMiddleWare_.resize(d.name, d.resizeData)
+        adobeMiddleWare_.resize(d.name, d.resizeData);
     }
     if(d.isConfigUpdate){
-        adobeMiddleWare_.setConfigSpin(d.name, d.configData)
+        adobeMiddleWare_.setConfigSpin(d.name, d.configData);
     }
     await adobeMiddleWare_.Analyze();
 
     var {choosenGrid, selectedSpin} = getActiveGrid();
 
+    // Сохраняем комбо перед пересозданием грида
+    var savedCombos = winCombosMap[selectedSpin] ? winCombosMap[selectedSpin].slice() : [];
     choosenGrid.remove();
-    createGrid(MAINDATA.Spins[selectedSpin]).classList.add("active");
-
+    var newGrid = createGrid(MAINDATA.Spins[selectedSpin]);
+    newGrid.classList.add("active");
+    // Восстанавливаем комбо (createGrid мог перезаписать из данных — принудительно ставим актуальное)
+    winCombosMap[selectedSpin] = savedCombos;
+    renderComboList(selectedSpin);
 });
 
 // document.getElementById("grids-container-text").addEventListener("click", function(){

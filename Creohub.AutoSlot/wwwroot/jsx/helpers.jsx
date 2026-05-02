@@ -71,7 +71,7 @@ var Helper = {
      * @returns 
      */
     undefinedCheker: function(item, undefinedValue){
-        return item == undefined ? item : undefinedValue 
+        return item == undefined ? undefinedValue : item;
     }
 };
 

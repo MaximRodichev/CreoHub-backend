@@ -120,6 +120,15 @@ class CallFunctions {
         return `${this.predict}${this.nameOf}.reskinElements()`;
     }
 
+    /**
+     * AutoSlot_.spinsCollection["${nameSpin}"].setWinGridMulti(${winCombos})
+     * @param {string} nameSpin "Spin_1"
+     * @param {Array}  winCombos [{winElement, winElements}, ...]
+     */
+    setWinGridMulti(nameSpin, winCombos) {
+        return `${this.predict}${this.nameOf}.spinsCollection["${nameSpin}"].setWinGridMulti(${winCombos})`;
+    }
+
     removeSpin(spinName){
         return `${this.predict}${this.nameOf}.removeSpin('${spinName}')`;
     }

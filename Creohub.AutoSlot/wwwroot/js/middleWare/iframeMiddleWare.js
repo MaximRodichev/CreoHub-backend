@@ -146,6 +146,17 @@ class iframeMiddleWare {
         }else{console.log(JSON.stringify(configData, null, 2))}
     }
     
+    /**
+     * Устанавливает несколько выигрышных комбо за раз
+     * @param {string} spinName
+     * @param {Array}  winCombos [{winElement, winElements}, ...]
+     */
+    setWinGridMulti(spinName, winCombos){
+        if(this.isAdobe()){
+            sendMessageToParent(`${this.callFunctions.setWinGridMulti(spinName, JSON.stringify(winCombos))}`)
+        }else{console.log('setWinGridMulti:', JSON.stringify(winCombos, null, 2))}
+    }
+
     removeSpin(spinName){
         if(this.isAdobe()){
             sendMessageToParent(`${this.callFunctions.removeSpin(spinName)}`)

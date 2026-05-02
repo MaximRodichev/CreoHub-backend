@@ -8,7 +8,7 @@ class Mapper{
     }
 
     static SpinDataMapping(data){
-        var {name, width, height, elsByHeight, elsByWidth, spacingVertical, spacingHorizontal, winElement, winElements, slowMain, slowWin, slowLines} = data
+        var {name, width, height, elsByHeight, elsByWidth, spacingVertical, spacingHorizontal, winElement, winElements, slowMain, slowWin, slowLines, winCombos} = data
         return new SpinDataType(
             name,
             width,
@@ -21,7 +21,8 @@ class Mapper{
             winElements,
             slowWin,
             slowLines,
-            slowMain
+            slowMain,
+            winCombos != null ? winCombos : []
         )
     }
 }

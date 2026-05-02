@@ -100,30 +100,31 @@
     </div>
 
     <div id="content3" class="content">
-        <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-around;padding-bottom:30px;">
-            <video style="width:75px;border-radius:25px" autoplay loop muted playsinline>
+        <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-around;padding-bottom:14px;">
+            <video style="width:65px;border-radius:20px" autoplay loop muted playsinline>
                 <source src="/_content/Creohub.AutoSlot/assets/webm/idle.webm" type="video/webm">
             </video>
-            <div>
-                <div class="mainText">AutoSlot</div>
-                <div class="mainText" id="subscription-status">Подписка активна</div>
+            <div style="text-align:center;">
+                <div class="mainText" style="font-size:16px;">AutoSlot</div>
+                <div id="subscription-status" style="font-size:12px;color:#aaa;margin-top:3px;">⏳ Загрузка...</div>
+                <div id="subscription-expiry" style="font-size:10px;color:#777;margin-top:2px;"></div>
             </div>
         </div>
-        <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-around;">
-            <input style="width:15px" type="checkbox" id="eduModeCheckbox"/>
-            <label class="mainText" for="eduModeCheckbox">Обучающие подсказки On/Off</label>
+        <div style="display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+            <input style="width:15px;flex:none;" type="checkbox" id="eduModeCheckbox"/>
+            <label class="mainText" style="font-size:12px;" for="eduModeCheckbox">Обучающие подсказки</label>
         </div>
-        <div style="margin-top:12px;">
-            <div class="mainText" style="text-align:center;">Промо-код</div>
-            <div style="display:flex;gap:6px;margin-top:6px;">
-                <input type="text" id="promo-input" placeholder="AUTOSLOT-XXXXXXXX" style="flex:1;text-transform:uppercase;">
-                <button onclick="redeemPromo()" style="padding:6px 10px;">→</button>
+        <div style="margin-bottom:10px;">
+            <div class="mainText" style="text-align:center;font-size:11px;color:#999;margin-bottom:4px;">Промо-код</div>
+            <div style="display:flex;gap:6px;">
+                <input type="text" id="promo-input" placeholder="AUTOSLOT-XXXXXXXX" style="text-transform:uppercase;min-width:0;">
+                <button onclick="redeemPromo()" style="flex:none;width:auto;padding:0 10px;">→</button>
             </div>
             <div id="promo-status" style="font-size:11px;margin-top:4px;min-height:14px;"></div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-around;margin-top:10px;">
-            <div class="mainText btnText" onclick="openURL('https://creohub.xyz')" style="cursor:pointer">🌐 Creohub</div>
-            <div class="mainText btnText" onclick="openURL('https://t.me/DeFaustus')" style="cursor:pointer">💬 Support</div>
+        <div style="display:flex;align-items:center;justify-content:space-around;margin-top:6px;">
+            <div class="mainText btnText" onclick="openURL('https://creohub.xyz')" style="cursor:pointer;font-size:13px;">🌐 Creohub</div>
+            <div class="mainText btnText" onclick="openURL('https://t.me/DeFaustus')" style="cursor:pointer;font-size:13px;">💬 Support</div>
         </div>
     </div>
 
@@ -154,6 +155,31 @@
 <script src="/_content/Creohub.AutoSlot/js/main.js"></script>
 
 <script>
+    // ── Profile tab: загрузка данных подписки ──────────────────────────────
+    async function loadProfileData() {
+        const statusEl = document.getElementById('subscription-status');
+        const expiryEl = document.getElementById('subscription-expiry');
+        try {
+            const res  = await fetch('/autoslot/me');
+            const data = await res.json();
+            if (data.hasSubscription) {
+                const exp = new Date(data.expiresAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+                statusEl.style.color   = '#4c4';
+                statusEl.textContent   = `✅ Активна — ${data.daysLeft} дн.`;
+                expiryEl.textContent   = `до ${exp}`;
+            } else {
+                statusEl.style.color = '#f66';
+                statusEl.textContent = '❌ Подписка не активна';
+                expiryEl.textContent = '';
+            }
+        } catch {
+            statusEl.style.color = '#f66';
+            statusEl.textContent = 'Ошибка загрузки';
+        }
+    }
+    loadProfileData();
+
+    // ── Promo code ─────────────────────────────────────────────────────────
     async function redeemPromo() {
         const code = document.getElementById('promo-input').value.trim();
         const statusEl = document.getElementById('promo-status');
@@ -169,6 +195,7 @@
             if (res.ok) {
                 statusEl.style.color = '#4c4';
                 statusEl.textContent = '✅ Активировано!';
+                loadProfileData(); // обновляем статус
             } else {
                 statusEl.style.color = '#f44';
                 statusEl.textContent = 'Код недействителен';

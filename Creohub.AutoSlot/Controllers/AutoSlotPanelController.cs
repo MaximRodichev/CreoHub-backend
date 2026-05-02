@@ -31,6 +31,25 @@ public class AutoSlotPanelController(SubscriptionService subs) : Controller
         return Ok(new { active });
     }
 
+    // Данные профиля — статус подписки, дней осталось
+    [HttpGet("me")]
+    public async Task<IActionResult> Me()
+    {
+        var userId = (Guid)HttpContext.Items["AutoSlotUserId"]!;
+        var expiresAt = await subs.GetLatestExpiresAtAsync(userId, CreoHub.Domain.Types.SubscriptionProductType.AutoSlot);
+        var isActive  = expiresAt.HasValue && expiresAt.Value > DateTime.UtcNow;
+        int? daysLeft = isActive
+            ? (int)Math.Ceiling((expiresAt!.Value - DateTime.UtcNow).TotalDays)
+            : null;
+
+        return Ok(new
+        {
+            hasSubscription = isActive,
+            expiresAt       = expiresAt?.ToString("o"),
+            daysLeft
+        });
+    }
+
     // Активация промо-кода из панели
     [HttpPost("redeem")]
     public async Task<IActionResult> RedeemPromoCode([FromBody] RedeemRequest req)

@@ -74,14 +74,15 @@ AutoSlot.prototype.removeSpin = function(nameOfSpin){
     -- AutoSlot.slotsCollection[nameOfCurrentSlot].function()
 */
 AutoSlot.prototype.Spin = function(data){
-    //{"ConfigurationSpin": {"slowLines": 0.1, "slowMain": 0.1, "spacingHorizontal": 40, "spacingVertical": 0}, 
+    //{"ConfigurationSpin": {"slowLines": 0.1, "slowMain": 0.1, "spacingHorizontal": 40, "spacingVertical": 0},
     //"WinConfiguration": {"WinItem": "", "WinItems": []}}
-    // var Spindata = {"spacingHorizontal": 40, "spacingVertical": 0, 
-    //             "ElementsByWidth": 5, "ElementsByHeight": 6, 
+    // var Spindata = {"spacingHorizontal": 40, "spacingVertical": 0,
+    //             "ElementsByWidth": 5, "ElementsByHeight": 6,
     //             "width": 1080, "height": 1080,
     //             "slowLines": 0.1, "slowMain": 0.1, "slowWin": 0.1,
     //             "WinItem": "", "WinItems": [],}
 
+    app.beginUndoGroup("AutoSlot: Создание спина");
 
     if(data == undefined || data == null){
         var SpinData = new SpinDataType(
@@ -117,7 +118,8 @@ AutoSlot.prototype.Spin = function(data){
     }
     var a = new Spin(this, SpinData)
 
-    this.spinsCollection[SpinData.name] = a 
+    this.spinsCollection[SpinData.name] = a;
+    app.endUndoGroup();
     return a;
 }
 /**
@@ -176,19 +178,20 @@ AutoSlot.prototype.wrapElements = function(){
     if(this.canReskinElements() == false){
         return;
     }
-    else{
-        var feedback_ = this.getReskinElements();
-        try{feedback_=JSON.parse(feedback_)}catch(ex){alert(ex)}
-        var h = feedback_["!NewSlotElements"];
-        for(var i=1; i<=this.GifsFolder.numItems; i++){
-            var footage = this.GifsFolder.item(i);
-            if(h.indexOf(footage.name) != -1){
-                try{
-                    this.wrapElement(footage) 
-                }catch(erro){alert(erro)}
-            }
+
+    app.beginUndoGroup("AutoSlot: Оборачивание элементов");
+    var feedback_ = this.getReskinElements();
+    try{feedback_=JSON.parse(feedback_)}catch(ex){alert(ex)}
+    var h = feedback_["!NewSlotElements"];
+    for(var i=1; i<=this.GifsFolder.numItems; i++){
+        var footage = this.GifsFolder.item(i);
+        if(h.indexOf(footage.name) != -1){
+            try{
+                this.wrapElement(footage)
+            }catch(erro){alert(erro)}
         }
     }
+    app.endUndoGroup();
     //alert("Отлично, в папке SymbolsComps были созданы композиции с вашими элементами, примените файл конфигурации или расположите элементы в созданные рамки вручную! После данных действий в Настройках (Settings) сможете сохранить конфигурацию элементов и применять в будущем")
 }
 /**
@@ -213,6 +216,7 @@ AutoSlot.prototype.createElement = function(){
     ТРЕБУЕТ ДОРАБОТКИ (Новые элементы не добавятся на слот, удаленные сделают дырки в слоте)
 */
 AutoSlot.prototype.reskinElements = function(){
+    app.beginUndoGroup("AutoSlot: Замена элементов");
     var allElements = this.GifsFolder.getArray()
     var previousElements = this.SymbolCompsFolder.getArray()
     var previousElementsNames = previousElements.map(function(element){
@@ -272,6 +276,7 @@ AutoSlot.prototype.reskinElements = function(){
             }
         }
     }
+    app.endUndoGroup();
     alert(feedback)
 }
 /**
@@ -334,6 +339,7 @@ AutoSlot.prototype.setJSON = function(){
             alert("Данный конфигурационный файл предназначен для " + (jsonData["AutoSlot"]))
             return;
         }
+        app.beginUndoGroup("AutoSlot: Применение JSON конфигурации");
         for(var x=1; x <= folder.numItems; x++ ){
             var comp = folder.item(x);
             var footage = comp.layer(comp.name);
@@ -347,6 +353,7 @@ AutoSlot.prototype.setJSON = function(){
             footage.property("Position").setValue(setterPosition);
             footage.property("Rotation").setValue(jsonData[comp.name]["rotation"]);
         }
+        app.endUndoGroup();
     }
     else{
         alert("Invalid JSON file.");
@@ -455,6 +462,7 @@ AutoSlot.prototype.resizeElement = function(itemComp, newSize){
     Принимает параметр newSize = {"width": ?, "height": ?}
 */
 AutoSlot.prototype.resizesElements = function(newSize){
+    app.beginUndoGroup("AutoSlot: Ресайз элементов");
     try{
         try{newSize = JSON.parse(newSize)}catch(ex){}
         for(var x=1; x<= this.SymbolCompsFolder.numItems; x++){
@@ -462,4 +470,5 @@ AutoSlot.prototype.resizesElements = function(newSize){
             this.resizeElement(thisItem, newSize)
         }
     }catch(ex){alert("resizeElements error:" + (ex))}
+    app.endUndoGroup();
 }

@@ -10,7 +10,8 @@ function SpinDataType(
     winElements,
     slowWin,
     slowLines,
-    slowMain
+    slowMain,
+    winCombos
 ){
     if (name === null || name === undefined || name.split("Spin_").length === 1) {
         throw new Error("Имя спина не может быть пустым или должно соответствовать правилу Spin_*");
@@ -53,6 +54,8 @@ function SpinDataType(
     this.slowLines = slowLines
     this.slowMain = slowMain
     this.slowWin = slowWin
+
+    this.winCombos = (winCombos != undefined && winCombos != null) ? winCombos : [];
 }
 
 
@@ -69,9 +72,10 @@ SpinDataType.prototype.stringify = function(){
     a = a + '"spacingVertical": ' + this.spacingVertical + ','
     a = a + '"winElement": "' + this.winElement + '",'
     a = a + '"winElements": ' + JSON.stringify(this.winElements) + ','
-    a = a + '"slowMain": ' + this.slowMain + ',' 
-    a = a + '"slowWin": ' + this.slowWin + ',' 
-    a = a + '"slowLines": ' + this.slowLines + "}"
+    a = a + '"slowMain": ' + this.slowMain + ','
+    a = a + '"slowWin": ' + this.slowWin + ','
+    a = a + '"slowLines": ' + this.slowLines + ','
+    a = a + '"winCombos": ' + JSON.stringify(this.winCombos) + "}"
     return a;
 }
 
@@ -95,7 +99,8 @@ SpinDataType.parse = function(data){
         data.winElements,
         data.slowWin,
         data.slowLines,
-        data.slowMain
+        data.slowMain,
+        data.winCombos || []
     );
 }
 
@@ -116,7 +121,9 @@ SpinDataType.prototype.analyzeParse = function(){
 
         slowLines: this.slowLines,
         slowMain: this.slowMain,
-        slowWin: this.slowWin
+        slowWin: this.slowWin,
+
+        winCombos: this.winCombos
     }
 
 

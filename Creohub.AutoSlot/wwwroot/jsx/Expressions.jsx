@@ -104,9 +104,10 @@ var EXPRESSIONS_V2 = (function() {
             result = [self[0] * (null_[0]/100),self[1] * (null_[1]/100)];\
             result'
         },
-        nullOfLine_rotation_NoControlled: function(SlowLines) {return 'self = transform.rotation\
-            null_ =  comp("Slot").layer(thisComp.name).effect("Rotation")(1)\
-			expand = comp("Slot").layer(thisComp.name).startTime\
+        nullOfLine_rotation_NoControlled: function(SlowLines, SlotCompName) {
+            return 'self = transform.rotation\
+            null_ = comp("'+(SlotCompName)+'").layer(thisComp.name).effect("Rotation")(1)\
+            expand = comp("'+(SlotCompName)+'").layer(thisComp.name).startTime\
             result = self + null_.valueAtTime(time-'+SlowLines+' + expand);\
             result;'
         },

@@ -85,6 +85,7 @@ Spin.prototype.configureSpin = function(){
     newDataElements = {"spacingVertical": 40, "spacingHorizontal": 40, "slowMain": 0, "slowLines": 0}
 */
 Spin.prototype.resize = function(resizeData){
+    app.beginUndoGroup("AutoSlot: Ресайз спина");
 
     if(this.data.elsByHeight > resizeData.elsByHeight){
         for(k = 0; k<this.data.elsByHeight-resizeData.elsByHeight; k++){
@@ -113,7 +114,8 @@ Spin.prototype.resize = function(resizeData){
     this.SpinComp.width = this.data.width;
     this.SpinComp.height = this.data.height;
 
-    this.changeSpinElementConfig();    
+    this.changeSpinElementConfig();
+    app.endUndoGroup();
 }
 /**
     Функция добавления новой линии
@@ -143,13 +145,12 @@ Spin.prototype.createGrid = function(data){
         alert("ERROR: NOT FOUND SYMBOL COMPS")
         return;
     }
-    else{
-        for(var y = 0; y  < this.data.elsByWidth; y++){
-            this.addLine()
-        }
-        this.createMainLine();
+    app.beginUndoGroup("AutoSlot: Создание сетки");
+    for(var y = 0; y  < this.data.elsByWidth; y++){
+        this.addLine()
     }
-    
+    this.createMainLine();
+    app.endUndoGroup();
 }
 /**
     Функция создание нуля Main, связывающего нас с композицией Slot 
@@ -225,6 +226,7 @@ Spin.prototype.setWinGrid = function(winData){
     if(winData.winElement == null || winData.winElements == null){
         return;
     }
+    app.beginUndoGroup("AutoSlot: Установка выигрышной сетки");
     var winElement = this.self.SymbolCompsFolder.itemByName(winData.winElement)
     for(key=0;key<winData.winElements.length;key++){
         x = winData.winElements[key][0]
@@ -236,17 +238,57 @@ Spin.prototype.setWinGrid = function(winData){
         }
         this.setWinElementConfiguration(element, x);
         this.setWinElement(element, winElement);
-        element.moveToBeginning()       
+        element.moveToBeginning()
     }
 
     this.data = this.data.update(winData);
     this.configurationLayer.text.sourceText.setValue(this.data.stringify());
+    app.endUndoGroup();
 }
 
 Spin.prototype.setWinGridClear = function(winData){
+    app.beginUndoGroup("AutoSlot: Сброс и установка выигрышной сетки");
     this.clearSpin(this.data.winElement, true);
     this.setWinGrid(winData);
     this.clearSpin(this.data.winElement, false);
+    app.endUndoGroup();
+}
+/**
+ * Установка нескольких выигрышных комбо за один раз (множественные линии выплат).
+ * winCombos = [
+ *   { winElement: "Cherry", winElements: [[lineIdx, itemIdx], ...] },
+ *   { winElement: "Bar",    winElements: [[lineIdx, itemIdx], ...] },
+ *   ...
+ * ]
+ */
+Spin.prototype.setWinGridMulti = function(winCombos){
+    if(!winCombos || winCombos.length === 0){
+        return;
+    }
+    app.beginUndoGroup("AutoSlot: Установка множественных выигрышных комбо");
+    // Сначала очищаем все текущие выигрышные элементы
+    this.clearSpin(this.data.winElement, true);
+    // Применяем каждое комбо
+    for(var c = 0; c < winCombos.length; c++){
+        var combo = winCombos[c];
+        if(!combo.winElement || !combo.winElements){ continue; }
+        var winElement = this.self.SymbolCompsFolder.itemByName(combo.winElement);
+        if(!winElement){ continue; }
+        for(var key = 0; key < combo.winElements.length; key++){
+            var x = combo.winElements[key][0];
+            var y = combo.winElements[key][1];
+            var nm = "Line_" + String(x) + "_Item_" + String(y);
+            var element = this.SpinComp.layer(nm);
+            if(element == null){ continue; }
+            this.setWinElementConfiguration(element, x);
+            this.setWinElement(element, winElement);
+            element.moveToBeginning();
+        }
+    }
+    // Сохраняем winCombos в данных
+    this.data = this.data.update({ winCombos: winCombos });
+    this.configurationLayer.text.sourceText.setValue(this.data.stringify());
+    app.endUndoGroup();
 }
 
 /**

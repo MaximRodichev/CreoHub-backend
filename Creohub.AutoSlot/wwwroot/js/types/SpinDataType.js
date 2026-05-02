@@ -11,7 +11,8 @@ class SpinDataType {
         winElements,
         slowWin,
         slowLines,
-        slowMain
+        slowMain,
+        winCombos = []
     ) {
         if (!name || name.split("Spin_").length === 1) {
             throw new Error("Имя спина не может быть пустым или должно соответствовать правилу Spin_*");
@@ -54,6 +55,8 @@ class SpinDataType {
         this.slowLines = slowLines;
         this.slowMain = slowMain;
         this.slowWin = slowWin;
+
+        this.winCombos = Array.isArray(winCombos) ? winCombos : [];
     }
 
     // Factory method for alternate initialization
@@ -74,7 +77,8 @@ class SpinDataType {
             winElements,
             slowWin,
             slowLines,
-            slowMain
+            slowMain,
+            winData.winCombos != null ? winData.winCombos : []
         );
     }
 }

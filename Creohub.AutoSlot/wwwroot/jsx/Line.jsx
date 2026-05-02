@@ -38,7 +38,7 @@ Line.prototype.configure = function(){
     lineObject.scale.expression = EXPRESSIONS_V2.nullOfLine_scale_NoControlled(thisSlow)
 
     lineObject.rotation.expressionEnabled = true;
-    lineObject.rotation.expression = EXPRESSIONS_V2.nullOfLine_rotation_NoControlled(thisSlow)
+    lineObject.rotation.expression = EXPRESSIONS_V2.nullOfLine_rotation_NoControlled(thisSlow, this.self.self.SlotComp.name)
 }
 /*
     Функция подгрузки элементов относящихся к этой линии
