@@ -1,0 +1,154 @@
+@{
+    Layout = null;
+    var token = ViewBag.Token as string;
+    var linkUrl = ViewBag.LinkUrl as string;
+    var expiresAt = ViewBag.ExpiresAt as string;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Авторизация AutoSlot</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            height: 100vh;
+            background-color: #1e1e1e;
+            color: #fff;
+            padding: 10px;
+        }
+        .mainContainer {
+            min-width: 280px;
+            max-width: 300px;
+            background-color: #2b2b2b;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(240,248,255,0.2);
+            padding: 20px;
+            text-align: center;
+        }
+        h1 { font-size: 18px; margin-bottom: 8px; }
+        .subtitle { font-size: 13px; color: #bbb; margin-bottom: 14px; }
+        #qr-container { margin: 12px auto; }
+        #qr-container img { width: 160px; height: 160px; border-radius: 8px; background: #fff; padding: 6px; }
+        #timer { font-size: 22px; font-weight: bold; color: #ff9800; margin: 10px 0; }
+        #status { font-size: 13px; color: #bbb; margin-top: 8px; min-height: 18px; }
+        .support-links { display: flex; justify-content: space-around; margin-top: 16px; font-size: 13px; }
+        .support-links div { cursor: pointer; color: #ff9800; }
+        .support-links div:hover { color: #ffcc80; }
+        #expired-msg { display: none; color: #f44; font-size: 13px; margin-top: 8px; }
+        button {
+            width: 100%; padding: 9px; margin-top: 10px; border: none;
+            border-radius: 5px; background: #ff9800; color: #000;
+            font-weight: bold; cursor: pointer; font-size: 14px;
+        }
+        button:hover { background: #ffa726; }
+        button:disabled { background: #555; color: #888; cursor: default; }
+        .link-btn {
+            display: block; margin: 8px 0; cursor: pointer;
+            font-size: 13px; color: #ff9800; text-decoration: none; background: none;
+            border: none; padding: 0; font-family: inherit;
+        }
+        .link-btn:hover { color: #ffcc80; text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="mainContainer">
+    <h1>Авторизация AutoSlot</h1>
+    <div class="subtitle">Отсканируйте QR-код или откройте ссылку в браузере</div>
+
+    <div id="qr-container">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=@Uri.EscapeDataString(linkUrl!)" alt="QR">
+    </div>
+
+    <div id="timer">05:00</div>
+
+    <button class="link-btn" onclick="openURL('@linkUrl')">🔗 Открыть ссылку в браузере</button>
+
+    <div id="status">Ожидаем подтверждения...</div>
+    <div id="expired-msg">Токен истёк. Обновите страницу.</div>
+
+    <button id="refresh-btn" disabled onclick="location.reload()">Обновить</button>
+
+    <div class="support-links">
+        <div onclick="openURL('https://creohub.xyz')">🌐 Creohub</div>
+        <div onclick="openURL('https://t.me/DeFaustus')">💬 Support</div>
+    </div>
+</div>
+
+<script src="/_content/Creohub.AutoSlot/js/helpers/evaluateWithResponse.js"></script>
+<script src="/_content/Creohub.AutoSlot/js/helpers/fetchCode.js"></script>
+<script src="/_content/Creohub.AutoSlot/js/shell.js"></script>
+
+<script>
+    const token = '@token';
+    const expiresAt = new Date('@expiresAt');
+    let polling = true;
+
+    // Таймер
+    const timerEl = document.getElementById('timer');
+    const statusEl = document.getElementById('status');
+    const expiredEl = document.getElementById('expired-msg');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    const timerInterval = setInterval(() => {
+        const left = Math.max(0, expiresAt - Date.now());
+        const m = Math.floor(left / 60000);
+        const s = Math.floor((left % 60000) / 1000);
+        timerEl.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        if (left === 0) {
+            clearInterval(timerInterval);
+            polling = false;
+            timerEl.style.color = '#f44';
+            expiredEl.style.display = 'block';
+            statusEl.textContent = '';
+            refreshBtn.disabled = false;
+        }
+    }, 1000);
+
+    // Поллинг
+    async function poll() {
+        if (!polling) return;
+        try {
+            const res = await fetch(`/autoslot/auth/check?token=${token}`);
+            const data = await res.json();
+
+            if (data.expired) {
+                polling = false;
+                clearInterval(timerInterval);
+                timerEl.textContent = '00:00';
+                timerEl.style.color = '#f44';
+                expiredEl.style.display = 'block';
+                statusEl.textContent = '';
+                refreshBtn.disabled = false;
+                return;
+            }
+
+            if (data.linked) {
+                polling = false;
+                clearInterval(timerInterval);
+
+                if (data.hasSubscription) {
+                    statusEl.textContent = '✅ Подключено! Загружаем панель...';
+                    setTimeout(() => { window.location.href = '/autoslot/'; }, 800);
+                } else {
+                    statusEl.textContent = '✅ Аккаунт подключён';
+                    statusEl.style.color = '#ff9800';
+                    timerEl.textContent = 'Подписка не активна';
+                    timerEl.style.color = '#f44';
+                    setTimeout(() => { window.location.href = '/autoslot/subscribe'; }, 1200);
+                }
+                return;
+            }
+        } catch (e) {}
+
+        if (polling) setTimeout(poll, 2000);
+    }
+
+    setTimeout(poll, 2000);
+</script>
+</body>
+</html>

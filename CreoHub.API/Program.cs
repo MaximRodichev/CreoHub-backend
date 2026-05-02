@@ -1,3 +1,4 @@
+using Creohub.AutoSlot;
 using CreoHub.API.DI;
 using CreoHub.API.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -33,6 +34,7 @@ builder.Host.UseSerilog();
 string rootPath = builder.Environment.ContentRootPath;
 
 builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddAutoSlot();
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -60,19 +62,31 @@ builder.Services.AddScoped<HacksawGrabber>(sp =>
     );
 });*/
 
-// Добавляем политику CORS
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+    ?? [builder.Configuration["Frontend"]!];
+
 builder.Services.AddCors(options =>
 {
+    // Основной маркетплейс — Frontend из конфига (+ dev origins из AllowedOrigins)
     options.AddPolicy("AllowAstro", policy =>
     {
-        policy.WithOrigins(builder.Configuration["Frontend"]) // Адрес вашего Astro
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // Обязательно для работы с авторизацией
+            .AllowCredentials();
+    });
+
+    // AutoSlot панель — "null" для CEF file:// origin
+    // Применяется только к /autoslot/* контроллерам через [EnableCors("AllowPanel")]
+    options.AddPolicy("AllowPanel", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.WebHost.ConfigureKestrel((context, options) =>
@@ -102,6 +116,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 */
 
 app.UseSerilogRequestLogging();
+app.UseStaticFiles(); // обслуживает /_content/Creohub.AutoSlot/ и wwwroot
 /*
 var provider = new FileExtensionContentTypeProvider();
 // Добавляем поддержку атласов и других игровых файлов
@@ -136,6 +151,7 @@ app.MapPost("/api/grab", async (AssetGrabRequest request, HacksawGrabber grabber
     //.WithOpenApi();*/
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAutoSlot();
 
 app.UseMiddleware<SerilogUserActivityMiddleware>();
 

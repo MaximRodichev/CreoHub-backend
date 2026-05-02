@@ -43,6 +43,25 @@ public class UserTransaction : BaseTransaction
         };
     }
 
+    /// <summary>
+    /// Внутренняя покупка подписки — без привязки к Order (оплата с баланса).
+    /// </summary>
+    public static UserTransaction CreateSubscriptionPurchase(
+        decimal amount,
+        Guid userId,
+        string trackId)
+    {
+        if (trackId == null) throw new ArgumentNullException(nameof(trackId));
+
+        return new UserTransaction
+        {
+            UserId = userId,
+            FullAmount = amount,
+            TransactionType = TransactionType.Purchase,
+            TrackId = trackId,
+        };
+    }
+
     public static UserTransaction CreateWithdrawal(
         decimal amount,
         Guid userId,

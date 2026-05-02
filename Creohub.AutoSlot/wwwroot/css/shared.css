@@ -1,0 +1,23 @@
+/* Общий стиль для всего скроллбара */
+::-webkit-scrollbar {
+    width: 8px; /* Ширина вертикального скролла */
+    height: 8px; /* Высота горизонтального скролла */
+}
+
+/* Ползунок (сам двигающийся элемент) */
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #ff7b00, #ff1b6b); /* Градиент */
+    border-radius: 10px; /* Закругление */
+    border: 2px solid #222; /* Обводка */
+}
+
+/* Фон скроллбара (трек) */
+::-webkit-scrollbar-track {
+    background: #111; /* Цвет фона */
+    border-radius: 10px;
+}
+
+/* Когда наводишь на ползунок */
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(45deg, #ff1b6b, #ff7b00);
+}

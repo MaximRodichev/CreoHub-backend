@@ -1,6 +1,8 @@
+using Creohub.Domain.Entities;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using MediatR;
 
 namespace CreoHub.Application.Commands.OrderCommands;
@@ -18,6 +20,16 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
     private readonly IProductRepository _productRepository;
     private readonly IShopTransactionRepository _shopTransactionRepository;
     private readonly IShopBalanceRepository _shopBalanceRepository;
+    private readonly IAccountRepository _accountRepository;
+    private readonly ISubscriptionPromoCodeRepository _promoCodeRepository;
+
+    // Пороги LifetimeSpent → промо-коды AutoSlot
+    private static readonly (decimal Threshold, int Days, string Tag)[] Milestones =
+    [
+        (500m,  90,  "lifetime_500"),
+        (1000m, 180, "lifetime_1000"),
+        (2500m, 365, "lifetime_2500"),
+    ];
 
     public CompletePaymentHandler(
         IUnitOfWork unitOfWork,
@@ -27,7 +39,9 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         IContentAccessRepository accessRepository,
         IProductRepository productRepository,
         IShopTransactionRepository shopTransactionRepository,
-        IShopBalanceRepository shopBalanceRepository)
+        IShopBalanceRepository shopBalanceRepository,
+        IAccountRepository accountRepository,
+        ISubscriptionPromoCodeRepository promoCodeRepository)
     {
         _unitOfWork = unitOfWork;
         _transactionRepository = transactionRepository;
@@ -37,6 +51,8 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         _productRepository = productRepository;
         _shopTransactionRepository = shopTransactionRepository;
         _shopBalanceRepository = shopBalanceRepository;
+        _accountRepository = accountRepository;
+        _promoCodeRepository = promoCodeRepository;
     }
 
     public async Task<BaseResponse<bool>> Handle(
@@ -48,16 +64,14 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
                 ?? throw new InvalidOperationException(
                     $"Transaction with trackId '{request.TrackId}' not found.");
 
-            // Грузим заказ с Items и их выбранными файлами
             var order = await _orderRepository.GetByTransactionIdWithItemsAsync(transaction.Id)
                 ?? throw new InvalidOperationException(
                     $"Order for transaction '{request.TrackId}' not found.");
 
-            // Помечаем транзакцию успешной и закрываем заказ
             transaction.Success(request.SenderAddress, request.TxHash);
             order.Complete();
 
-            // ── Зачисляем выручку на баланс магазина ─────────────────
+            // ── Выручка магазинов ─────────────────────────────────────────
             var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
             var products   = await _productRepository.GetProductsByIds(productIds);
             var productMap = products.ToDictionary(p => p.Id);
@@ -91,28 +105,31 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
                 }
             }
 
-            // Выдаём доступ к файлам по каждому OrderItem
+            // ── Доступ к файлам ───────────────────────────────────────────
             foreach (var item in order.Items)
             {
                 if (item.Files.Any())
                 {
-                    // Частичная покупка — только выбранные файлы
                     foreach (var file in item.Files)
-                    {
                         await _accessRepository.AddAsync(
                             new ContentAccess(order.CustomerId, file.ContentFileId, order.Id));
-                    }
                 }
                 else
                 {
-                    // Полная покупка — все файлы продукта
                     var allFiles = await _contentFileRepository.GetByProductIdAsync(item.ProductId);
                     foreach (var file in allFiles)
-                    {
                         await _accessRepository.AddAsync(
                             new ContentAccess(order.CustomerId, file.Id, order.Id));
-                    }
                 }
+            }
+
+            // ── LifetimeSpent + milestone промо-коды ──────────────────────
+            var orderTotal = order.Items.Sum(i => i.PriceAtPurchase);
+            var user = await _accountRepository.GetByIdAsync(order.CustomerId);
+            if (user != null)
+            {
+                user.AddSpend(orderTotal);
+                await CheckMilestonesAsync(user);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -121,6 +138,28 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         catch (Exception ex)
         {
             return BaseResponse<bool>.Fail(ex.Message);
+        }
+    }
+
+    private async Task CheckMilestonesAsync(Domain.Entities.User user)
+    {
+        foreach (var (threshold, days, tag) in Milestones)
+        {
+            if (user.LifetimeSpent < threshold) continue;
+
+            var alreadyIssued = await _promoCodeRepository.WasMilestoneIssuedAsync(user.Id, tag);
+            if (alreadyIssued) continue;
+
+            var promo = SubscriptionPromoCode.CreateForMilestone(
+                issuedToUserId: user.Id,
+                product:        SubscriptionProductType.AutoSlot,
+                days:           days,
+                milestoneTag:   tag);
+
+            await _promoCodeRepository.AddAsync(promo);
+
+            // TODO: уведомить пользователя (email/Telegram) с кодом promo.Code
+            // await _notificationService.SendPromoCodeAsync(user, promo.Code, days);
         }
     }
 }
