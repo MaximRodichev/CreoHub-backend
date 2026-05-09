@@ -16,7 +16,8 @@ function checkForNewFiles() {
                         let response = await adobeMiddleWare_.Analyze();
                         spinCreated = response.Spins.length > 0
                         initializeSymbolsScroll();
-                        createOrUpdateDropdownWinItems();
+                        loadSymbolThumbnails();
+                        renderSymbolPicker();
                     }
                     lastItemCount = itemCount;
                 }

@@ -1,200 +1,293 @@
-﻿//window.parent.postMessage("alert('hello')", "*");
+/* ═══════════════════════════════════════════════════════════════════
+   AutoSlot — main.js  (v2 redesign)
+   Entry point: loads AE scripts, runs Analyze, inits UI.
+═══════════════════════════════════════════════════════════════════ */
 
 const dev = false;
+
 var MAINDATA = new AutoSlotDataType(
     "AutoSlot",
     {
-        "scatter_symbolscatter_symbolscatter_symbol": new ElementDataType("scatter_symbol", 500, 500),
-        "wild_symbolwild_symbolwild_symbol": new ElementDataType("wild_symbol", 500, 500),
-        "simple_Symbol01": new ElementDataType("simple_Symbol01", 500, 500),
-        "bonus_Symbol": new ElementDataType("bonus_Symbol", 500, 500),
-        "bonus_Symbol2": new ElementDataType("bonus_Symbol2", 500, 500)
+        "scatter_symbol": new ElementDataType("scatter_symbol", 500, 500),
+        "wild_symbol":    new ElementDataType("wild_symbol",    500, 500),
+        "simple_Symbol01":new ElementDataType("simple_Symbol01",500, 500),
     },
     {
-        "Spin_1": new SpinDataType("Spin_1", 1080, 1080, 5, 6, 120, 120, "", [], 0.1, 0.1, 0.1),
-        "Spin_2": new SpinDataType("Spin_2", 1080, 1920, 3, 1, 12, 11, "", [], 0.2, 0.1, 0.1),
-        "Spin_3": new SpinDataType("Spin_3", 720, 640, 4, 7, 132, 124, "", [], 0.3, 0.1, 0.1),
-        "Spin_4": new SpinDataType("Spin_4", 1920, 720, 8, 3, 1612, 124, "", [], 0.44, 0.1, 0.1)
+        // name, width, height, elsByHeight, elsByWidth, spacingH, spacingV, slowWin, slowLines, slowMain
+        "Spin_1": new SpinDataType("Spin_1", 1080, 1080, 5, 5, 120, 120, 0.1, 0.1, 0.1),
     }
 );
+
 const adobeMiddleWare_ = new iframeMiddleWare("AutoSlot_");
 
+/* ── Load ExtendScript files ────────────────────────────────── */
 async function loadJsxScripts() {
     const map = {
-        "localization": "common/localization.jsx",
-        "helpers": "helpers.jsx",
-        "SpinDataType": "types/SpinDataType.jsx",
-        "ElementDataType": "types/ElementDataType.jsx",
-        "ResizeDataType": "types/ResizeDataType.jsx",
-        "ConfigDataType": "types/ConfigDataType.jsx",
-        "WinDataType": "types/WinDataType.jsx",
-        "Expressions": "Expressions.jsx",
-        "Line": "Line.jsx",
-        "Spin": "Spin.jsx",
-        "AutoSlot": "AutoSlot.jsx",
+        "localization":  "common/localization.jsx",
+        "helpers":       "helpers.jsx",
+        "SpinDataType":  "types/SpinDataType.jsx",
+        "ElementDataType":"types/ElementDataType.jsx",
+        "ResizeDataType":"types/ResizeDataType.jsx",
+        "ConfigDataType":"types/ConfigDataType.jsx",
+        "WinDataType":   "types/WinDataType.jsx",
+        "Expressions":   "Expressions.jsx",
+        "Line":          "Line.jsx",
+        "Spin":          "Spin.jsx",
+        "AutoSlot":      "AutoSlot.jsx",
     };
-
     const promises = Object.entries(map).map(async ([key, filePath]) => {
-        try {
-            return await fetchJSX(filePath)
-        } catch (error) {
-            console.error(error);
-            return "";
-        }
+        try   { return await fetchJSX(filePath); }
+        catch (e) { console.error(e); return ""; }
     });
-
     await Promise.all(promises);
 }
 
+/* ── Tab switching (data-tab attribute) ─────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.tab').forEach(function(t) {
+        t.addEventListener('click', function() {
+            document.querySelectorAll('.tab').forEach(function(x) { x.classList.remove('active'); });
+            document.querySelectorAll('.content').forEach(function(x) { x.classList.remove('active'); });
+            t.classList.add('active');
+            var panel = document.getElementById('tab-' + t.dataset.tab);
+            if (panel) panel.classList.add('active');
+        });
+    });
+});
 
-
-function showContent(tabNumber) {
-    if(tabNumber == 4){
-        g = document.getElementById('content' + tabNumber).classList;
-        if(g.contains('active')){
-            g.remove('active')
-            return;
-        }
-        g.add('active');
-        return;
-    }
-    // Скрываем все содержимое
-    const contents = document.querySelectorAll('.content');
-    contents.forEach(content => content.classList.remove('active'));
-
-    // Убираем активное состояние у всех вкладок
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
-
-    // Показываем содержимое для выбранной вкладки
-    document.getElementById('content' + tabNumber).classList.add('active');
-
-    // Добавляем активное состояние выбранной вкладке
-    tabs[tabNumber - 1].classList.add('active');
-}
-
+/* ── DOMContentLoaded: full init ────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async function() {
-    const spinner = document.getElementById("loading-spinner");
+    // Show spinner
+    var spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.add('visible');
 
-    // Показываем спиннер
-    spinner.style.display = "block";
-    document.getElementById("eduModeCheckbox").checked = localStorage.getItem("eduMode") !== "false";
+    // Init edu toggle state from localStorage
+    var eduTog = document.getElementById('edu-toggle');
+    if (eduTog) eduTog.classList.toggle('on', localStorage.getItem('eduMode') !== 'false');
+
     try {
         await loadJsxScripts();
 
-        var x = new AutoSlotDataType(
-            "AutoSlot",
-            {
-                "element_01": new ElementDataType("element_01", 500, 500),
-                "element_02": new ElementDataType("element_01", 500, 500),
-                "element_03": new ElementDataType("element_01", 500, 500),
-            },
-            {
-                "Spin_1": SpinDataType.fromData(
-                    "Spin_1",
-                    new ResizeDataType(1080, 1080, 5, 6),
-                    new ConfigDataType(-100, -100, 0.1, 1, 0.5),
-                    new WinDataType("", [])
-                )
+        try { await adobeMiddleWare_.Analyze(); } catch(e) { console.error(e); }
+
+        // Init win-combos and play modes for each spin
+        Object.keys(MAINDATA.Spins || {}).forEach(function(name) {
+            if (!winCombosMap[name]) {
+                var spinData = MAINDATA.Spins[name];
+                winCombosMap[name] = ensureDuration((spinData.winCombos || []).map(function(c) {
+                    return { winElement: c.winElement || '', winElements: c.winElements || [], startOffset: c.startOffset || 0, duration: c.duration || 1.4 };
+                }));
             }
-        );
-        
-            try { await adobeMiddleWare_.Analyze(); } catch (e) { console.error(e); }
-    
-            Object.keys(MAINDATA["Spins"]).forEach((elemnt) => {
-                createGrid(MAINDATA["Spins"][elemnt]);
-            });
-        
-        createOrUpdateDropdownWinItems();
-        createOrUpdateDropdownSpinItems();
+            if (!spinPlayModes[name]) spinPlayModes[name] = 'sequential';
+        });
+
+        // Set first spin as current
+        var spinNames = Object.keys(MAINDATA.Spins || {});
+        if (spinNames.length) {
+            currentSpin = spinNames[0];
+        }
+
+        // Build UI
+        renderSpinPicker();
+        loadSpinConfig(currentSpin);
+        renderGrid(currentSpin);
+        renderComboList(currentSpin);
+        renderAllPresets();
         initializeSymbolsScroll();
+        loadSymbolThumbnails();
+        renderSymbolPicker();
+        checkSubExpiry();
 
-        if (dev) {
-            const selectElement = document.getElementById("spin-dropdown");
-            selectElement.value = "Spin_1";
-            const changeEvent = new Event('change');
-            document.getElementById("spinSelector").dispatchEvent(changeEvent);
+        // Tooltip hint on symbols scroll
+        if (typeof showTooltip === 'function') {
+            showTooltip(
+                document.getElementById('symbolsScroll'),
+                'Добавьте ваши элементы!\nAutoSlot/Symbols/Gifs',
+                null,
+                'right'
+            );
         }
 
-    } catch (error) {
-        console.error("Ошибка загрузки:", error);
-        alert("Ошибка при загрузке данных.");
+    } catch(error) {
+        console.error('Ошибка загрузки:', error);
     } finally {
-        // Скрываем спиннер после загрузки
-        spinner.style.display = "none";
-        showTooltip(
-            document.getElementById("symbolsScroll"),
-            'Добавьте ваши элементы!\nAutoSlot/Symbols/Gifs',
-            null,
-            'right'
-        );
-    }
-});
-
-document.getElementById("spinSelector").addEventListener('change', function(){
-    const selected = this.children.item(0);
-
-    Array.from(document.getElementById('grids-container').children).forEach((item)=>{
-        if(item.classList.contains('active')){
-            item.classList.remove('active');
+        if (spinner) {
+            spinner.style.transition = 'opacity .4s';
+            spinner.style.opacity = '0';
+            setTimeout(function() { spinner.style.display = 'none'; spinner.style.opacity = ''; spinner.classList.remove('visible'); }, 400);
         }
-        if(item.id === selected.value){
-            item.classList.add('active');
-            csInterface.evalScript(`Helper.findCompByName("${item.id}", Helper.findFolderByName("Spins")).openInViewer().setActive();`)
+    }
+});
+
+/* ── Submit button ──────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    var submitBtn = document.getElementById('btn-submit');
+    if (!submitBtn) return;
+    submitBtn.addEventListener('click', async function() {
+        if (!currentSpin) return;
+        var d = getUpdatesOfSpin();
+        console.log('[Submit]', JSON.stringify(d, null, 2));
+
+        // Send win combos to AE
+        var activeCombos = winCombosMap[currentSpin] || [];
+        console.log('[Submit] spin:', currentSpin, '| combos:', activeCombos.length);
+        if (activeCombos.length > 0) {
+            var playMode = spinPlayModes[currentSpin] || 'fixedEnd';
+            try {
+                const winResult = await adobeMiddleWare_.setWinGridMulti(currentSpin, activeCombos, playMode);
+                console.log('[setWinGridMulti result]:', winResult);
+            } catch(e) {
+                console.error('[setWinGridMulti error]:', e);
+            }
+        } else {
+            console.warn('[Submit] activeCombos is EMPTY — setWinGridMulti not called');
         }
-    })
-    setSpinData(MAINDATA.Spins[selected.value]);
-    const winSelector = document.getElementById('dropdown-container').children.item(0)
-    Object.values(winSelector.options).forEach(
-        item=>item.selected =
-            item.value === MAINDATA["Spins"][selected.value]["winElement"]
-    )
+
+        if (d.isResizeUpdate) {
+            adobeMiddleWare_.resize(d.name, d.resizeData);
+        }
+        if (d.isConfigUpdate) {
+            adobeMiddleWare_.setConfigSpin(d.name, d.configData);
+        }
+
+        await adobeMiddleWare_.Analyze();
+
+        // Refresh UI after Analyze
+        var savedCombos = (winCombosMap[currentSpin] || []).slice();
+        renderGrid(currentSpin);
+        renderComboList(currentSpin);
+        winCombosMap[currentSpin] = savedCombos;
+        renderComboList(currentSpin);
+        clearDirty();
+        statusMsg(document.getElementById('combo-status'),
+            currentSpin + ': ' + activeCombos.length + ' combo(s) → AE');
+    });
 });
 
-document.getElementById("submit-button").addEventListener('click', async function(){
-    var d = getUpdatesOfSpin();
-    console.log(JSON.stringify(d, '\n', 2));
-
-    // Win: если есть хотя бы одно комбо — отправляем все сразу через setWinGridMulti
-    var activeCombos = winCombosMap[d.name] || [];
-    if (activeCombos.length > 0) {
-        adobeMiddleWare_.setWinGridMulti(d.name, activeCombos);
-    } else if (d.isWinUpdate) {
-        // Старый режим — одно выделение без комбо
-        adobeMiddleWare_.setWinGrid(d.name, d.winData);
-    }
-
-    if(d.isResizeUpdate){
-        adobeMiddleWare_.resize(d.name, d.resizeData);
-    }
-    if(d.isConfigUpdate){
-        adobeMiddleWare_.setConfigSpin(d.name, d.configData);
-    }
-    await adobeMiddleWare_.Analyze();
-
-    var {choosenGrid, selectedSpin} = getActiveGrid();
-
-    // Сохраняем комбо перед пересозданием грида
-    var savedCombos = winCombosMap[selectedSpin] ? winCombosMap[selectedSpin].slice() : [];
-    choosenGrid.remove();
-    var newGrid = createGrid(MAINDATA.Spins[selectedSpin]);
-    newGrid.classList.add("active");
-    // Восстанавливаем комбо (createGrid мог перезаписать из данных — принудительно ставим актуальное)
-    winCombosMap[selectedSpin] = savedCombos;
-    renderComboList(selectedSpin);
+/* ── Update button (re-Analyze from AE) ────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    var updBtn = document.getElementById('btn-update');
+    if (!updBtn) return;
+    updBtn.addEventListener('click', async function() {
+        statusMsg(document.getElementById('combo-status'), 'Refreshing…', '#888');
+        try {
+            await adobeMiddleWare_.Analyze();
+            // Re-init spin list
+            var spinNames = Object.keys(MAINDATA.Spins || {});
+            spinNames.forEach(function(name) {
+                if (!winCombosMap[name])   winCombosMap[name]   = [];
+                if (!spinPlayModes[name])  spinPlayModes[name]  = 'sequential';
+            });
+            if (!currentSpin || !MAINDATA.Spins[currentSpin]) {
+                currentSpin = spinNames[0] || null;
+            }
+            renderSpinPicker();
+            loadSpinConfig(currentSpin);
+            renderGrid(currentSpin);
+            renderComboList(currentSpin);
+            initializeSymbolsScroll();
+            loadSymbolThumbnails();
+            renderSymbolPicker();
+            renderAllPresets();
+            statusMsg(document.getElementById('combo-status'), 'Refreshed from AE', '#28a745');
+        } catch(e) {
+            console.error(e);
+            statusMsg(document.getElementById('combo-status'), 'Refresh failed', '#f44');
+        }
+    });
 });
 
-// document.getElementById("grids-container-text").addEventListener("click", function(){
-//     if(this.innerText == "Submit Joystick"){
-//         writeActionJoystick();
-//         // console.log(getJoystickSubmits());
-//         clearJoystick(getActiveGrid()["choosenGrid"]);
-//         this.innerText = "Joystick Items";
-//     }
-//     if(this.innerText == "Boom Joystick"){
-//         boomActionJoystick();
-//         this.innerText = "Joystick Items"
-//     }
-// })
+/* ── Profile tab: subscription status ──────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    loadProfileData();
 
+    // Edu toggle
+    var eduRow = document.getElementById('edu-row');
+    var eduTog = document.getElementById('edu-toggle');
+    if (eduRow && eduTog) {
+        var eduOn = localStorage.getItem('eduMode') !== 'false';
+        eduTog.classList.toggle('on', eduOn);
+        eduRow.addEventListener('click', function() {
+            eduOn = !eduOn;
+            localStorage.setItem('eduMode', eduOn);
+            eduTog.classList.toggle('on', eduOn);
+            if (typeof setEduMode === 'function') setEduMode(eduOn);
+        });
+    }
 
+    // Promo code
+    var promoBtn = document.getElementById('btn-promo');
+    if (promoBtn) {
+        promoBtn.addEventListener('click', function() { redeemPromo(); });
+    }
+
+    // Renew
+    var renewBtn = document.getElementById('btn-renew');
+    if (renewBtn) {
+        renewBtn.addEventListener('click', function() {
+            if (typeof openURL === 'function') openURL('https://creohub.xyz');
+        });
+    }
+});
+
+async function loadProfileData() {
+    var statusEl = document.getElementById('sub-text');
+    var expiryEl = document.getElementById('sub-expiry');
+    var dotEl    = document.getElementById('sub-dot');
+    var badgeEl  = document.getElementById('sub-badge');
+    try {
+        const res  = await fetch('/autoslot/me');
+        const data = await res.json();
+        if (data.hasSubscription) {
+            var exp = new Date(data.expiresAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+            if (statusEl) statusEl.textContent = 'Лицензия активна';
+            if (expiryEl) expiryEl.textContent  = 'до ' + exp + ' · ' + data.daysLeft + ' дней';
+            if (dotEl)   { dotEl.className = 'sub-dot active'; }
+            if (badgeEl) { badgeEl.className = 'sub-badge active'; }
+            // Expiry warning
+            if (data.daysLeft <= 5 && data.daysLeft > 0) {
+                var warn = document.getElementById('sub-expiry-warn');
+                var daysEl = document.getElementById('sub-days-left');
+                if (daysEl) daysEl.textContent = data.daysLeft;
+                if (warn)   warn.style.display = 'inline-flex';
+            }
+        } else {
+            if (statusEl) statusEl.textContent = 'Подписка не активна';
+            if (expiryEl) expiryEl.textContent = '';
+            if (dotEl)   { dotEl.className = 'sub-dot inactive'; }
+            if (badgeEl) { badgeEl.className = 'sub-badge inactive'; }
+        }
+    } catch(e) {
+        if (statusEl) statusEl.textContent = 'Ошибка загрузки';
+    }
+}
+
+async function redeemPromo() {
+    var code     = (document.getElementById('promo-input') || {}).value;
+    var statusEl = document.getElementById('promo-status');
+    if (!code || !code.trim()) return;
+    code = code.trim();
+    if (statusEl) { statusEl.style.color = '#bbb'; statusEl.textContent = 'Проверяем...'; }
+    try {
+        const res = await fetch('/autoslot/redeem', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+        });
+        if (res.ok) {
+            if (statusEl) { statusEl.style.color = '#4c4'; statusEl.textContent = '✅ Активировано!'; }
+            loadProfileData();
+        } else {
+            if (statusEl) { statusEl.style.color = '#f44'; statusEl.textContent = 'Код недействителен'; }
+        }
+    } catch(e) {
+        if (statusEl) { statusEl.style.color = '#f44'; statusEl.textContent = 'Ошибка сети'; }
+    }
+}
+
+function checkSubExpiry() {
+    // Called after profile data loaded; expiry warning handled there.
+    // Kept as no-op since loadProfileData handles it.
+}
+
+/* ensureDuration is defined in spinUI.js */

@@ -6,9 +6,7 @@ class SpinDataType {
         elsByHeight,
         elsByWidth,
         spacingHorizontal = 0,
-        spacingVertical = 0,
-        winElement,
-        winElements,
+        spacingVertical   = 0,
         slowWin,
         slowLines,
         slowMain,
@@ -19,66 +17,37 @@ class SpinDataType {
         }
         this.name = name;
 
-        if (width < 0) {
-            throw new Error("Ширина спина не может быть отрицательной");
-        }
+        if (width < 0)     throw new Error("Ширина спина не может быть отрицательной");
         this.width = width;
 
-        if (height < 0) {
-            throw new Error("Высота спина не может быть отрицательной");
-        }
+        if (height < 0)    throw new Error("Высота спина не может быть отрицательной");
         this.height = height;
 
-        if (elsByHeight < 0) {
-            throw new Error("Количество элементов по высоте спина не может быть отрицательным");
-        }
+        if (elsByHeight < 0) throw new Error("Количество элементов по высоте не может быть отрицательным");
         this.elsByHeight = elsByHeight;
 
-        if (elsByWidth < 0) {
-            throw new Error("Количество элементов по ширине спина не может быть отрицательным");
-        }
+        if (elsByWidth < 0)  throw new Error("Количество элементов по ширине не может быть отрицательным");
         this.elsByWidth = elsByWidth;
 
         this.spacingHorizontal = spacingHorizontal;
-        this.spacingVertical = spacingVertical;
-
-        if (!Array.isArray(winElements)) {
-            throw new Error("Выигрышные элементы должны быть массивом");
-        }
-        this.winElements = winElements;
-
-        if (typeof winElement !== "string") {
-            throw new Error("Ошибка: winElement должен быть строкой");
-        }
-        this.winElement = winElement;
+        this.spacingVertical   = spacingVertical;
 
         this.slowLines = slowLines;
-        this.slowMain = slowMain;
-        this.slowWin = slowWin;
+        this.slowMain  = slowMain;
+        this.slowWin   = slowWin;
 
         this.winCombos = Array.isArray(winCombos) ? winCombos : [];
     }
 
-    // Factory method for alternate initialization
-    static fromData(name, resizeData, configData, winData) {
+    static fromData(name, resizeData, configData, winCombos = []) {
         const { width, height, elsByHeight, elsByWidth } = resizeData;
         const { slowWin, slowLines, slowMain, spacingHorizontal = 0, spacingVertical = 0 } = configData;
-        const { winElement, winElements } = winData;
 
         return new SpinDataType(
-            name,
-            width,
-            height,
-            elsByHeight,
-            elsByWidth,
-            spacingHorizontal,
-            spacingVertical,
-            winElement,
-            winElements,
-            slowWin,
-            slowLines,
-            slowMain,
-            winData.winCombos != null ? winData.winCombos : []
+            name, width, height, elsByHeight, elsByWidth,
+            spacingHorizontal, spacingVertical,
+            slowWin, slowLines, slowMain,
+            Array.isArray(winCombos) ? winCombos : []
         );
     }
 }

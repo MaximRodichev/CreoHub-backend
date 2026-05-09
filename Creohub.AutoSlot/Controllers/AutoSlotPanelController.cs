@@ -58,6 +58,35 @@ public class AutoSlotPanelController(SubscriptionService subs) : Controller
         var success = await subs.RedeemPromoCodeAsync(userId, req.Code);
         return success ? Ok() : BadRequest("Код недействителен или уже использован");
     }
+
+    // Превью локального файла — читает GIF/PNG/WEBP с диска и отдаёт как image
+    // Используется для отображения символов в панели без зависимости от CEP Node.js
+    [HttpGet("local-preview")]
+    public IActionResult LocalPreview([FromQuery] string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return BadRequest();
+
+        // Нормализуем слеши
+        path = path.Replace('/', System.IO.Path.DirectorySeparatorChar)
+                   .Replace('\\', System.IO.Path.DirectorySeparatorChar);
+
+        if (!System.IO.File.Exists(path))
+            return NotFound();
+
+        var ext  = System.IO.Path.GetExtension(path).ToLowerInvariant();
+        var mime = ext switch
+        {
+            ".gif"  => "image/gif",
+            ".png"  => "image/png",
+            ".webp" => "image/webp",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "application/octet-stream"
+        };
+
+        var bytes = System.IO.File.ReadAllBytes(path);
+        return File(bytes, mime);
+    }
 }
 
 public record RedeemRequest(string Code);

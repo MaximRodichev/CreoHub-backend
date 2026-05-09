@@ -1,210 +1,300 @@
 @{
     Layout = null;
+    var v = DateTime.Now.Ticks;
 }
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/eduMode.css"/>
-    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/styles.css"/>
-    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/shared.css"/>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/styles.css?v=@v"/>
+    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/shared.css?v=@v"/>
+    <link rel="stylesheet" href="/_content/Creohub.AutoSlot/css/eduMode.css?v=@v"/>
     <title>AutoSlot</title>
-    <style>
-        #loading-spinner {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;
-        }
-        video { width: 80px; }
-    </style>
 </head>
-<body scroll="no">
+<body>
 
-<div class="mainContainer">
-    <div id="loading-spinner">
-        <video id="loader-video" autoplay loop muted playsinline>
-            <source src="/_content/Creohub.AutoSlot/assets/webm/loader.webm" type="video/webm">
-        </video>
-    </div>
-    <div class="tabs">
-        <div class="tab active" onclick="showContent(1)">Main</div>
-        <div class="tab" onclick="showContent(2)">Settings</div>
-        <div class="tab" onclick="showContent(3)">Profile</div>
-    </div>
-    <hr>
-    <div id="content1" class="content active">
-        <div class="MainContainer_">
-            <div class="symbolsViewerContainer">
-                <div id="symbolsScroll" tooltip tooltip-caption="Загрузите свои гифки!" tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/putFilesIntoGifs.webm" tooltip-direction="right" class="symbolsScroll"></div>
-            </div>
-            <div class="iconsContainer2" style="flex-direction: column;">
-                <img class="mid-icon" id="symbolsButton" tooltip tooltip-caption="Рескин элементов и их обертка" tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/reskinElements.webm" tooltip-direction="left" ondblclick="resizeElements()" src="/_content/Creohub.AutoSlot/assets/img/symbols.png"/>
-                <img class="mid-icon" tooltip tooltip-caption="Сохранить файл конфигурации" tooltip-direction="right" onclick="getConfigurationOfElements()" src="/_content/Creohub.AutoSlot/assets/img/exportJSON.png"/>
-                <img class="mid-icon" tooltip tooltip-caption="Применить файл конфигурации" tooltip-direction="right" tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/jsonSet.webm" onclick="setConfigurationToElements()" src="/_content/Creohub.AutoSlot/assets/img/setJson.png"/>
-                <input type="text" tooltip tooltip-caption="Размер ширины прекомпов гифок" tooltip-direction="right" placeholder="Width px" id="elementsWidth" value="250" required>
-                <input type="text" tooltip tooltip-caption="Размер высоты прекомпов гифок" tooltip-direction="right" placeholder="Height px" id="elementsHeight" value="250" required>
-            </div>
-        </div>
-    </div>
-
-    <div id="content2" class="content">
-        <div class="settingsContainer">
-            <div class="spinControlContainer">
-                <div class="optionsSpinContainer" id="spinSelector"></div>
-                <div class="iconsContainer">
-                    <div class="iconsContainer2">
-                        <img class="small-icon" tooltip tooltip-caption="Создать новый спин" onclick="addSpin()" src="/_content/Creohub.AutoSlot/assets/img/addSpin.png"/>
-                        <img class="small-icon" src="/_content/Creohub.AutoSlot/assets/img/addVerticalLine.png"/>
-                        <img class="small-icon" src="/_content/Creohub.AutoSlot/assets/img/addHorizontalLine.png"/>
-                    </div>
-                    <div class="iconsContainer2">
-                        <img class="small-icon" tooltip tooltip-caption="Удалить текущий спин" onclick="removeSpin()" src="/_content/Creohub.AutoSlot/assets/img/removeSpin.png"/>
-                        <img class="small-icon" src="/_content/Creohub.AutoSlot/assets/img/removeVerticalLine.png"/>
-                        <img class="small-icon" src="/_content/Creohub.AutoSlot/assets/img/removeHorizontalLine.png"/>
-                    </div>
-                    <div id="dropdown-container"></div>
-                </div>
-                <div class="iconsContainer2">
-                    <button id="submit-button">Submit</button>
-                    <img class="small-icon" tooltip tooltip-caption="Настройка спина" tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/spinSettings.webm" onclick="showContent(4)" src="/_content/Creohub.AutoSlot/assets/img/settings.png"/>
-                </div>
-            </div>
-            <hr class="hr">
-            <div class="spinWinSelectionContainer">
-                <div class="mainText" id="grids-container-text">Select Items</div>
-                <div id="grids-container" tooltip tooltip-caption="Конфигурация выигрыша" tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/spinConfig.webm"></div>
-            </div>
-        </div>
-        <div class="content" id="content4">
-            <div class="spinOptionsContainer">
-                <div class="sizeInputContainer" id="spinWidth">
-                    <div class="mainText">Width</div>
-                    <input type="text" placeholder="px" data-marker="width" required>
-                    <input type="text" placeholder="els" data-marker="elsByWidth" required>
-                    <input type="text" placeholder="spacing" data-marker="spacingHorizontal" required>
-                </div>
-                <div class="sizeInputContainer" id="spinHeight">
-                    <div class="mainText">Height</div>
-                    <input type="text" placeholder="px" data-marker="height" required>
-                    <input type="text" placeholder="els" data-marker="elsByHeight" required>
-                    <input type="text" placeholder="spacing" data-marker="spacingVertical" required>
-                </div>
-                <div class="sizeInputContainer" id="spinSlow">
-                    <div class="mainText">Slow</div>
-                    <input type="text" placeholder="win" data-marker="slowWin" required>
-                    <input type="text" placeholder="line" data-marker="slowLines" required>
-                    <input type="text" placeholder="els" data-marker="slowMain" required>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="content3" class="content">
-        <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-around;padding-bottom:14px;">
-            <video style="width:65px;border-radius:20px" autoplay loop muted playsinline>
-                <source src="/_content/Creohub.AutoSlot/assets/webm/idle.webm" type="video/webm">
-            </video>
-            <div style="text-align:center;">
-                <div class="mainText" style="font-size:16px;">AutoSlot</div>
-                <div id="subscription-status" style="font-size:12px;color:#aaa;margin-top:3px;">⏳ Загрузка...</div>
-                <div id="subscription-expiry" style="font-size:10px;color:#777;margin-top:2px;"></div>
-            </div>
-        </div>
-        <div style="display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-            <input style="width:15px;flex:none;" type="checkbox" id="eduModeCheckbox"/>
-            <label class="mainText" style="font-size:12px;" for="eduModeCheckbox">Обучающие подсказки</label>
-        </div>
-        <div style="margin-bottom:10px;">
-            <div class="mainText" style="text-align:center;font-size:11px;color:#999;margin-bottom:4px;">Промо-код</div>
-            <div style="display:flex;gap:6px;">
-                <input type="text" id="promo-input" placeholder="AUTOSLOT-XXXXXXXX" style="text-transform:uppercase;min-width:0;">
-                <button onclick="redeemPromo()" style="flex:none;width:auto;padding:0 10px;">→</button>
-            </div>
-            <div id="promo-status" style="font-size:11px;margin-top:4px;min-height:14px;"></div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-around;margin-top:6px;">
-            <div class="mainText btnText" onclick="openURL('https://creohub.xyz')" style="cursor:pointer;font-size:13px;">🌐 Creohub</div>
-            <div class="mainText btnText" onclick="openURL('https://t.me/DeFaustus')" style="cursor:pointer;font-size:13px;">💬 Support</div>
-        </div>
-    </div>
-
-    <div id="tooltip" class="tooltip" style="white-space:normal;"></div>
+<!-- Loading overlay -->
+<div id="loading-spinner">
+  <video autoplay loop muted playsinline>
+    <source src="/_content/Creohub.AutoSlot/assets/webm/loader.webm" type="video/webm">
+  </video>
 </div>
 
-<script src="/_content/Creohub.AutoSlot/js/CSInterface.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/helpers/evaluateWithResponse.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/helpers/fetchCode.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/shell.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/middleWare/iframeMiddleWare.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/middleWare/CallFunctions.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/helpers/sendRequests.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/middleWare/CEPException.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/SpinDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/WinDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/ResizeDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/ConfigDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/ElementDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/types/AutoSlotDataType.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/actions/elementsActions.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/actions/spinActions.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/UI/elementsUI.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/UI/spinUI.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/mapper/Mapper.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/middleWare/monitoringAdobe.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/UI/eduMode.js"></script>
-<script src="/_content/Creohub.AutoSlot/js/main.js"></script>
+<div class="mainContainer">
 
-<script>
-    // ── Profile tab: загрузка данных подписки ──────────────────────────────
-    async function loadProfileData() {
-        const statusEl = document.getElementById('subscription-status');
-        const expiryEl = document.getElementById('subscription-expiry');
-        try {
-            const res  = await fetch('/autoslot/me');
-            const data = await res.json();
-            if (data.hasSubscription) {
-                const exp = new Date(data.expiresAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
-                statusEl.style.color   = '#4c4';
-                statusEl.textContent   = `✅ Активна — ${data.daysLeft} дн.`;
-                expiryEl.textContent   = `до ${exp}`;
-            } else {
-                statusEl.style.color = '#f66';
-                statusEl.textContent = '❌ Подписка не активна';
-                expiryEl.textContent = '';
-            }
-        } catch {
-            statusEl.style.color = '#f66';
-            statusEl.textContent = 'Ошибка загрузки';
-        }
-    }
-    loadProfileData();
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="main">Main</div>
+    <div class="tab" data-tab="settings">Settings</div>
+    <div class="tab" data-tab="profile">
+      <span class="tab-notif">Profile<span class="tab-notif-dot"></span></span>
+    </div>
+  </div>
+  <hr>
 
-    // ── Promo code ─────────────────────────────────────────────────────────
-    async function redeemPromo() {
-        const code = document.getElementById('promo-input').value.trim();
-        const statusEl = document.getElementById('promo-status');
-        if (!code) return;
-        statusEl.style.color = '#bbb';
-        statusEl.textContent = 'Проверяем...';
-        try {
-            const res = await fetch('/autoslot/redeem', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
-            });
-            if (res.ok) {
-                statusEl.style.color = '#4c4';
-                statusEl.textContent = '✅ Активировано!';
-                loadProfileData(); // обновляем статус
-            } else {
-                statusEl.style.color = '#f44';
-                statusEl.textContent = 'Код недействителен';
-            }
-        } catch {
-            statusEl.style.color = '#f44';
-            statusEl.textContent = 'Ошибка сети';
-        }
-    }
-</script>
+  <!-- ══════════════ TAB 1 — MAIN ═════════════════════════════ -->
+  <div class="content active" id="tab-main">
+
+    <div class="symbols-header">
+      <span>Symbols</span>
+      <span class="symbols-count" id="sym-count">0</span>
+    </div>
+
+    <div class="symbolsScroll" id="symbolsScroll"
+         tooltip tooltip-caption="Добавьте ваши элементы! AutoSlot/Symbols/Gifs"
+         tooltip-direction="right"></div>
+
+    <div class="main-actions-bar">
+      <div class="main-actions-group">
+        <div class="size-inputs-hint">Управление символами</div>
+        <div class="main-actions-icons">
+          <img src="/_content/Creohub.AutoSlot/assets/img/symbols.png"
+               class="act-icon" id="btn-symbols"
+               tooltip tooltip-caption="Рескин элементов и их обёртка"
+               tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/reskinElements.webm"
+               tooltip-direction="right"
+               ondblclick="resizeElements()"
+               onerror="this.style.opacity='.3'">
+          <img src="/_content/Creohub.AutoSlot/assets/img/exportJSON.png"
+               class="act-icon" id="btn-export"
+               tooltip tooltip-caption="Сохранить файл конфигурации"
+               tooltip-direction="right"
+               onclick="getConfigurationOfElements()"
+               onerror="this.style.opacity='.3'">
+          <img src="/_content/Creohub.AutoSlot/assets/img/setJson.png"
+               class="act-icon" id="btn-set-json"
+               tooltip tooltip-caption="Применить файл конфигурации"
+               tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/jsonSet.webm"
+               tooltip-direction="right"
+               onclick="setConfigurationToElements()"
+               onerror="this.style.opacity='.3'">
+        </div>
+      </div>
+      <div class="main-actions-sep"></div>
+      <div class="main-size-inputs">
+        <div class="size-inputs-hint">Размеры прекомпозиций</div>
+        <div class="size-fields-row">
+          <div class="size-field">
+            <label>W</label>
+            <input type="number" id="elementsWidth" value="250" min="1"
+                   tooltip tooltip-caption="Ширина прекомпов" tooltip-direction="right">
+            <span class="size-unit">px</span>
+          </div>
+          <div class="size-field">
+            <label>H</label>
+            <input type="number" id="elementsHeight" value="250" min="1"
+                   tooltip tooltip-caption="Высота прекомпов" tooltip-direction="right">
+            <span class="size-unit">px</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-promo-strip" id="main-promo-strip">
+      <div class="main-promo-text">Продавай и покупай ассеты на Creohub</div>
+      <div class="main-promo-cta">→</div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════ TAB 2 — SETTINGS ════════════════════════ -->
+  <div class="content" id="tab-settings">
+
+    <!-- Spin picker -->
+    <div class="spin-header-row">
+      <div class="spin-picker" id="spin-picker">
+        <button class="spin-picker-btn" id="spin-picker-btn">
+          <span id="spin-picker-label">—</span>
+          <span class="spin-picker-caret">▾</span>
+        </button>
+        <div class="spin-picker-menu" id="spin-picker-menu"></div>
+      </div>
+      <button class="btn-update" id="btn-update" title="Обновить данные из AE">↻</button>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid-section-label">
+      <span>Win cells</span>
+      <span id="grid-size-label" style="color:#888;font-family:'FugarReg',sans-serif;font-size:12px"></span>
+    </div>
+    <div class="grid-outer"
+         tooltip tooltip-caption="Конфигурация выигрыша"
+         tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/spinConfig.webm">
+      <div class="grid-container" id="spin-grid"></div>
+    </div>
+
+    <!-- Quick preset pills -->
+    <div class="preset-quick" id="preset-quick-row"></div>
+
+    <!-- Cell selection panel -->
+    <div class="cell-sel-panel" id="cell-sel-panel">
+      <div class="sel-hint" style="display:flex;align-items:center;justify-content:space-between;">
+        <span><strong id="sel-count-txt">0 cells</strong> selected — choose symbol:</span>
+        <button id="btn-unselect-cells" style="width:auto;padding:2px 8px;font-size:11px;border-color:#3a3a3a;color:#888;background:transparent;" title="Unselect all">✕</button>
+      </div>
+      <div class="sel-save-row">
+        <input type="text" id="preset-name-input" placeholder="Save selection as preset...">
+        <button id="btn-save-preset">Save</button>
+      </div>
+      <div class="sel-divider"></div>
+      <div class="sym-pick-row" id="sym-pick-row"></div>
+      <button class="btn-confirm-combo" id="btn-confirm-combo" disabled>+ Add Combo</button>
+    </div>
+
+    <!-- Combo list -->
+    <div class="combo-list" id="combo-list"></div>
+
+    <!-- Bottom actions -->
+    <div class="settings-bottom-row">
+      <button class="btn-submit" id="btn-submit">Submit</button>
+      <button id="btn-clear-combos" style="border-color:#5b0000;color:#a55">Clear All</button>
+    </div>
+    <div class="combo-status" id="combo-status"></div>
+
+    <!-- Timeline collapsible -->
+    <div class="collapsible-hdr" data-target="tl-body">
+      <span>Timeline</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:6px">
+        <button class="btn-preview" id="btn-preview"
+                tooltip tooltip-caption="Предпросмотр анимации на гриде"
+                tooltip-direction="right">▶ Play</button>
+        <button class="spin-play-mode" id="play-mode-btn" title="Режим воспроизведения — клик для переключения">sequential</button>
+      </div>
+      <span class="caret">&#9658;</span>
+    </div>
+    <div class="collapsible-body" id="tl-body">
+      <div class="timeline-wrap" id="timeline-wrap"></div>
+    </div>
+
+    <!-- Spin settings collapsible -->
+    <div class="collapsible-hdr" data-target="spin-settings-body"
+         tooltip tooltip-caption="Настройка спина"
+         tooltip-video="/_content/Creohub.AutoSlot/assets/eduGifs/spinSettings.webm">
+      <span>Spin Settings</span>
+      <span class="caret">&#9658;</span>
+    </div>
+    <div class="collapsible-body" id="spin-settings-body">
+      <div class="spin-cfg">
+        <div class="sp-row">
+          <div class="sp-pair"><span class="sp-lbl">Width</span><input type="number" id="cfg-width" value="1080"><span class="sp-unit">px</span></div>
+          <div class="sp-pair"><span class="sp-lbl">Height</span><input type="number" id="cfg-height" value="1080"><span class="sp-unit">px</span></div>
+        </div>
+        <div class="sp-row">
+          <div class="sp-pair"><span class="sp-lbl">Cols</span><input type="number" id="cfg-cols" value="5" min="1"><span class="sp-unit">sym</span></div>
+          <div class="sp-pair"><span class="sp-lbl">Rows</span><input type="number" id="cfg-rows" value="3" min="1"><span class="sp-unit">sym</span></div>
+        </div>
+        <div class="sp-div"></div>
+        <div class="sp-row">
+          <div class="sp-pair"><span class="sp-lbl">Spacing H</span><input type="number" id="cfg-sph" value="120"><span class="sp-unit">px</span></div>
+          <div class="sp-pair"><span class="sp-lbl">Spacing V</span><input type="number" id="cfg-spv" value="120"><span class="sp-unit">px</span></div>
+        </div>
+        <div class="sp-div"></div>
+        <div class="sp-row">
+          <div class="sp-pair"><span class="sp-lbl">Slow Win</span><input type="number" id="cfg-slow-win" value="0.1" step="0.05"><span class="sp-unit">s</span></div>
+          <div class="sp-pair"><span class="sp-lbl">Lines</span><input type="number" id="cfg-slow-lines" value="0.1" step="0.05"><span class="sp-unit">s</span></div>
+        </div>
+        <div class="sp-row">
+          <div class="sp-pair"><span class="sp-lbl">Main</span><input type="number" id="cfg-slow-main" value="0.1" step="0.05"><span class="sp-unit">s</span></div>
+          <div class="sp-pair"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════ TAB 3 — PROFILE ════════════════════════ -->
+  <div class="content" id="tab-profile">
+
+    <div class="profile-top">
+      <div class="profile-anim">
+        <video autoplay loop muted playsinline>
+          <source src="/_content/Creohub.AutoSlot/assets/webm/idle.webm" type="video/webm">
+        </video>
+      </div>
+      <div class="profile-info">
+        <div class="profile-username-row">
+          <div class="profile-username-input" id="profile-username">AutoSlot</div>
+        </div>
+        <div class="sub-badge active" id="sub-badge">
+          <span class="sub-dot active" id="sub-dot"></span>
+          <span id="sub-text">⏳ Загрузка...</span>
+        </div>
+        <div class="sub-expiry" id="sub-expiry"></div>
+        <div class="sub-expiry-warn" id="sub-expiry-warn" style="display:none">
+          ⚠ Подписка истекает через <strong id="sub-days-left"></strong> дн.
+        </div>
+        <div class="sub-actions">
+          <button class="btn-renew" id="btn-renew">Продлить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="profile-section-lbl">Настройки</div>
+    <div class="edu-row" id="edu-row">
+      <span class="edu-label">Обучающие подсказки</span>
+      <div class="toggle-track" id="edu-toggle">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <!-- Promo banners -->
+    <div class="profile-section-lbl">Акции <span class="promo-count-badge">1</span></div>
+    <div class="promo-banners">
+      <div class="promo-banner-card" id="promo-banner-1">
+        <div class="promo-banner-body">
+          <div class="promo-banner-title">Промо пак Эмоции на 30 стран</div>
+          <div class="promo-banner-sub">Всего 99$ на нашем маркетплейсе</div>
+        </div>
+        <button class="promo-banner-btn" onclick="openURL('https://creohub.xyz')">Смотреть</button>
+      </div>
+    </div>
+
+    <!-- Promo code -->
+    <div class="promo-section">
+      <div class="promo-label">Промо-код</div>
+      <div class="promo-row">
+        <input type="text" id="promo-input" placeholder="AUTOSLOT-XXXXXXXX" maxlength="24"
+               style="text-transform:uppercase">
+        <button id="btn-promo">→</button>
+      </div>
+      <div class="promo-status" id="promo-status"></div>
+    </div>
+
+    <!-- Links -->
+    <div class="profile-links">
+      <span class="btnText" id="btn-creohub" onclick="openURL('https://creohub.xyz')">🛍 Creohub</span>
+      <span class="btnText" id="btn-support" onclick="openURL('https://t.me/DeFaustus')">✈ Support</span>
+    </div>
+
+  </div>
+
+</div><!-- /mainContainer -->
+
+<div id="tooltip" class="tooltip" style="white-space:normal;"></div>
+
+<script src="/_content/Creohub.AutoSlot/js/CSInterface.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/helpers/evaluateWithResponse.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/helpers/fetchCode.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/shell.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/middleWare/iframeMiddleWare.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/middleWare/CallFunctions.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/helpers/sendRequests.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/middleWare/CEPException.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/SpinDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/WinDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/ResizeDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/ConfigDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/ElementDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/types/AutoSlotDataType.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/actions/elementsActions.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/actions/spinActions.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/UI/elementsUI.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/UI/spinUI.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/UI/presetsUI.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/mapper/Mapper.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/middleWare/monitoringAdobe.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/UI/eduMode.js?v=@v"></script>
+<script src="/_content/Creohub.AutoSlot/js/main.js?v=@v"></script>
 </body>
 </html>

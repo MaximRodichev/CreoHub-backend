@@ -1,5 +1,5 @@
 /**
- * Создание нового спина, работа с middleWare и UI
+ * Создание нового спина, работа с middleWare и UI (v2 redesign)
  */
 async function addSpin(){
     if(Object.keys(MAINDATA.Elements).length > 0){
@@ -10,9 +10,26 @@ async function addSpin(){
             await adobeMiddleWare_.addSpin();
         }
         await adobeMiddleWare_.Analyze();
-        createGrid(Object.values(MAINDATA.Spins).slice(-1)[0])
-        createOrUpdateDropdownSpinItems();
-        csInterface.evalScript(`Helper.findCompByName("Spin_${Object.keys(MAINDATA.Spins).length - 1}", Helper.findFolderByName("Spins")).openInViewer().setActive();`)
+
+        // Init new spin(s) in winCombosMap / spinPlayModes
+        Object.keys(MAINDATA.Spins || {}).forEach(function(name) {
+            if (!winCombosMap[name])   winCombosMap[name]   = [];
+            if (!spinPlayModes[name])  spinPlayModes[name]  = 'sequential';
+        });
+
+        // Switch to last spin
+        var spinNames = Object.keys(MAINDATA.Spins || {});
+        if (spinNames.length) {
+            var lastSpin = spinNames[spinNames.length - 1];
+            if (typeof switchSpin === 'function') {
+                switchSpin(lastSpin);
+            } else {
+                currentSpin = lastSpin;
+                renderSpinPicker();
+                loadSpinConfig(currentSpin);
+                renderGrid(currentSpin);
+            }
+        }
     }
     else{
         CEPException.SymbolCompsNotFound();
@@ -21,25 +38,43 @@ async function addSpin(){
 
 async function copySpin(){
     let lastspin = MAINDATA.Spins["Spin_"+(Object.keys(MAINDATA.Spins).length-1)];
-    console.log();
     await adobeMiddleWare_.copySpin(lastspin);
-} 
+}
 
-async function removeSpin(){
-    if(Object.keys(MAINDATA.Spins).length > 0){
-        Array.from(document.getElementById('grids-container').children).forEach((item)=>{
-            if(item.classList.contains('active')){
-                adobeMiddleWare_.removeSpin(item.id);
-                item.remove();
-                let spinSelectorOptionsList = document.getElementById("spinSelector").children.item(0);
-                for(x = 0; x < spinSelectorOptionsList.length; x++){
-                    if(spinSelectorOptionsList[x].innerText === item.id){ spinSelectorOptionsList[x].remove() }
-                }
-            }
-        })
-        await adobeMiddleWare_.Analyze();
-    }
-    else{
+/**
+ * removeSpin — accepts optional spinName (from new picker).
+ * If no name given, removes currentSpin.
+ */
+async function removeSpin(spinName){
+    var name = spinName || currentSpin;
+    if (!name || !MAINDATA.Spins[name]) {
         CEPException.NoFoundSpinToRemove();
+        return;
+    }
+    if(Object.keys(MAINDATA.Spins).length <= 1) {
+        CEPException.NoFoundSpinToRemove();
+        return;
+    }
+
+    await adobeMiddleWare_.removeSpin(name);
+    await adobeMiddleWare_.Analyze();
+
+    // Clean up state
+    delete winCombosMap[name];
+    delete spinPlayModes[name];
+
+    // Switch to another spin
+    var remaining = Object.keys(MAINDATA.Spins || {});
+    var nextSpin  = remaining.length ? remaining[0] : null;
+    if (typeof switchSpin === 'function' && nextSpin) {
+        switchSpin(nextSpin);
+    } else {
+        currentSpin = nextSpin;
+        renderSpinPicker();
+        if (currentSpin) {
+            loadSpinConfig(currentSpin);
+            renderGrid(currentSpin);
+            renderComboList(currentSpin);
+        }
     }
 }

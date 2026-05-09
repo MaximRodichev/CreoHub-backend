@@ -2,10 +2,12 @@ class ElementDataType{
     constructor(
         name,
         width,
-        height
+        height,
+        filePath
     ){
-        this.name = name
-        this.width = width
-        this.height = height
+        this.name     = name;
+        this.width    = width;
+        this.height   = height;
+        this.filePath = filePath != null ? filePath : null;
     }
 }

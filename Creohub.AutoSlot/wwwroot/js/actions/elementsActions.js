@@ -1,28 +1,28 @@
 let clickTimer = null;
 let isLongPress = false;
 
-const buttonSymbols = document.getElementById("symbolsButton");
-
 function handleMouseDown() {
     isLongPress = false;
-
     clickTimer = setTimeout(async () => {
         isLongPress = true;
         reskinSymbols();
-    }, 500); // 500ms — время для долгого клика
+    }, 500);
 }
 
 function handleMouseUp() {
     if (clickTimer) {
         clearTimeout(clickTimer);
-        if (!isLongPress) {
-            wrapSymbols();
-        }
+        if (!isLongPress) { wrapSymbols(); }
     }
 }
 
-buttonSymbols.addEventListener("mousedown", handleMouseDown);
-buttonSymbols.addEventListener("mouseup", handleMouseUp);
+document.addEventListener('DOMContentLoaded', function() {
+    var buttonSymbols = document.getElementById("btn-symbols");
+    if (buttonSymbols) {
+        buttonSymbols.addEventListener("mousedown", handleMouseDown);
+        buttonSymbols.addEventListener("mouseup", handleMouseUp);
+    }
+});
 
 
 
@@ -31,7 +31,8 @@ async function wrapSymbols() {
     adobeMiddleWare_.wrapElements();
     await adobeMiddleWare_.Analyze();
     initializeSymbolsScroll();
-    createOrUpdateDropdownWinItems();
+    loadSymbolThumbnails();
+    renderSymbolPicker();
 }
 
 /**
@@ -53,7 +54,8 @@ async function reskinSymbols(){
     }
     await adobeMiddleWare_.Analyze();
     initializeSymbolsScroll();
-    createOrUpdateDropdownWinItems();
+    loadSymbolThumbnails();
+    renderSymbolPicker();
 }
 function resizeElements(){
     try{

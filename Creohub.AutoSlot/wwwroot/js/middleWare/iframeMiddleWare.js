@@ -45,7 +45,9 @@ class iframeMiddleWare {
             //result = await evaluateWithResponseAsync(`${this.callFunctions.analyze}`)
             // this.csInterface.evalScript(`${this.predict}`);
             // window.parent.postMessage("alert('hello')", "*");
+            console.log('[Analyze] raw result from AE:', result);
             const responseData = JSON.parse(result);
+            console.log('[Analyze] first element from AE:', JSON.stringify(Object.values(responseData.Elements || {})[0]));
             MAINDATA = Mapper.AutoSlotMapping(responseData);
             console.log(responseData);
             return MAINDATA;
@@ -150,11 +152,17 @@ class iframeMiddleWare {
      * Устанавливает несколько выигрышных комбо за раз
      * @param {string} spinName
      * @param {Array}  winCombos [{winElement, winElements}, ...]
+     * @param {string} playMode
+     * @returns {Promise<string>} результат из JSX ("ok:applied=N" | "error: ...")
      */
-    setWinGridMulti(spinName, winCombos){
+    async setWinGridMulti(spinName, winCombos, playMode){
         if(this.isAdobe()){
-            sendMessageToParent(`${this.callFunctions.setWinGridMulti(spinName, JSON.stringify(winCombos))}`)
-        }else{console.log('setWinGridMulti:', JSON.stringify(winCombos, null, 2))}
+            const result = await sendMessageToParentWithResponse(`${this.callFunctions.setWinGridMulti(spinName, JSON.stringify(winCombos), playMode)}`);
+            return result;
+        }else{
+            console.log('setWinGridMulti:', JSON.stringify(winCombos, null, 2), 'mode:', playMode);
+            return 'ok:dev';
+        }
     }
 
     removeSpin(spinName){

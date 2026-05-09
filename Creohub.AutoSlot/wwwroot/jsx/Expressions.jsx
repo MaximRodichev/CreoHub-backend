@@ -141,6 +141,49 @@ var EXPRESSIONS_V2 = (function() {
             {time - thisComp.marker.key("StartAnimation").time - DisposalTime}\
             else {0}'
         },
+        /**
+         * Версия с независимым startOffset на каждое комбо.
+         * EndAnimation — фиксирован (не сдвигается), StartAnimation сдвигается на comboOffset.
+         * Результат: все комбо заканчиваются одновременно, но начинают в разное время.
+         * @param {number} SlowWin    — задержка между строками (slowWin из SpinData)
+         * @param {number} DisposalIndex — индекс колонки (x)
+         * @param {number} comboOffset  — сдвиг старта в секундах (0 = вместе со StartAnimation)
+         */
+        element_winAnimationWithOffset: function(SlowWin, DisposalIndex, comboOffset){
+            return 'DisposalTime = '+(SlowWin)+' * '+(DisposalIndex)+'\
+            startT = thisComp.marker.key("StartAnimation").time + DisposalTime + '+(comboOffset)+'\
+            endT = thisComp.marker.key("EndAnimation").time\
+            if (startT > time || time > endT)\
+            {0}\
+            else {time - startT}'
+        },
+        /**
+         * Sequential: каждое комбо играет в своём окне [comboStart, comboEnd].
+         * Оба края сдвигаются с DisposalTime.
+         * duration = comboEnd - comboStart (обычно EndAnimation - StartAnimation).
+         */
+        element_winAnimationSequential: function(SlowWin, DisposalIndex, comboStart, comboEnd){
+            return 'DisposalTime = '+(SlowWin)+' * '+(DisposalIndex)+'\
+            startT = thisComp.marker.key("StartAnimation").time + '+(comboStart)+' + DisposalTime\
+            endT   = thisComp.marker.key("StartAnimation").time + '+(comboEnd)+'   + DisposalTime\
+            if (time < startT || time > endT)\
+            {0}\
+            else {time - startT}'
+        },
+        /**
+         * Loop: то же что Sequential, но время берётся по модулю cycleDuration.
+         * elapsed = (time - StartAnimation) % cycleDuration — бесконечный цикл.
+         */
+        element_winAnimationLoop: function(SlowWin, DisposalIndex, comboStart, comboEnd, cycleDuration){
+            return 'DisposalTime = '+(SlowWin)+' * '+(DisposalIndex)+'\
+            startRef  = thisComp.marker.key("StartAnimation").time\
+            elapsed   = (time - startRef) % '+(cycleDuration)+'\
+            comboStartT = '+(comboStart)+' + DisposalTime\
+            comboEndT   = '+(comboEnd)+'   + DisposalTime\
+            if (elapsed < comboStartT || elapsed >= comboEndT)\
+            {0}\
+            else {elapsed - comboStartT}'
+        },
         element_Y_joystick: function(nameTarget, param, paramExtended, elementsByHeight, destination){
             destination = destination.toFixed(2)
             return 'target_ = thisComp.layer("'+ (nameTarget) +'").transform.yPosition\

@@ -125,12 +125,51 @@ class CallFunctions {
      * @param {string} nameSpin "Spin_1"
      * @param {Array}  winCombos [{winElement, winElements}, ...]
      */
-    setWinGridMulti(nameSpin, winCombos) {
-        return `${this.predict}${this.nameOf}.spinsCollection["${nameSpin}"].setWinGridMulti(${winCombos})`;
+    /**
+     * @param {string} nameSpin
+     * @param {Array}  winCombos  [{winElement, winElements, startOffset}, ...]
+     * @param {string} playMode   'fixedEnd' | 'sequential' | 'loop'
+     */
+    setWinGridMulti(nameSpin, winCombos, playMode) {
+        return `${this.predict}${this.nameOf}.spinsCollection["${nameSpin}"].setWinGridMulti(${winCombos}, '${playMode || 'fixedEnd'}')`;
     }
 
     removeSpin(spinName){
         return `${this.predict}${this.nameOf}.removeSpin('${spinName}')`;
+    }
+
+    /**
+     * Inline-скрипт: обходит папку AutoSlot/Symbols/GIFs и возвращает JSON {name: fsPath}
+     * Не зависит от загрузки JSX-файлов.
+     */
+    get getGifPaths() {
+        return `(function(){
+            var paths = {};
+            for(var i=1; i<=app.project.numItems; i++){
+                var it = app.project.item(i);
+                if(it instanceof FolderItem && it.name === "AutoSlot"){
+                    for(var j=1; j<=it.numItems; j++){
+                        var sym = it.item(j);
+                        if(sym instanceof FolderItem && sym.name === "Symbols"){
+                            for(var k=1; k<=sym.numItems; k++){
+                                var gf = sym.item(k);
+                                if(gf instanceof FolderItem && gf.name === "GIFs"){
+                                    for(var g=1; g<=gf.numItems; g++){
+                                        var gi = gf.item(g);
+                                        if(gi.file){
+                                            var nm = gi.name.replace(/\\.[^.]+$/, "");
+                                            paths[nm] = String(gi.file.fsName);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            return JSON.stringify(paths);
+        })()`;
     }
 
 }

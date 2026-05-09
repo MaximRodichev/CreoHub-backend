@@ -6,8 +6,6 @@ function SpinDataType(
     elsByWidth,
     spacingHorizontal,
     spacingVertical,
-    winElement,
-    winElements,
     slowWin,
     slowLines,
     slowMain,
@@ -38,22 +36,12 @@ function SpinDataType(
     }
     this.elsByWidth = elsByWidth;
 
-    this.spacingHorizontal = spacingHorizontal || 0; // Значение по умолчанию: 0
-    this.spacingVertical = spacingVertical || 0; // Значение по умолчанию: 0
+    this.spacingHorizontal = spacingHorizontal || 0;
+    this.spacingVertical   = spacingVertical   || 0;
 
-    if (!Array.isArray(winElements)) {
-        throw new Error("Выигрышные элементы должны быть массивом");
-    }
-    this.winElements = winElements;
-
-    if (typeof winElement !== "string") {
-        throw new Error("Ошибка: winElement должен быть строкой");
-    }
-    this.winElement = winElement;
-
-    this.slowLines = slowLines
-    this.slowMain = slowMain
-    this.slowWin = slowWin
+    this.slowLines = slowLines;
+    this.slowMain  = slowMain;
+    this.slowWin   = slowWin;
 
     this.winCombos = (winCombos != undefined && winCombos != null) ? winCombos : [];
 }
@@ -70,8 +58,6 @@ SpinDataType.prototype.stringify = function(){
     a = a + '"elsByWidth": ' + this.elsByWidth + ','
     a = a + '"spacingHorizontal": ' + this.spacingHorizontal + ','
     a = a + '"spacingVertical": ' + this.spacingVertical + ','
-    a = a + '"winElement": "' + this.winElement + '",'
-    a = a + '"winElements": ' + JSON.stringify(this.winElements) + ','
     a = a + '"slowMain": ' + this.slowMain + ','
     a = a + '"slowWin": ' + this.slowWin + ','
     a = a + '"slowLines": ' + this.slowLines + ','
@@ -87,6 +73,13 @@ SpinDataType.parse = function(data){
         data = JSON.parse(data);
     }
 
+    // Backward compat: если в сохранённых данных есть winElement/winElements но нет winCombos —
+    // конвертируем старое комбо в новый формат
+    var winCombos = data.winCombos;
+    if ((!winCombos || winCombos.length === 0) && data.winElement && data.winElements && data.winElements.length > 0) {
+        winCombos = [{ winElement: data.winElement, winElements: data.winElements, startOffset: 0 }];
+    }
+
     return new SpinDataType(
         data.name,
         data.width,
@@ -95,39 +88,27 @@ SpinDataType.parse = function(data){
         data.elsByWidth,
         data.spacingHorizontal,
         data.spacingVertical,
-        data.winElement,
-        data.winElements,
         data.slowWin,
         data.slowLines,
         data.slowMain,
-        data.winCombos || []
+        winCombos || []
     );
 }
 
 SpinDataType.prototype.analyzeParse = function(){
-    var a = {
-        name: this.name,
-        
-        winElements: this.winElements,
-        winElement: this.winElement,
-        
-        width: this.width,
-        elsByWidth: this.elsByWidth,
-        spacingHorizontal: this.spacingHorizontal,
-
-        height: this.height,
-        elsByHeight: this.elsByHeight,
-        spacingVertical: this.spacingVertical,
-
-        slowLines: this.slowLines,
-        slowMain: this.slowMain,
-        slowWin: this.slowWin,
-
-        winCombos: this.winCombos
-    }
-
-
-    return a;
+    return {
+        name:               this.name,
+        width:              this.width,
+        elsByWidth:         this.elsByWidth,
+        spacingHorizontal:  this.spacingHorizontal,
+        height:             this.height,
+        elsByHeight:        this.elsByHeight,
+        spacingVertical:    this.spacingVertical,
+        slowLines:          this.slowLines,
+        slowMain:           this.slowMain,
+        slowWin:            this.slowWin,
+        winCombos:          this.winCombos
+    };
 }
 
 SpinDataType.prototype.update = function(data){

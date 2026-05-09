@@ -2,7 +2,7 @@
 // Файлы лежат в /_content/Creohub.AutoSlot/jsx/
 async function fetchJSX(filePath) {
     try {
-        const response = await fetch(`/_content/Creohub.AutoSlot/jsx/${filePath}`);
+        const response = await fetch(`/_content/Creohub.AutoSlot/jsx/${filePath}?v=${Date.now()}`);
         if (!response.ok) {
             console.error(`fetchJSX: не удалось загрузить ${filePath} (${response.status})`);
             return;

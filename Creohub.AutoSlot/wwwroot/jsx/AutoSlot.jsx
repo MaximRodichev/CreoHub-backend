@@ -47,9 +47,23 @@ AutoSlot.prototype.Analyze = function(){
 
         }
     }
+    // Строим карту: имя GIF → путь к файлу (для превью в панели)
+    // Храним и с расширением, и без — SymbolComp обычно без расширения, footage — с
+    var gifPaths = {};
+    for (var g = 1; g <= this.GifsFolder.numItems; g++) {
+        var gItem = this.GifsFolder.item(g);
+        if (gItem.file) {
+            var fsPath = String(gItem.file.fsName).replace(/\\/g, "/");
+            gifPaths[gItem.name] = fsPath; // "bar.gif" → path
+            var noExt = gItem.name.replace(/\.[^.]+$/, ""); // "bar" → path
+            gifPaths[noExt] = fsPath;
+        }
+    }
+
     for(var symbolIndex = 1; symbolIndex<=this.SymbolCompsFolder.numItems; symbolIndex++){
         var cItem = this.SymbolCompsFolder.item(symbolIndex);
-        slotData["Elements"][cItem.name] = new ElementDataType(cItem.name, cItem.width, cItem.height)
+        var filePath = gifPaths[cItem.name] || null;
+        slotData["Elements"][cItem.name] = new ElementDataType(cItem.name, cItem.width, cItem.height, filePath);
     }
     for(var spinIndex in this.spinsCollection){
         var spinItem = this.spinsCollection[spinIndex]
@@ -87,33 +101,17 @@ AutoSlot.prototype.Spin = function(data){
     if(data == undefined || data == null){
         var SpinData = new SpinDataType(
             "Spin_" + String(Helper.lengthOfDict(this.spinsCollection)),
-            1080,
-            1080,
-            6,
-            5,
-            40,
-            0,
-            "",
-            [],
-            0.1,
-            0.1,
-            0.1
+            1080, 1080, 6, 5, 40, 0,
+            0.1, 0.1, 0.1
         );
     }
     else{
         var SpinData = new SpinDataType(
             "Spin_" + String(Helper.lengthOfDict(this.spinsCollection)),
-            data.width,
-            data.height,
-            data.elsByHeight,
-            data.elsByWidth,
-            data.spacingHorizontal,
-            data.spacingVertical,
-            "",
-            [],
-            data.slowWin,
-            data.slowLines,
-            data.slowMain
+            data.width, data.height,
+            data.elsByHeight, data.elsByWidth,
+            data.spacingHorizontal, data.spacingVertical,
+            data.slowWin, data.slowLines, data.slowMain
         );
     }
     var a = new Spin(this, SpinData)

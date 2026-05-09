@@ -81,6 +81,9 @@ document.querySelectorAll("[tooltip]").forEach((element) => {
     });
 });
 
-document.getElementById("eduModeCheckbox").addEventListener('change', ()=>{
-    localStorage.setItem("eduMode", document.getElementById("eduModeCheckbox").checked);
-})
+var _eduCb = document.getElementById("eduModeCheckbox");
+if (_eduCb) {
+    _eduCb.addEventListener('change', function() {
+        localStorage.setItem("eduMode", _eduCb.checked);
+    });
+}
