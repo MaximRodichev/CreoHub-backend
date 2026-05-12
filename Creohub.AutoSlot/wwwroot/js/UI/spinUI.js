@@ -5,7 +5,8 @@
 ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Constants ───────────────────────────────────────────────── */
-const TL_MAX = 6;
+const WIN_TL = 5; // WinTimeline — длина WIN-окна в AE (StartAnimation → EndAnimation)
+const TL_MAX = WIN_TL; // алиас для совместимости
 function snap(v) { return Math.round(v * 10) / 10; }
 
 const COMBO_COLORS = ['#007BFF','#28a745','#fd7e14','#9c27b0','#e91e63','#00bcd4','#ffcc00','#ff4444'];
@@ -50,7 +51,7 @@ function getSymbolsList() {
 /** Ensure combos for a spin have a duration field */
 function ensureDuration(combos) {
     if (!combos) return [];
-    combos.forEach(function(c) { if (c.duration == null) c.duration = 1.4; });
+    combos.forEach(function(c) { if (c.duration == null) c.duration = 1.5; });
     return combos;
 }
 
@@ -269,26 +270,26 @@ function loadSpinConfig(spin) {
 }
 
 function syncSpinConfig() {
+    // ВАЖНО: не мутируем MAINDATA здесь.
+    // MAINDATA всегда = последнее состояние из AE (после Analyze/Submit).
+    // getUpdatesOfSpin() сравнивает DOM-инпуты с MAINDATA — если мутировать здесь,
+    // сравнение даст «нет изменений» и setConfigSpin/resize никогда не вызовутся.
     if (!currentSpin) return;
     var s = getSpinCfg(currentSpin);
     if (!s) return;
     var get = function(id, fallback) {
         var el = document.getElementById(id);
-        return el ? (+el.value || fallback) : fallback;
+        if (!el) return fallback;
+        var v = parseFloat(el.value);
+        return isNaN(v) ? fallback : v;
     };
-    s.width             = get('cfg-width',      s.width);
-    s.height            = get('cfg-height',     s.height);
-    s.elsByWidth        = get('cfg-cols',       s.elsByWidth);
-    s.elsByHeight       = get('cfg-rows',       s.elsByHeight);
-    s.spacingHorizontal = get('cfg-sph',        s.spacingHorizontal);
-    s.spacingVertical   = get('cfg-spv',        s.spacingVertical);
-    s.slowWin           = get('cfg-slow-win',   s.slowWin);
-    s.slowLines         = get('cfg-slow-lines', s.slowLines);
-    s.slowMain          = get('cfg-slow-main',  s.slowMain);
+    // Читаем cols/rows из инпутов только для ре-рендера грида (без мутации MAINDATA)
+    var liveCols = get('cfg-cols', s.elsByWidth);
+    var liveRows = get('cfg-rows', s.elsByHeight);
     var szLbl = document.getElementById('grid-size-label');
-    if (szLbl) szLbl.textContent = s.elsByWidth + '×' + s.elsByHeight;
+    if (szLbl) szLbl.textContent = liveCols + '×' + liveRows;
     selectedCells = new Set();
-    renderGrid(currentSpin);
+    renderGrid(currentSpin, liveCols, liveRows);
     renderComboList(currentSpin);
     markDirty();
 }
@@ -308,7 +309,9 @@ function getUpdatesOfSpin() {
 
     var get = function(id, fallback) {
         var el = document.getElementById(id);
-        return el ? (+el.value || fallback) : fallback;
+        if (!el) return fallback;
+        var v = parseFloat(el.value);
+        return isNaN(v) ? fallback : v; // правильно обрабатывает 0
     };
     var width      = get('cfg-width',      prevData.width);
     var height     = get('cfg-height',     prevData.height);
@@ -384,7 +387,7 @@ function applyPlayMode(spin, mode) {
         var GAP = (mode === 'sequential') ? 0.1 : 0;
         list.forEach(function(c) {
             c.startOffset = snap(Math.min(t, TL_MAX - 0.1));
-            c.duration    = snap(Math.max(0.1, Math.min(c.duration || 1.4, TL_MAX - c.startOffset)));
+            c.duration    = snap(Math.max(0.1, Math.min(c.duration || 1.5, TL_MAX - c.startOffset)));
             t = snap(c.startOffset + c.duration + GAP);
         });
     } else if (mode === 'fixedEnd') {
@@ -398,12 +401,12 @@ function applyPlayMode(spin, mode) {
 /* ═══════════════════════════════════════════════════════════
    Grid render
 ═══════════════════════════════════════════════════════════ */
-function renderGrid(spin) {
+function renderGrid(spin, overrideCols, overrideRows) {
     var s    = getSpinCfg(spin);
     var grid = document.getElementById('spin-grid');
     if (!s || !grid) return;
-    var cols = s.elsByWidth  || 5;
-    var rows = s.elsByHeight || 3;
+    var cols = overrideCols || s.elsByWidth  || 5;
+    var rows = overrideRows || s.elsByHeight || 3;
     var gap  = 3;
     var maxW = 300, maxH = 250;
     var cellSize = Math.max(18, Math.min(72, Math.floor(Math.min(
@@ -587,7 +590,7 @@ function renderComboList(spin) {
         var color   = COMBO_COLORS[i % COMBO_COLORS.length];
         var gifPath = symUrl(c.winElement);
         var cells   = (c.winElements || []).map(function(p) { return '(' + p[0] + ',' + p[1] + ')'; }).join(' ');
-        var dur     = c.duration != null ? c.duration : 1.4;
+        var dur     = c.duration != null ? c.duration : 1.5;
         return [
             '<div class="combo-item" data-combo-idx="' + i + '">',
             '<span class="combo-dot" style="background:' + color + '"></span>',
@@ -622,7 +625,7 @@ function startInlineEdit(span, spin) {
     var field = span.dataset.field;
     var combo = (winCombosMap[spin] || [])[idx];
     if (!combo) return;
-    var cur = combo[field] != null ? combo[field] : 1.4;
+    var cur = combo[field] != null ? combo[field] : 1.5;
 
     var inp = document.createElement('input');
     inp.type = 'number'; inp.step = '0.1'; inp.min = '0'; inp.max = String(TL_MAX);
@@ -689,9 +692,9 @@ function addCombo() {
 
     var prevList = winCombosMap[currentSpin];
     var autoOffset = prevList.length
-        ? snap((prevList[prevList.length-1].startOffset + (prevList[prevList.length-1].duration || 1.4)) + 0.1)
+        ? snap((prevList[prevList.length-1].startOffset + (prevList[prevList.length-1].duration || 1.5)) + 0.1)
         : 0;
-    winCombosMap[currentSpin].push({ winElement: selectedSymbol, winElements: cells, startOffset: autoOffset, duration: 1.4 });
+    winCombosMap[currentSpin].push({ winElement: selectedSymbol, winElements: cells, startOffset: autoOffset, duration: 1.5 });
     selectedCells = new Set(); selectedSymbol = null;
     renderGrid(currentSpin);
     renderComboList(currentSpin);
@@ -900,7 +903,7 @@ function renderTimeline(spin) {
     // Loop ghost blocks
     var mode = spinPlayModes[spin] || 'sequential';
     if (mode === 'loop' && list.length) {
-        var loopDur = Math.max.apply(null, list.map(function(c) { return c.startOffset + (c.duration || 1.4); }));
+        var loopDur = Math.max.apply(null, list.map(function(c) { return c.startOffset + (c.duration || 1.5); }));
         if (loopDur < TL_MAX) {
             var loopPct = (loopDur / TL_MAX) * 100;
             var loopMarker = document.createElement('div');
@@ -914,7 +917,7 @@ function renderTimeline(spin) {
         rowEls.forEach(function(re) {
             var ghostStart = loopDur + re.combo.startOffset;
             if (ghostStart >= TL_MAX) return;
-            var ghostW = Math.min(re.combo.duration || 1.4, TL_MAX - ghostStart);
+            var ghostW = Math.min(re.combo.duration || 1.5, TL_MAX - ghostStart);
             var ghost  = document.createElement('div');
             ghost.style.cssText = 'position:absolute;height:100%;box-sizing:border-box;left:' + (ghostStart / TL_MAX * 100) + '%;width:' + (ghostW / TL_MAX * 100) + '%;background:' + re.color + '1a;border:1px dashed ' + re.color + '88;border-radius:3px;pointer-events:none;font-size:8px;color:' + re.color + '99;display:flex;align-items:center;padding:0 4px;overflow:hidden;white-space:nowrap;font-family:FugarReg,sans-serif;';
             ghost.textContent = re.combo.winElement;
@@ -946,7 +949,7 @@ function startPreview() {
     if (btn) { btn.textContent = '■ Stop'; btn.classList.add('playing'); }
 
     var mode    = spinPlayModes[spin] || 'sequential';
-    var loopDur = Math.max.apply(null, list.map(function(c) { return c.startOffset + (c.duration || 1.4); }));
+    var loopDur = Math.max.apply(null, list.map(function(c) { return c.startOffset + (c.duration || 1.5); }));
     previewT0   = performance.now();
 
     function tick(now) {
@@ -982,7 +985,7 @@ function updateGridPreview(spin, t, list) {
         var i = parseInt(cell.dataset.comboIdx);
         var c = list[i];
         if (!c) return;
-        var active    = t >= c.startOffset && t < c.startOffset + (c.duration || 1.4);
+        var active    = t >= c.startOffset && t < c.startOffset + (c.duration || 1.5);
         var wasActive = cell.classList.contains('preview-active');
         if (active && !wasActive) {
             cell.style.setProperty('--cc', COMBO_COLORS[i % COMBO_COLORS.length]);

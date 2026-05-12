@@ -265,7 +265,7 @@ public class ProductHandlerTests
     [Fact]
     public async Task GetProductInfoByName_ReturnsProductInfo()
     {
-        var dto = new ProductInfoDTO { Id = 1, Name = "ChickenRoad", Price = 25m };
+        var dto = new ProductInfoDTO { Id = 1, Name = "ChickenRoad", Price = 25m, MediaViews = new List<StorageObjectViewDTO>() };
         _productRepo.GetProductByName("ChickenRoad").Returns(Task.FromResult(dto));
 
         var handler = new GetProductInfoByNameHandler(_productRepo, null!);

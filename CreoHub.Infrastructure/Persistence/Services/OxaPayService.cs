@@ -13,6 +13,7 @@ public class OxaPayService : IPaymentGatewayService
     private readonly string _payoutApiKey;
     private readonly string _callbackUrl;
     private readonly string _returnUrl;
+    private readonly string _payoutCallbackUrl;
     private readonly bool _sandbox;
 
     public OxaPayService(HttpClient httpClient, IConfiguration config)
@@ -21,6 +22,7 @@ public class OxaPayService : IPaymentGatewayService
         _merchantApiKey = config["OxaPay:MerchantApiKey"]!;
         _payoutApiKey = config["OxaPay:PayoutApiKey"]!;
         _callbackUrl = config["OxaPay:CallbackUrl"]!;
+        _payoutCallbackUrl = config["OxaPay:PayoutCallbackUrl"]!;
         _returnUrl = config["OxaPay:ReturnUrl"]!;
         _sandbox = bool.Parse(config["OxaPay:Sandbox"] ?? "false");
     }
@@ -59,20 +61,32 @@ public class OxaPayService : IPaymentGatewayService
         var payload = new
         {
             amount,
-            currency = "USDT",
+            currency    = "USDT",
             network,
-            address
+            address,
+            callback_url = _payoutCallbackUrl,
+            sandbox      = _sandbox,
         };
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Add("payout_api_key", _payoutApiKey);
 
-        var response = await _httpClient.PostAsJsonAsync(
+        var httpResponse = await _httpClient.PostAsJsonAsync(
             "https://api.oxapay.com/v1/payout", payload);
 
-        var result = await response.Content.ReadFromJsonAsync<OxaPayPayoutResponse>();
+        var result = await httpResponse.Content.ReadFromJsonAsync<OxaPayPayoutResponse>();
 
-        return new CreatePayoutResult(result!.Data.TrackId);
+        if (result is null)
+            throw new InvalidOperationException("OxaPay вернул пустой ответ.");
+
+        if (!result.IsSuccess)
+            throw new InvalidOperationException(
+                $"OxaPay отклонил запрос: {result.Message} (code {result.Result})");
+
+        if (result.Data?.TrackId is null)
+            throw new InvalidOperationException("OxaPay не вернул track_id.");
+
+        return new CreatePayoutResult(result.Data.TrackId);
     }
 
     public async Task<GetInvoiceResult> GetInvoiceAsync(string trackId)

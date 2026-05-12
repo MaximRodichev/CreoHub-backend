@@ -29,7 +29,6 @@ public class AccountController : ControllerBase
     private readonly IConfiguration _configuration;
     
     protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
-    protected Guid ShopId => Guid.Parse(User.FindFirst("shop_id")?.Value ?? Guid.Empty.ToString());
     
     public AccountController(IMediator mediator,  JwtService jwtService, IConfiguration configuration)
     {

@@ -7,4 +7,5 @@ public interface IShopTransactionRepository : IRepository<ShopTransaction, Guid>
 {
     Task<ShopTransaction?> GetByTrackIdAsync(string trackId);
     Task<List<ShopTransaction>> GetByShopIdAsync(Guid shopId);
+    Task<ShopTransaction?> GetLastWithdrawalAsync(Guid shopId);
 }

@@ -6,9 +6,9 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.ProductCommands;
 
-public record CreateProductBundleCommand(Guid userId, CreateProductBundleDTO dto) : IRequest<BaseResponse<bool>>;
+public record CreateProductBundleCommand(Guid userId, CreateProductBundleDTO dto) : IRequest<BaseResponse<int>>;
 
-public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCommand, BaseResponse<bool>>
+public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCommand, BaseResponse<int>>
 {
     private readonly IProductRepository _productRepository;
     private readonly IProductBundleRepository _productBundleRepository;
@@ -25,8 +25,8 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
         _shopRepository = shopRepository;
         _unitOfWork = unitOfWork;
     }
-    
-    public async Task<BaseResponse<bool>> Handle(CreateProductBundleCommand request, CancellationToken cancellationToken)
+
+    public async Task<BaseResponse<int>> Handle(CreateProductBundleCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -41,11 +41,11 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
             await _productRepository.AddAsync(productBundle);
             await _productBundleRepository.AddRangeAsync(productBundle.BundleItems.ToList());
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return BaseResponse<bool>.Success(true);
+            return BaseResponse<int>.Success(productBundle.Id);
         }
         catch (Exception ex)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<int>.Fail(ex.Message);
         }
     }
 }

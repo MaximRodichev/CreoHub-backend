@@ -1,5 +1,6 @@
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Infrastructure.Persistence.Repositories;
@@ -60,5 +61,13 @@ public class ShopTransactionRepository : IShopTransactionRepository
         return await _db.ShopTransactions
             .Where(t => t.ShopId == shopId)
             .ToListAsync();
+    }
+
+    public async Task<ShopTransaction?> GetLastWithdrawalAsync(Guid shopId)
+    {
+        return await _db.ShopTransactions
+            .Where(t => t.ShopId == shopId && t.TransactionType == TransactionType.Withdrawal)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 }

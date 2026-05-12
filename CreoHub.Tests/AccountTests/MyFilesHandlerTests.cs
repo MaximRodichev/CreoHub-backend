@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.Queries.Account;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -12,6 +13,7 @@ public class MyFilesHandlerTests
 {
     private readonly ITestOutputHelper _output;
     private readonly IContentAccessRepository _contentAccessRepo;
+    private readonly IStorageService _storageService;
 
     private static readonly Guid UserId  = Guid.Parse("aaaa0001-0000-0000-0000-000000000000");
     private static readonly Guid ShopId  = Guid.Parse("bbbb0001-0000-0000-0000-000000000000");
@@ -19,8 +21,9 @@ public class MyFilesHandlerTests
 
     public MyFilesHandlerTests(ITestOutputHelper output)
     {
-        _output = output;
+        _output            = output;
         _contentAccessRepo = Substitute.For<IContentAccessRepository>();
+        _storageService    = Substitute.For<IStorageService>();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ public class MyFilesHandlerTests
 
         _contentAccessRepo.GetUserFilesAsync(UserId).Returns(accesses);
 
-        var handler = new GetMyFilesHandler(_contentAccessRepo);
+        var handler = new GetMyFilesHandler(_contentAccessRepo, _storageService);
         var result = await handler.Handle(new GetMyFilesQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Groups: {result.Data?.Count}");
@@ -107,7 +110,7 @@ public class MyFilesHandlerTests
     {
         _contentAccessRepo.GetUserFilesAsync(UserId).Returns(new List<ContentAccess>());
 
-        var handler = new GetMyFilesHandler(_contentAccessRepo);
+        var handler = new GetMyFilesHandler(_contentAccessRepo, _storageService);
         var result = await handler.Handle(new GetMyFilesQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Groups: {result.Data?.Count}");
@@ -127,7 +130,7 @@ public class MyFilesHandlerTests
 
         _contentAccessRepo.GetUserFilesAsync(UserId).Returns(accesses);
 
-        var handler = new GetMyFilesHandler(_contentAccessRepo);
+        var handler = new GetMyFilesHandler(_contentAccessRepo, _storageService);
         var result = await handler.Handle(new GetMyFilesQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Files in group: {result.Data?.FirstOrDefault()?.Files.Count}");
@@ -147,7 +150,7 @@ public class MyFilesHandlerTests
 
         _contentAccessRepo.GetUserFilesAsync(UserId).Returns(new List<ContentAccess> { access });
 
-        var handler = new GetMyFilesHandler(_contentAccessRepo);
+        var handler = new GetMyFilesHandler(_contentAccessRepo, _storageService);
         var result = await handler.Handle(new GetMyFilesQuery(UserId), CancellationToken.None);
 
         var purchasedFile = result.Data![0].Files[0];
@@ -162,7 +165,7 @@ public class MyFilesHandlerTests
         _contentAccessRepo.GetUserFilesAsync(UserId)
             .Throws(new Exception("DB failure"));
 
-        var handler = new GetMyFilesHandler(_contentAccessRepo);
+        var handler = new GetMyFilesHandler(_contentAccessRepo, _storageService);
         var result = await handler.Handle(new GetMyFilesQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");

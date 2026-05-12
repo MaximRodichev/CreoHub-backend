@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using AutoMapper;
 using CreoHub.Application.Commands.ProductCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
@@ -14,65 +13,32 @@ namespace CreoHub.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ProductController : ControllerBase
+public class ProductController : ShopOwnerControllerBase
 {
-    private readonly IMediator _mediator;
-    private readonly IProductRepository _productRepository;
-    
-    protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
-    protected Guid ShopId => Guid.Parse(User.FindFirst("shop_id")?.Value ?? Guid.Empty.ToString());
+    private readonly IMediator           _mediator;
+    private readonly IProductRepository  _productRepository;
+    private readonly IShopRepository     _shopRepository;
 
-    public ProductController(IMediator mediator, IProductRepository productRepository)
+    public ProductController(IMediator mediator, IProductRepository productRepository, IShopRepository shopRepository)
     {
-        _mediator = mediator;
-        _productRepository = productRepository;
+        _mediator           = mediator;
+        _productRepository  = productRepository;
+        _shopRepository     = shopRepository;
     }
 
-    [Authorize]
-    [HttpPost("create")]
-    public async Task<IActionResult> Create([FromBody] CreateProductDTO dto)
-    {
-        Guid id = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-        var command = new CreateProductCommand(id, dto);
-        var response = await _mediator.Send(command);
-        
-        if(response.Status== ResponseStatus.Error)
-            return BadRequest(response.ErrorMessage);
-        
-        return Ok(response);
-    }
-    
-    
-    [Authorize]
-    [HttpPost("create-bundle")]
-    public async Task<IActionResult> Create([FromBody] CreateProductBundleDTO dto)
-    {
-        var command = new CreateProductBundleCommand(UserId, dto);
-        var response = await _mediator.Send(command);
-        
-
-        return Ok(response);
-    }
+    // ── Public endpoints (no shop needed) ────────────────────────────────────
 
     [HttpGet("get-products")]
     public async Task<IActionResult> GetProducts([FromQuery] FiltersDto filters)
     {
-        // Если запрос авторизован — передаём userId в фильтр,
-        // чтобы репозиторий мог отсортировать купленное в конец.
-        // [Authorize] не нужен: каталог публичный, userId просто опционален.
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (Guid.TryParse(userIdClaim, out var uid) && uid != Guid.Empty)
             filters = filters with { UserId = uid };
 
-        var command = new GetProductsByFilterQuery(filters);
-        var response = await _mediator.Send(command);
-
+        var response = await _mediator.Send(new GetProductsByFilterQuery(filters));
         return Ok(response);
     }
 
-    /// <summary>
-    /// Главная страница: 6 новинок и 6 самых популярных продуктов.
-    /// </summary>
     [HttpGet("best")]
     public async Task<IActionResult> GetBestProducts()
     {
@@ -83,36 +49,10 @@ public class ProductController : ControllerBase
     [HttpGet("get-product-info")]
     public async Task<IActionResult> GetProductInfo([FromQuery] string name)
     {
-        var command = new GetProductInfoByNameQuery(name);
-        var response = await _mediator.Send(command);
-
+        var response = await _mediator.Send(new GetProductInfoByNameQuery(name));
         return Ok(response);
     }
 
-    [Authorize]
-    [HttpGet("get-product-analytics")]
-    public async Task<IActionResult> GetProductAnalytics([FromQuery] int productId)
-    {
-        var command = new GetProductAnalyticsQuery(ShopId, productId);
-        var response = await _mediator.Send(command);
-
-        return Ok(response);
-    }
-
-    [Authorize]
-    [HttpPost("update")]
-    public async Task<IActionResult> UpdateProduct([FromBody] UpdateProductInfoDTO dto)
-    {
-        var command = new UpdateProductCommand(ShopId, dto);
-        var response = await _mediator.Send(command);
-
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Список файлов продукта с рассчитанной ценой для каждого (степенная кривая).
-    /// Используется на странице продукта для отображения чекбоксов.
-    /// </summary>
     [HttpGet("{id}/content-files")]
     public async Task<IActionResult> GetContentFiles([FromRoute] int id)
     {
@@ -120,37 +60,75 @@ public class ProductController : ControllerBase
         return Ok(response);
     }
 
-    /// <summary>
-    /// Переключить статус продукта: Active ↔ Hidden.
-    /// </summary>
-    [Authorize]
-    [HttpPatch("{id}/status")]
-    public async Task<IActionResult> ChangeStatus([FromRoute] int id, [FromBody] ChangeProductStatusDTO dto)
-    {
-        var response = await _mediator.Send(new ChangeProductStatusCommand(ShopId, id, dto.TargetStatus));
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Soft delete: скрыть продукт (Hidden). Отменить — через PATCH status.
-    /// </summary>
-    [Authorize]
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProduct([FromRoute] int id)
-    {
-        var response = await _mediator.Send(new DeleteProductCommand(ShopId, id));
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Возвращает списки product ID, которые пользователь купил полностью или частично.
-    /// Используется каталогом и карточками товара для отображения значков «Куплено».
-    /// </summary>
     [Authorize]
     [HttpGet("ownership")]
     public async Task<IActionResult> GetOwnership()
     {
         var response = await _mediator.Send(new GetProductOwnershipQuery(UserId));
+        return Ok(response);
+    }
+
+    // ── Shop owner endpoints (ShopId resolved from DB) ────────────────────────
+
+    [Authorize]
+    [HttpPost("create")]
+    public async Task<IActionResult> Create([FromBody] CreateProductDTO dto)
+    {
+        var command  = new CreateProductCommand(UserId, dto);
+        var response = await _mediator.Send(command);
+        // Always return JSON so the client can parse the response uniformly
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("create-bundle")]
+    public async Task<IActionResult> CreateBundle([FromBody] CreateProductBundleDTO dto)
+    {
+        var response = await _mediator.Send(new CreateProductBundleCommand(UserId, dto));
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("get-product-analytics")]
+    public async Task<IActionResult> GetProductAnalytics([FromQuery] int productId)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new GetProductAnalyticsQuery(shopId, productId));
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("update")]
+    public async Task<IActionResult> UpdateProduct([FromBody] UpdateProductInfoDTO dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new UpdateProductCommand(shopId, dto));
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> ChangeStatus([FromRoute] int id, [FromBody] ChangeProductStatusDTO dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new ChangeProductStatusCommand(shopId, id, dto.TargetStatus));
+        return Ok(response);
+    }
+
+    [Authorize]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct([FromRoute] int id)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new DeleteProductCommand(shopId, id));
         return Ok(response);
     }
 }

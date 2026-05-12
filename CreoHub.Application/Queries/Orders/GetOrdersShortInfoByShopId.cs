@@ -5,7 +5,7 @@ using MediatR;
 
 namespace CreoHub.Application.Queries.Orders;
 
-public record GetOrdersShortInfoByShopIdQuery(Guid shopId) : IRequest<BaseResponse<List<OrderShortInfoDTO>>>;
+public record GetOrdersShortInfoByShopIdQuery(Guid shopId, DateTime? From = null, DateTime? To = null) : IRequest<BaseResponse<List<OrderShortInfoDTO>>>;
 
 public class GetOrdersShortInfoByShopIdHandler : IRequestHandler<GetOrdersShortInfoByShopIdQuery, BaseResponse<List<OrderShortInfoDTO>>>
 {
@@ -20,7 +20,7 @@ public class GetOrdersShortInfoByShopIdHandler : IRequestHandler<GetOrdersShortI
     {
         try
         {
-            var response = await _orderRepository.GetOrdersShortInfoByShopIdAsync(request.shopId);
+            var response = await _orderRepository.GetOrdersShortInfoByShopIdAsync(request.shopId, request.From, request.To);
             
             
             return BaseResponse<List<OrderShortInfoDTO>>.Success(response);

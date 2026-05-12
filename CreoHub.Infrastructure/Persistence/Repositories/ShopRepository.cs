@@ -51,6 +51,15 @@ public class ShopRepository : IShopRepository
         return (await _db.Shops.FirstAsync(x => x.OwnerId == ownerId));
     }
 
+    public async Task<Guid?> GetShopIdByOwnerIdAsync(Guid ownerId)
+    {
+        var shop = await _db.Shops
+            .Where(s => s.OwnerId == ownerId)
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync();
+        return shop;
+    }
+
     public async Task<List<ShopShortInfoDTO>> GetShopsShortInfoAsync()
     {
         return await _db.Shops

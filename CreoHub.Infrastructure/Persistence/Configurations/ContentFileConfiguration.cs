@@ -30,5 +30,10 @@ public class ContentFileConfiguration : IEntityTypeConfiguration<ContentFile>
 
         builder.HasIndex(c => c.ProductId);
         builder.HasIndex(c => c.StorageObjectId);
+
+        // One storage object can be attached to a given product only once
+        builder.HasIndex(c => new { c.ProductId, c.StorageObjectId })
+               .IsUnique()
+               .HasDatabaseName("IX_ContentFiles_ProductId_StorageObjectId");
     }
 }

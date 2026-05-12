@@ -5,9 +5,9 @@ using CreoHub.Domain.Entities;
 using MediatR;
 
 namespace CreoHub.Application.Commands.ProductCommands;
-public record CreateProductCommand(Guid userId, CreateProductDTO dto) : IRequest<BaseResponse<bool>>;
+public record CreateProductCommand(Guid userId, CreateProductDTO dto) : IRequest<BaseResponse<int>>;
 
-public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseResponse<bool>>
+public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseResponse<int>>
 {
     private readonly IProductRepository _productRepository;
     private readonly IAccountRepository _accountRepository;
@@ -25,7 +25,7 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<BaseResponse<bool>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<int>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -41,15 +41,31 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
             product.AddPrice(request.dto.Price);
 
             await _productRepository.AddAsync(product);
-            
-            
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return BaseResponse<bool>.Success(true);
+            return BaseResponse<int>.Success(product.Id);
+        }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Name"))
+        {
+            return BaseResponse<int>.Fail("Товар с таким названием уже существует. Выберите другое название.");
         }
         catch (Exception ex)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<int>.Fail(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Walks the full InnerException chain checking every message —
+    /// needed because the UoW may wrap DbUpdateException in a custom exception.
+    /// </summary>
+    private static bool ExceptionChainContains(Exception? ex, string text)
+    {
+        while (ex is not null)
+        {
+            if (ex.Message.Contains(text)) return true;
+            ex = ex.InnerException;
+        }
+        return false;
     }
 }

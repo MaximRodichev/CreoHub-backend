@@ -4,9 +4,9 @@ using System.Text;
 using System.Text.Json;
 using CreoHub.Application.Commands.BalanceCommands;
 using CreoHub.Application.Commands.OrderCommands;
+using CreoHub.Application.Commands.ShopCommands;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Queries.Orders;
-using CreoHub.Application.Repositories;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Domain.Types;
@@ -161,6 +161,77 @@ public class PaymentController : ControllerBase
         }
 
         // OxaPay ожидает HTTP 200 независимо от бизнес-результата
+        return Ok("ok");
+    }
+
+    /// <summary>
+    /// Вебхук от OxaPay — изменение статуса ВЫВОДА средств шопа.
+    /// Используется отдельный ключ (PayoutApiKey) и отдельная логика баланса.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("payout-webhook")]
+    public async Task<IActionResult> PayoutWebhook([FromBody] JsonElement body)
+    {
+        var hmacHeader = Request.Headers["hmac"].ToString();
+        var rawBody    = body.ToString();
+
+        // Payout-вебхук подписывается PayoutApiKey, а не MerchantApiKey
+        var key  = Encoding.UTF8.GetBytes(_config["OxaPay:PayoutApiKey"]!);
+        var data = Encoding.UTF8.GetBytes(rawBody);
+        using var hmac       = new HMACSHA512(key);
+        var       calculated = Convert.ToHexString(hmac.ComputeHash(data)).ToLower();
+
+        if (calculated != hmacHeader.ToLower())
+        {
+            _logger.LogWarning("OxaPay payout-webhook: invalid HMAC");
+            return BadRequest("Invalid signature");
+        }
+
+        OxaPayWebhookPayload? payload;
+        try { payload = JsonSerializer.Deserialize<OxaPayWebhookPayload>(rawBody); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "OxaPay payout-webhook: failed to deserialize");
+            return BadRequest("Invalid payload");
+        }
+
+        if (payload is null) return BadRequest("Empty payload");
+
+        _logger.LogInformation("OxaPay payout-webhook: status={Status} trackId={TrackId}",
+            payload.Status, payload.TrackId);
+
+        switch (payload.Status)
+        {
+            case "Confirming":
+                // Промежуточный статус — транзакция в блокчейне, ждём финала
+                break;
+
+            case "Confirmed":
+            {
+                var txHash = payload.Transactions.FirstOrDefault()?.TxHash ?? string.Empty;
+                var result = await _mediator.Send(
+                    new ConfirmWithdrawalCommand(payload.TrackId, txHash));
+                if (result.Status != Application.DTO.ResponseStatus.Success)
+                    _logger.LogError("ConfirmWithdrawal failed for trackId={TrackId}: {Error}",
+                        payload.TrackId, result.ErrorMessage);
+                break;
+            }
+
+            case "Failed":
+            {
+                var result = await _mediator.Send(
+                    new FailWithdrawalCommand(payload.TrackId));
+                if (result.Status != Application.DTO.ResponseStatus.Success)
+                    _logger.LogError("FailWithdrawal failed for trackId={TrackId}: {Error}",
+                        payload.TrackId, result.ErrorMessage);
+                break;
+            }
+
+            default:
+                _logger.LogInformation("OxaPay payout-webhook: unhandled status={Status}", payload.Status);
+                break;
+        }
+
         return Ok("ok");
     }
 

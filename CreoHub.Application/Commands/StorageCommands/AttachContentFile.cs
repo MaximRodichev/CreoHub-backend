@@ -53,9 +53,23 @@ public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<bool>.Success(true);
         }
-        catch(Exception ex)
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_ContentFiles_ProductId_StorageObjectId"))
+        {
+            return BaseResponse<bool>.Fail("Этот файл уже прикреплён к данному товару.");
+        }
+        catch (Exception ex)
         {
             return BaseResponse<bool>.Fail(ex.Message);
         }
+    }
+
+    private static bool ExceptionChainContains(Exception? ex, string text)
+    {
+        while (ex is not null)
+        {
+            if (ex.Message.Contains(text)) return true;
+            ex = ex.InnerException;
+        }
+        return false;
     }
 }

@@ -294,11 +294,13 @@ Spin.prototype.setWinGridMulti = function(winCombos, playMode){
         }
         var animDuration = endMarkerTime - startMarkerTime;
 
-        // Для sequential/loop вычисляем конец каждого комбо и общую длину цикла
+        // Для sequential/loop вычисляем конец каждого комбо и общую длину цикла.
+        // Используем combo.duration если задан — иначе fallback на animDuration (маркер-спан).
         var cycleDuration = 0;
         if(mode === 'sequential' || mode === 'loop'){
             for(var i = 0; i < winCombos.length; i++){
-                var end = (Number(winCombos[i].startOffset) || 0) + animDuration;
+                var comboDurI = Number(winCombos[i].duration) || animDuration;
+                var end = (Number(winCombos[i].startOffset) || 0) + comboDurI;
                 if(end > cycleDuration){ cycleDuration = end; }
             }
         }
@@ -314,8 +316,9 @@ Spin.prototype.setWinGridMulti = function(winCombos, playMode){
             var winElement = this.self.SymbolCompsFolder.itemByName(combo.winElement);
             if(!winElement){ continue; }
 
-            var comboStart = Number(combo.startOffset) || 0;
-            var comboEnd   = comboStart + animDuration;
+            var comboStart    = Number(combo.startOffset) || 0;
+            var comboDuration = Number(combo.duration)    || animDuration; // реальная длительность WIN из UI
+            var comboEnd      = comboStart + comboDuration;
 
             for(var key = 0; key < combo.winElements.length; key++){
                 var x  = combo.winElements[key][0];

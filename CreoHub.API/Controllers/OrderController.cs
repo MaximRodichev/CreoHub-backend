@@ -1,6 +1,4 @@
-using CreoHub.Application.Commands.OrderCommands;
 using CreoHub.Application.DTO;
-using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Repositories;
 using MediatR;
@@ -11,35 +9,25 @@ namespace CreoHub.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class OrderController : ControllerBase
+public class OrderController : ShopOwnerControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IMediator       _mediator;
+    private readonly IShopRepository _shopRepository;
 
-    public OrderController(IMediator mediator)
+    public OrderController(IMediator mediator, IShopRepository shopRepository)
     {
-        _mediator = mediator;
+        _mediator       = mediator;
+        _shopRepository = shopRepository;
     }
 
     [Authorize]
-    [HttpPost]
-    [Route("create")]
-    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDevDTO request)
-    {
-        var command = new CreateOrderDevCommand(request);
-        var response =  await _mediator.Send(command);
-
-        return Ok(response);
-    }
-
-    [Authorize]
-    [HttpGet]
-    [Route("get-shortinfo-list")]
+    [HttpGet("get-shortinfo-list")]
     public async Task<IActionResult> Get()
     {
-        Guid shopId = Guid.Parse(User.FindFirst("shop_id").Value);
-        var query = new GetOrdersShortInfoByShopIdQuery(shopId);
-        var response = await _mediator.Send(query);
-        
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new GetOrdersShortInfoByShopIdQuery(shopId));
         return Ok(response);
     }
 }

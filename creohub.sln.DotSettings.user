@@ -10,16 +10,14 @@
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AModelValidator_002Ecs_002Fl_003AC_0021_003FUsers_003FiCreoDev_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E2_003Fresharper_002Dhost_003FSourcesCache_003F32af53f9addbd8407e5f571f6439ce341f8ba46c7f085f2d1c1aa4c2bd1d35_003FModelValidator_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AServiceCollectionContainerBuilderExtensions_002Ecs_002Fl_003AC_0021_003FUsers_003FiCreoDev_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E2_003Fresharper_002Dhost_003FSourcesCache_003Fd4a8f8d5219d57524ca89ff2dc8bdc5a23996aa3913260a7142bfd992c393a4_003FServiceCollectionContainerBuilderExtensions_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AThrowHelper_002Ecs_002Fl_003AC_0021_003FUsers_003FiCreoDev_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E2_003Fresharper_002Dhost_003FSourcesCache_003F6354a7b35d7821629924d3676acd7e67a6f7f94343e0e66ec439aa2bd6ed5_003FThrowHelper_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=b953cd2d_002D98fb_002D4239_002D8027_002D83caebba4e3e/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="All tests from &amp;lt;CreoHub.Tests&amp;gt; #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;Project Location="Z:\Техникум\Елена Григорьевна\creohub\CreoHub.Tests" Presentation="&amp;lt;CreoHub.Tests&amp;gt;" /&gt;&#xD;
-&lt;/SessionState&gt;</s:String>
+	
 	
 	
 	
 	
 	
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fab94985_002D043c_002D4e3e_002Db843_002D8da6a8d7b274/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from &amp;lt;CreoHub.Tests&amp;gt;" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;Project Location="H:\Works\Development\creohub\CreoHub-backend\CreoHub.Tests" Presentation="&amp;lt;CreoHub.Tests&amp;gt;" /&gt;&#xD;
+  &lt;Project Location="E:\Works\Development\creohub\CreoHub-backend\CreoHub.Tests" Presentation="&amp;lt;CreoHub.Tests&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	
 	

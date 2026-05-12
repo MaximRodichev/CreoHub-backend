@@ -64,6 +64,7 @@ public static class Initialization
         services.AddScoped<IShopBalanceRepository, ShopBalanceRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ISubscriptionPromoCodeRepository, SubscriptionPromoCodeRepository>();
+        services.AddScoped<IAdminRepository, AdminRepository>();
         
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
@@ -76,6 +77,7 @@ public static class Initialization
         
         services.AddHostedService<VideoOptimizationBackgroundService>();
         services.AddHostedService<ExpiredTransactionCleanupService>();
+        services.AddHostedService<OrderCleanupService>();
         
         // MediatR
         services.AddMediatR(cfg =>

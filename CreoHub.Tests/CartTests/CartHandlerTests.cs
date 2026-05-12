@@ -2,6 +2,7 @@ using CreoHub.Application.Commands.CartCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Queries.Cart;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -19,18 +20,24 @@ public class CartHandlerTests
     private readonly IMediaProductRepository _mediaProductRepo;
     private readonly IContentFileRepository _contentFileRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IStorageService _storageService;
 
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private const int ProductId = 42;
 
     public CartHandlerTests(ITestOutputHelper output)
     {
-        _output = output;
-        _cartRepo = Substitute.For<ICartRepository>();
-        _productRepo = Substitute.For<IProductRepository>();
+        _output         = output;
+        _cartRepo       = Substitute.For<ICartRepository>();
+        _productRepo    = Substitute.For<IProductRepository>();
+        _storageService = Substitute.For<IStorageService>();
         _mediaProductRepo = Substitute.For<IMediaProductRepository>();
         _contentFileRepo = Substitute.For<IContentFileRepository>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+
+        // Return the key as-is so tests can assert on the original key value
+        _storageService.GeneratePresignedUrl(Arg.Any<string>(), Arg.Any<int>())
+            .Returns(ci => ci.ArgAt<string>(0));
     }
 
     // ── ToggleCartItem ────────────────────────────────────────────────────────
@@ -126,7 +133,7 @@ public class CartHandlerTests
         var productRepo = Substitute.For<IProductRepository>();
         productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product>());
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo);
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo, _storageService);
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Items count: {result.Data?.Count}");
@@ -154,7 +161,7 @@ public class CartHandlerTests
         var productRepo = Substitute.For<IProductRepository>();
         productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product>());
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo);
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, productRepo, _storageService);
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Items count: {result.Data?.Count}");
@@ -168,7 +175,7 @@ public class CartHandlerTests
     {
         _cartRepo.GetFullCartAsync(UserId).Throws(new Exception("Cart not found"));
 
-        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, Substitute.For<IProductRepository>());
+        var handler = new GetCartHandler(_cartRepo, _mediaProductRepo, _contentFileRepo, Substitute.For<IProductRepository>(), _storageService);
         var result = await handler.Handle(new GetCartQuery(UserId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");

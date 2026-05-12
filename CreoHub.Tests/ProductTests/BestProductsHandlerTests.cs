@@ -2,6 +2,7 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Types;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -16,11 +17,13 @@ public class BestProductsHandlerTests
 {
     private readonly ITestOutputHelper _output;
     private readonly IProductRepository _productRepo;
+    private readonly IStorageService _storageService;
 
     public BestProductsHandlerTests(ITestOutputHelper output)
     {
-        _output      = output;
-        _productRepo = Substitute.For<IProductRepository>();
+        _output         = output;
+        _productRepo    = Substitute.For<IProductRepository>();
+        _storageService = Substitute.For<IStorageService>();
     }
 
     private static List<ProductViewDTO> MakeDtoList(int count, string prefix = "Product") =>
@@ -50,7 +53,7 @@ public class BestProductsHandlerTests
             .GetProductsByFilters(Arg.Is<FiltersDto>(f => f.SortOrder == SortOrder.Popularity))
             .Returns((popular, popular.Count));
 
-        var handler = new GetBestProductsHandler(_productRepo);
+        var handler = new GetBestProductsHandler(_productRepo, _storageService);
         var result  = await handler.Handle(new GetBestProductsQuery(), CancellationToken.None);
 
         _output.WriteLine($"Newest: {result.Data?.Newest.Count}, Popular: {result.Data?.Popular.Count}");
@@ -70,7 +73,7 @@ public class BestProductsHandlerTests
             .GetProductsByFilters(Arg.Is<FiltersDto>(f => f.SortOrder == SortOrder.Popularity))
             .Returns((new List<ProductViewDTO>(), 0));
 
-        var handler = new GetBestProductsHandler(_productRepo);
+        var handler = new GetBestProductsHandler(_productRepo, _storageService);
         var result  = await handler.Handle(new GetBestProductsQuery(), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
@@ -84,7 +87,7 @@ public class BestProductsHandlerTests
             .GetProductsByFilters(Arg.Any<FiltersDto>())
             .Returns((new List<ProductViewDTO>(), 0));
 
-        var handler = new GetBestProductsHandler(_productRepo);
+        var handler = new GetBestProductsHandler(_productRepo, _storageService);
         await handler.Handle(new GetBestProductsQuery(), CancellationToken.None);
 
         await _productRepo.Received(2).GetProductsByFilters(
@@ -98,7 +101,7 @@ public class BestProductsHandlerTests
             .GetProductsByFilters(Arg.Any<FiltersDto>())
             .Returns((new List<ProductViewDTO>(), 0));
 
-        var handler = new GetBestProductsHandler(_productRepo);
+        var handler = new GetBestProductsHandler(_productRepo, _storageService);
         var result  = await handler.Handle(new GetBestProductsQuery(), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
@@ -115,7 +118,7 @@ public class BestProductsHandlerTests
             .GetProductsByFilters(Arg.Any<FiltersDto>())
             .ThrowsAsync(new Exception("DB connection lost"));
 
-        var handler = new GetBestProductsHandler(_productRepo);
+        var handler = new GetBestProductsHandler(_productRepo, _storageService);
         var result  = await handler.Handle(new GetBestProductsQuery(), CancellationToken.None);
 
         _output.WriteLine($"Error: {result.ErrorMessage}");
