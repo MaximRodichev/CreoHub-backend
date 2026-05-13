@@ -66,4 +66,26 @@ public class ShopTransaction : BaseTransaction
             TrackId = trackId,
         };
     }
+
+    public static ShopTransaction CreateTransfer(
+        decimal amount,
+        Guid shopId,
+        string trackId)
+    {
+        if (trackId == null) throw new ArgumentNullException(nameof(trackId));
+
+        var tx = new ShopTransaction
+        {
+            ShopId = shopId,
+            FullAmount = amount,
+            PlatformFeePercent = 0m,
+            PlatformFeeAmount = 0m,
+            NetAmount = amount,
+            TransactionType = TransactionType.Transfer,
+            TrackId = trackId,
+        };
+        // Internal instant transfer — mark as completed immediately
+        tx.SuccessInternal();
+        return tx;
+    }
 }

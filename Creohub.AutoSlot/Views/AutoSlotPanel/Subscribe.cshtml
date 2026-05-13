@@ -1,5 +1,7 @@
 @{
     Layout = null;
+    string userName  = ViewBag.UserName  ?? "Пользователь";
+    string userEmail = ViewBag.UserEmail ?? "";
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -27,19 +29,67 @@
             padding: 20px;
             text-align: center;
         }
-        h1 { font-size: 18px; margin-bottom: 8px; }
-        .subtitle { font-size: 13px; color: #bbb; margin-bottom: 14px; }
-        .price-list { display: flex; flex-direction: column; gap: 8px; }
-        .price-item {
-            background: #3a3a3a; padding: 9px; border-radius: 8px;
-            cursor: pointer; font-size: 13px;
-            transition: background 0.2s, transform 0.15s;
-        }
-        .price-item:hover { background: #4a4a4a; transform: scale(1.03); }
-        .highlight { background: #ff9800; font-weight: bold; color: #000; }
-        .highlight:hover { background: #ffa726; }
+        h1 { font-size: 18px; margin-bottom: 6px; }
+        .subtitle { font-size: 13px; color: #bbb; margin-bottom: 16px; }
 
-        .promo-section { margin-top: 16px; }
+        /* Чип аккаунта */
+        .account-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #3a3a3a;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 14px;
+            gap: 8px;
+        }
+        .account-chip-info { text-align: left; overflow: hidden; }
+        .account-chip-name {
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 170px;
+        }
+        .account-chip-email {
+            font-size: 11px;
+            color: #aaa;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 170px;
+        }
+        .account-chip-logout {
+            flex-shrink: 0;
+            font-size: 11px;
+            color: #ff9800;
+            cursor: pointer;
+            background: none;
+            border: none;
+            text-decoration: underline;
+            white-space: nowrap;
+        }
+        .account-chip-logout:hover { color: #ffcc80; }
+
+        /* Кнопка оформления */
+        .btn-subscribe {
+            display: block;
+            width: 100%;
+            padding: 11px;
+            background: #ff9800;
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 14px;
+        }
+        .btn-subscribe:hover { background: #ffa726; }
+
+        .promo-section { margin-bottom: 14px; }
         .promo-row { display: flex; gap: 6px; margin-top: 6px; }
         .promo-row input {
             flex: 1; padding: 8px; background: #3b3b3b; border: none;
@@ -53,7 +103,9 @@
         .promo-row button:hover { background: #ffa726; }
         #promo-status { font-size: 12px; margin-top: 5px; min-height: 16px; }
 
-        .support-links { display: flex; justify-content: space-around; margin-top: 16px; font-size: 13px; }
+        #waiting-hint { font-size: 11px; color: #888; text-align: center; margin-bottom: 14px; }
+
+        .support-links { display: flex; justify-content: space-around; font-size: 13px; }
         .support-links div { cursor: pointer; color: #ff9800; }
         .support-links div:hover { color: #ffcc80; }
     </style>
@@ -63,17 +115,24 @@
     <h1>AutoSlot</h1>
     <div class="subtitle">Для доступа к панели необходима подписка</div>
 
-    <!-- Кнопка перехода на сайт для оформления -->
-    <div class="price-list">
-        <div class="price-item highlight" onclick="openURL('https://creohub.xyz/me/profile')">
-            🛒 Оформить подписку на creohub.xyz
+    <!-- Чип залогиненного аккаунта -->
+    <div class="account-chip">
+        <div class="account-chip-info">
+            <div class="account-chip-name">@userName</div>
+            @if (!string.IsNullOrEmpty(userEmail))
+            {
+                <div class="account-chip-email">@userEmail</div>
+            }
         </div>
+        <button class="account-chip-logout" onclick="window.location.href='/autoslot/auth/logout'">
+            Разлогиниться
+        </button>
     </div>
 
-    <div style="margin-top:12px;font-size:12px;color:#aaa;text-align:center;line-height:1.5;">
-        Планы: 7 дней — $5 · 30 дней — $12<br/>
-        180 дней — $50 · 365 дней — $80
-    </div>
+    <!-- Кнопка оформления подписки — редирект на сайт -->
+    <button class="btn-subscribe" onclick="openURL('http://localhost:4321/services/autoslot/subscribe')">
+        🛒 Оформить подписку
+    </button>
 
     <div class="promo-section">
         <div class="subtitle">Есть промо-код?</div>
@@ -84,9 +143,7 @@
         <div id="promo-status"></div>
     </div>
 
-    <div id="waiting-hint" style="margin-top:14px;font-size:11px;color:#888;text-align:center;">
-        ⏳ Ожидаем оплату на сайте...
-    </div>
+    <div id="waiting-hint">⏳ Ожидаем оплату на сайте...</div>
 
     <div class="support-links">
         <div onclick="openURL('https://creohub.xyz')">🌐 Creohub</div>

@@ -1,4 +1,6 @@
-﻿namespace CreoHub.Application.DTO;
+﻿using CreoHub.Domain.Types;
+
+namespace CreoHub.Application.DTO;
 
 public record FiltersDto
 {
@@ -8,6 +10,7 @@ public record FiltersDto
     public List<string>? Tags { get; set; }
     public string? Search { get; set; }
     public SortOrder? SortOrder { get; set; }
+    public ProductType? ProductType { get; set; }
     /// <summary>
     /// Если задан — полностью купленные пользователем продукты
     /// уходят в конец выдачи (до пагинации).

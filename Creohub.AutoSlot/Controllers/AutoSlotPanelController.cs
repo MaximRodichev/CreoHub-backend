@@ -1,4 +1,5 @@
 using Creohub.AutoSlot.Services;
+using CreoHub.Application.Repositories;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +7,7 @@ namespace Creohub.AutoSlot.Controllers;
 
 [Route("autoslot")]
 [EnableCors("AllowPanel")]
-public class AutoSlotPanelController(SubscriptionService subs) : Controller
+public class AutoSlotPanelController(SubscriptionService subs, IAccountRepository accounts) : Controller
 {
     // Основная панель — middleware уже проверил cookie + подписку
     [HttpGet("")]
@@ -19,7 +20,14 @@ public class AutoSlotPanelController(SubscriptionService subs) : Controller
 
     // Страница покупки подписки (нет активной подписки)
     [HttpGet("subscribe")]
-    public IActionResult Subscribe() => View("Subscribe");
+    public async Task<IActionResult> Subscribe()
+    {
+        var userId = (Guid)HttpContext.Items["AutoSlotUserId"]!;
+        var user   = await accounts.GetFullInfoByIdAsync(userId);
+        ViewBag.UserName  = user?.Name  ?? "Пользователь";
+        ViewBag.UserEmail = user?.EmailAddress ?? "";
+        return View("Subscribe");
+    }
 
     // Лёгкий ping: есть ли активная подписка у текущей сессии?
     // Вызывается поллингом со страницы /autoslot/subscribe

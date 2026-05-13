@@ -7,8 +7,8 @@ namespace CreoHub.Domain.Services;
 public static class DiscountCalculator
 {
     /// <summary>
-    /// F2. Скидка за объём корзины.
-    /// $50–$99 → 3%, $100–$199 → 6%, $200+ → 9%.
+    /// F2a. Скидка за объём корзины (устаревшая, по сумме).
+    /// Оставлена для обратной совместимости.
     /// </summary>
     public static decimal GetCartVolumeDiscount(decimal cartTotal) => cartTotal switch
     {
@@ -16,6 +16,19 @@ public static class DiscountCalculator
         >= 100m => 0.06m,
         >= 50m  => 0.03m,
         _       => 0m,
+    };
+
+    /// <summary>
+    /// F2b. Скидка за количество товаров в корзине.
+    /// 3+ товара → 3%, 5+ → 6%, 8+ → 9%.
+    /// Это основное правило для CalculateOrderPrice.
+    /// </summary>
+    public static decimal GetCartCountDiscount(int itemCount) => itemCount switch
+    {
+        >= 8 => 0.09m,
+        >= 5 => 0.06m,
+        >= 3 => 0.03m,
+        _    => 0m,
     };
 
     /// <summary>

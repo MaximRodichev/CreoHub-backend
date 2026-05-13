@@ -154,7 +154,8 @@ public class CalculateOrderPriceHandler
 
             // ── Скидки (F1 + F2) ─────────────────────────────────────
             decimal lifetimeDisc    = 0m;
-            decimal cartVolumeDisc  = DiscountCalculator.GetCartVolumeDiscount(subtotal);
+            // F2: скидка по количеству товаров (3+→3%, 5+→6%, 8+→9%)
+            decimal cartVolumeDisc  = DiscountCalculator.GetCartCountDiscount(request.Items.Count);
 
             if (request.UserId.HasValue)
             {

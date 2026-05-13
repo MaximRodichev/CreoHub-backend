@@ -39,9 +39,20 @@ public class Product
 
     private Product() {}
 
+    private static readonly System.Text.RegularExpressions.Regex ForbiddenNameChars =
+        new(@"[,!\.\-]", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static string ValidateName(string name)
+    {
+        if (name == null) throw new ArgumentNullException(nameof(name));
+        if (ForbiddenNameChars.IsMatch(name))
+            throw new ArgumentException("Название не должно содержать символы: , ! . -");
+        return name;
+    }
+
     public Product(string name, string description, Guid ownerId, IEnumerable<Tag>? tags = null)
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Name = ValidateName(name);
         Description = description ?? throw new ArgumentNullException(nameof(description));
         OwnerId = ownerId;
         
@@ -57,6 +68,13 @@ public class Product
         if (products == null || products.Count == 0)
             throw new ArgumentException("Products cannot be empty.", nameof(products));
 
+        // ── Жёсткое правило: набор не может содержать другой набор ──
+        var nestedBundle = products.FirstOrDefault(p => p.ProductType == ProductType.Bundle);
+        if (nestedBundle != null)
+            throw new InvalidOperationException(
+                $"Набор не может содержать другой набор. «{nestedBundle.Name}» уже является набором. " +
+                "Добавляйте только одиночные товары (Single).");
+
         ProductType = ProductType.Bundle;
 
         foreach (var product in products)
@@ -70,7 +88,7 @@ public class Product
 
     public void UpdateName(string name)
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Name = ValidateName(name);
     }
 
     public void UpdateDescription(string description)

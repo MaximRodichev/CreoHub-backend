@@ -9,4 +9,5 @@ public interface IContentFileRepository : IRepository<ContentFile, Guid>
     Task<List<ContentFile>> GetByStorageObjectIdAsync(Guid contentFileId);
     public Task<List<ContentFile>> GetByProductIdsAsync(IEnumerable<int> productIds);
     Task<ContentFile?> GetByIdWithStorageAsync(Guid id);
+    Task<bool> HasPurchasesAsync(Guid contentFileId);
 }

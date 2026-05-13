@@ -41,6 +41,9 @@ public class DetachContentFileHandler : IRequestHandler<DetachContentFileCommand
             if(contentFile.ProductId != request.Dto.ProductId)
                 return BaseResponse<bool>.Fail("Content file not included into this Product");
 
+            if (await _contentFileRepository.HasPurchasesAsync(contentFile.Id))
+                return BaseResponse<bool>.Fail("Этот файл уже приобрели покупатели — отвязать невозможно.");
+
             StorageObject? storageObject = await _storageObjectRepository.GetByIdAsync(contentFile.StorageObjectId);
             if (storageObject == null)
                 return BaseResponse<bool>.Fail("Storage object not found");

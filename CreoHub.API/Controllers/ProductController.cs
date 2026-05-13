@@ -53,6 +53,13 @@ public class ProductController : ShopOwnerControllerBase
         return Ok(response);
     }
 
+    [HttpGet("{id:int}/info")]
+    public async Task<IActionResult> GetProductInfoById([FromRoute] int id)
+    {
+        var response = await _mediator.Send(new GetProductInfoByIdQuery(id));
+        return Ok(response);
+    }
+
     [HttpGet("{id}/content-files")]
     public async Task<IActionResult> GetContentFiles([FromRoute] int id)
     {

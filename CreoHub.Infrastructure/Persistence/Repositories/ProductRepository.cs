@@ -66,7 +66,10 @@ public class ProductRepository : IProductRepository
 
         if (filters.Tags != null && filters.Tags.Any())
             query = query.Where(x => x.Tags.Any(t => filters.Tags.Contains(t.Name)));
-        
+
+        if (filters.ProductType.HasValue)
+            query = query.Where(x => x.ProductType == filters.ProductType.Value);
+
         query = query.Where(x=>x.ProductStatus == ProductStatus.Active);
 
         // Считаем общее количество до пагинации
@@ -143,19 +146,95 @@ public class ProductRepository : IProductRepository
                 Date = x.CreatedAt,
                 ProductType = x.ProductType,
                 PriceWithoutDiscount = x.BundleItems.Select(y=>y.Product.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()).Sum(),
-                PreviewKey = x.MediaProducts.First().StorageObject.Key,
-                PreviewThumbnailKey = x.MediaProducts.First().Thumbnail != null
-                    ? x.MediaProducts.First().Thumbnail.Key
-                    : null
+                PreviewKey = x.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.StorageObject.Key)
+                    .FirstOrDefault(),
+                PreviewThumbnailKey = x.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.Thumbnail != null ? m.Thumbnail.Key : null)
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
         return (items, totalCount);
     }
 
-    public Task<ProductInfoDTO> GetProductInfoById(int id)
+    public async Task<ProductInfoDTO> GetProductInfoById(int id)
     {
-        throw new NotImplementedException();
+        var product = await _db.Products
+            .AsNoTracking()
+            .Where(x => x.ProductStatus == ProductStatus.Active && x.Id == id)
+            .Select(x => new ProductInfoDTO
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Description = x.Description,
+                Date = x.CreatedAt,
+                Price = x.Prices
+                    .OrderByDescending(p => p.Date)
+                    .Select(p => p.Value)
+                    .FirstOrDefault(),
+                ShopId = x.Owner.Id,
+                isHotProduct = x.OrderItems.Count > 6,
+                ShopName = x.Owner.Name,
+                Tags = x.Tags.Select(t => t.Name).ToList(),
+                ProductType = x.ProductType,
+                inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
+                {
+                    Name = b.Product.Name,
+                    Id = b.ProductId,
+                    Price = b.Product.Prices
+                        .OrderByDescending(p => p.Date)
+                        .Select(p => p.Value)
+                        .FirstOrDefault(),
+                }).ToList(),
+                ContentFileInfos = x.ContentFiles.Select(cf => new ContentFileInfo()
+                {
+                    Id = cf.Id,
+                    PreviewName = cf.PreviewName,
+                    PriceWeight = cf.PriceWeight
+                }).ToList(),
+            })
+            .FirstOrDefaultAsync();
+
+        if (product == null) return null;
+
+        var ownMedia = await _db.MediaProducts
+            .Where(m => m.ProductId == product.Id)
+            .OrderBy(m => m.SortOrder)
+            .Select(m => new StorageObjectViewDTO
+            {
+                Id = m.StorageObjectId,
+                Key = m.StorageObject.Key,
+                ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
+            })
+            .ToListAsync();
+
+        var directBundleIds = product.inBundleProducts.Select(x => x.Id).ToList();
+        var nestedBundleItemIds = directBundleIds.Count > 0
+            ? await _db.Products
+                .Where(p => directBundleIds.Contains(p.Id) && p.ProductType == ProductType.Bundle)
+                .SelectMany(p => p.BundleItems.Select(bi => bi.ProductId))
+                .ToListAsync()
+            : new List<int>();
+
+        var allBundleIds = directBundleIds.Concat(nestedBundleItemIds).Distinct().ToList();
+        var bundleMedia = allBundleIds.Count > 0
+            ? await _db.MediaProducts
+                .Where(m => allBundleIds.Contains(m.ProductId))
+                .OrderBy(m => m.SortOrder)
+                .Select(m => new StorageObjectViewDTO
+                {
+                    Id = m.StorageObjectId,
+                    Key = m.StorageObject.Key,
+                    ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
+                })
+                .ToListAsync()
+            : new List<StorageObjectViewDTO>();
+
+        product.MediaViews = ownMedia.Concat(bundleMedia).ToList();
+        return product;
     }
 
     public async Task<Product> GetProductById(int id)
@@ -169,7 +248,10 @@ public class ProductRepository : IProductRepository
 
     public Task<Guid> GetShopIdByProductId(int id)
     {
-        throw new NotImplementedException();
+        return _db.Products
+            .Where(p => p.Id == id)
+            .Select(p => p.OwnerId)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<ProductInfoDTO> GetProductByName(string name)
@@ -215,6 +297,7 @@ public class ProductRepository : IProductRepository
         // Медиа самого продукта
         var ownMedia = await _db.MediaProducts
             .Where(m => m.ProductId == product.Id)
+            .OrderBy(m => m.SortOrder)
             .Select(m => new StorageObjectViewDTO
             {
                 Id = m.StorageObjectId,
@@ -223,17 +306,34 @@ public class ProductRepository : IProductRepository
             })
             .ToListAsync();
 
-        // Медиа бандл продуктов
-        var bundleIds = product.inBundleProducts.Select(x => x.Id).ToList();
-        var bundleMedia = await _db.MediaProducts
-            .Where(m => bundleIds.Contains(m.ProductId))
-            .Select(m => new StorageObjectViewDTO
-            {
-                Id = m.StorageObjectId,
-                Key = m.StorageObject.Key,
-                ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
-            })
-            .ToListAsync();
+        // Медиа бандл продуктов — рекурсивно собираем все вложенные ID
+        var directBundleIds = product.inBundleProducts.Select(x => x.Id).ToList();
+
+        // Для каждого вложенного продукта, который сам является бандлом, берём его items
+        var nestedBundleItemIds = directBundleIds.Count > 0
+            ? await _db.Products
+                .Where(p => directBundleIds.Contains(p.Id) && p.ProductType == ProductType.Bundle)
+                .SelectMany(p => p.BundleItems.Select(bi => bi.ProductId))
+                .ToListAsync()
+            : new List<int>();
+
+        var allBundleIds = directBundleIds
+            .Concat(nestedBundleItemIds)
+            .Distinct()
+            .ToList();
+
+        var bundleMedia = allBundleIds.Count > 0
+            ? await _db.MediaProducts
+                .Where(m => allBundleIds.Contains(m.ProductId))
+                .OrderBy(m => m.SortOrder)
+                .Select(m => new StorageObjectViewDTO
+                {
+                    Id = m.StorageObjectId,
+                    Key = m.StorageObject.Key,
+                    ThumbnailKey = m.Thumbnail != null ? m.Thumbnail.Key : null
+                })
+                .ToListAsync()
+            : new List<StorageObjectViewDTO>();
 
         product.MediaViews = ownMedia.Concat(bundleMedia).ToList();
 
@@ -299,12 +399,14 @@ public class ProductRepository : IProductRepository
                     .Select(p => p.Value)
                     .FirstOrDefault(),
             }).ToList(),
-            MediaViews = rawData.MediaProducts.Select(x=> new StorageObjectViewDTO()
-            {
-                Id = x.StorageObjectId,
-                Key = x.StorageObject.Key,
-                ThumbnailKey = x.Thumbnail?.Key
-            }).ToList(),
+            MediaViews = rawData.MediaProducts
+                .OrderBy(x => x.SortOrder)
+                .Select(x=> new StorageObjectViewDTO()
+                {
+                    Id = x.StorageObjectId,
+                    Key = x.StorageObject.Key,
+                    ThumbnailKey = x.Thumbnail?.Key
+                }).ToList(),
             SellsHistory = rawData.CustomerBuyHistory,
             ContentFileInfos = rawData.ContentFile.Select(x=> new ContentFileInfo()
             {
@@ -330,26 +432,31 @@ public class ProductRepository : IProductRepository
                 ProductStatus = x.ProductStatus,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
                 Date = x.CreatedAt,
-                PreviewKey = x.MediaProducts.First().StorageObject.Key,
-                PreviewThumbnailKey = x.MediaProducts.First().Thumbnail != null
-                    ? x.MediaProducts.First().Thumbnail.Key
-                    : null
+                PreviewKey = x.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.StorageObject.Key)
+                    .FirstOrDefault(),
+                PreviewThumbnailKey = x.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.Thumbnail != null ? m.Thumbnail.Key : null)
+                    .FirstOrDefault()
             }).ToListAsync();
     }
 
     public async Task<List<ProductShortInfoDTO>> GetProductsNamesByShopId(Guid shopId)
     {
         return await _db.Products
-            .Where(x=>x.OwnerId == shopId)
-            .Select(x => new ProductShortInfoDTO()
-        {
-            Id = x.Id,
-            Name = x.Name,
-            Price = x.Prices
-                .OrderByDescending(pr => pr.Date)
-                .Select(pr => pr.Value)
-                .FirstOrDefault()
-        }).ToListAsync();
+            .Where(x => x.OwnerId == shopId)
+            .Select(x => new ProductShortInfoDTO
+            {
+                Id          = x.Id,
+                Name        = x.Name,
+                ProductType = x.ProductType,
+                Price       = x.Prices
+                    .OrderByDescending(pr => pr.Date)
+                    .Select(pr => pr.Value)
+                    .FirstOrDefault()
+            }).ToListAsync();
     }
 
     public Task<List<Product>> GetProductsByIds(List<int> ids)

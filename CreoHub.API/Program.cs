@@ -44,9 +44,18 @@ builder.Services.AddAuthentication(options =>
     .AddCookie() // Куки нужны для сохранения сессии после входа
     .AddGoogle(options =>
     {
-        options.ClientId = builder.Configuration.GetConnectionString("GoogleClientId");
+        options.ClientId     = builder.Configuration.GetConnectionString("GoogleClientId");
         options.ClientSecret = builder.Configuration.GetConnectionString("GoogleClientSecret");
         options.CallbackPath = "/signin-google"; // Должен совпадать с тем, что в Google Console
+
+        // Если пользователь отменяет Google OAuth — редиректим тихо, без страницы ошибки
+        options.Events.OnRemoteFailure = ctx =>
+        {
+            var frontend = builder.Configuration["Frontend"] ?? "";
+            ctx.Response.Redirect($"{frontend}/signin?cancelled=1");
+            ctx.HandleResponse();
+            return Task.CompletedTask;
+        };
     });
 /*
 builder.Services.AddScoped<WebAssetScout>();

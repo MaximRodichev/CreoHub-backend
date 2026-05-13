@@ -106,4 +106,16 @@ public class PanelAuthController(
         var success = await sessions.LinkAsync(token, userId);
         return success ? Ok() : BadRequest("Token expired or already used");
     }
+
+    // Выход из аккаунта и привязка нового — удаляет cookie и редиректит на экран линковки
+    [HttpGet("logout")]
+    public IActionResult Logout()
+    {
+        HttpContext.Response.Cookies.Delete("autoslot_session", new CookieOptions
+        {
+            Path     = "/",
+            HttpOnly = true
+        });
+        return Redirect("/autoslot/auth/start");
+    }
 }

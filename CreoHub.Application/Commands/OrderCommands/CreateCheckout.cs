@@ -20,6 +20,8 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
     private readonly IUserTransactionRepository _transactionRepository;
     private readonly IPaymentGatewayService _paymentService;
     private readonly IAccountRepository _accountRepository;
+    private readonly IContentFileRepository _contentFileRepository;
+    private readonly IContentAccessRepository _accessRepository;
 
     public CreateCheckoutHandler(
         IUnitOfWork unitOfWork,
@@ -27,7 +29,9 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         IProductRepository productRepository,
         IUserTransactionRepository transactionRepository,
         IPaymentGatewayService paymentService,
-        IAccountRepository accountRepository)
+        IAccountRepository accountRepository,
+        IContentFileRepository contentFileRepository,
+        IContentAccessRepository accessRepository)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -35,6 +39,8 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         _transactionRepository = transactionRepository;
         _paymentService = paymentService;
         _accountRepository = accountRepository;
+        _contentFileRepository = contentFileRepository;
+        _accessRepository = accessRepository;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -75,7 +81,26 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
                     "Удалите отдельный товар из корзины — он уже включён в набор.");
             }
 
-            // Формируем items для Order.Open() с выбранными файлами
+            // ── Загружаем уже купленные файлы пользователя ───────────
+            var ownedAccesses = await _accessRepository.GetByUserIdAsync(request.UserId);
+            var ownedFileIds  = ownedAccesses.Select(a => a.ContentFileId).ToHashSet();
+
+            // ── Загружаем дочерние продукты бандлов ─────────────────
+            var bundleChildIds = products
+                .Where(p => p.ProductType == ProductType.Bundle)
+                .SelectMany(p => p.BundleItems.Select(b => b.ProductId))
+                .Distinct()
+                .Except(productMap.Keys)
+                .ToList();
+
+            if (bundleChildIds.Count > 0)
+            {
+                var childProducts = await _productRepository.GetProductsByIds(bundleChildIds);
+                foreach (var cp in childProducts)
+                    productMap.TryAdd(cp.Id, cp);
+            }
+
+            // ── Формируем items для Order.Open() с выбранными файлами
             var orderItems = new List<(Product product, List<ContentFile> selectedFiles)>();
 
             foreach (var item in request.Items)
@@ -85,11 +110,34 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
                 List<ContentFile> selectedFiles;
                 if (item.FileIds.Count == 0)
                 {
-                    // Полная покупка
+                    if (product.ProductType == ProductType.Bundle)
+                    {
+                        // Бандл: проверяем, что не все дочерние файлы уже куплены
+                        var childProductIds = product.BundleItems.Select(b => b.ProductId).ToList();
+                        var allChildFiles   = await _contentFileRepository.GetByProductIdsAsync(childProductIds);
+                        if (allChildFiles.Count > 0 && allChildFiles.All(f => ownedFileIds.Contains(f.Id)))
+                            return BaseResponse<CheckoutResultDTO>.Fail(
+                                $"Вы уже приобрели все файлы из набора «{product.Name}».");
+                    }
+                    else
+                    {
+                        // Обычный продукт: проверяем, что не все файлы уже куплены
+                        var allFiles = product.ContentFiles.ToList();
+                        var nonOwned = allFiles.Where(cf => !ownedFileIds.Contains(cf.Id)).ToList();
+                        if (allFiles.Count > 0 && nonOwned.Count == 0)
+                            return BaseResponse<CheckoutResultDTO>.Fail(
+                                $"Все файлы продукта «{product.Name}» уже куплены вами.");
+                    }
                     selectedFiles = new List<ContentFile>();
                 }
                 else
                 {
+                    // Частичная покупка: проверяем, что выбранные файлы не куплены
+                    var alreadyOwned = item.FileIds.Where(id => ownedFileIds.Contains(id)).ToList();
+                    if (alreadyOwned.Any())
+                        return BaseResponse<CheckoutResultDTO>.Fail(
+                            $"Некоторые файлы из «{product.Name}» уже куплены вами.");
+
                     selectedFiles = product.ContentFiles
                         .Where(cf => item.FileIds.Contains(cf.Id))
                         .ToList();

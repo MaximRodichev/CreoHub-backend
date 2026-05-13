@@ -4,5 +4,6 @@ public enum FileType
 {
     Unregistred,
     Media,
-    Content
+    Content,
+    Thumbnail
 }

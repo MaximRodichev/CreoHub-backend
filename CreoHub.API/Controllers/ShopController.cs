@@ -129,6 +129,18 @@ public class ShopController : ShopOwnerControllerBase
         return Ok(response);
     }
 
+    [Authorize]
+    [HttpPost("transfer-to-user")]
+    public async Task<IActionResult> TransferToUser([FromBody] TransferToUserRequestDTO dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(
+            new TransferShopToUserBalanceCommand(shopId, UserId, dto.Amount));
+        return Ok(response);
+    }
+
     // ── Transactions ──────────────────────────────────────────────────────────
 
     [Authorize]
@@ -144,3 +156,4 @@ public class ShopController : ShopOwnerControllerBase
 }
 
 public record WithdrawRequestDTO(decimal Amount, string Address, string Network);
+public record TransferToUserRequestDTO(decimal Amount);

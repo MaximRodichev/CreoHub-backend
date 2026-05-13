@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
@@ -18,14 +19,16 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
     private readonly ITagRepository _tagRepository;
     private readonly IPriceRepository _priceRepository;
     private readonly IStorageObjectRepository _storageObjectRepository;
-    
-    public UpdateProductHandler(IProductRepository productRepository, IUnitOfWork unitOfWork,  ITagRepository tagRepository, IPriceRepository priceRepository, IStorageObjectRepository storageObjectRepository)
+    private readonly IStorageService _storageService;
+
+    public UpdateProductHandler(IProductRepository productRepository, IUnitOfWork unitOfWork,  ITagRepository tagRepository, IPriceRepository priceRepository, IStorageObjectRepository storageObjectRepository, IStorageService storageService)
     {
         _productRepository = productRepository;
         _unitOfWork = unitOfWork;
         _tagRepository = tagRepository;
         _priceRepository = priceRepository;
         _storageObjectRepository = storageObjectRepository;
+        _storageService = storageService;
     }
     
     public async Task<BaseResponse<bool>> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
@@ -72,6 +75,18 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                 {
                     var storageObject = await _storageObjectRepository.GetByIdAsync(media.StorageObjectId);
                     storageObject.ChangeFileType(FileType.Unregistred);
+
+                    // Delete associated thumbnail from storage and DB
+                    if (media.ThumbnailId.HasValue)
+                    {
+                        var thumb = await _storageObjectRepository.GetByIdAsync(media.ThumbnailId.Value);
+                        if (thumb != null)
+                        {
+                            _storageObjectRepository.Remove(thumb);
+                            _ = _storageService.DeleteFileAsync(thumb.Key); // fire-and-forget
+                        }
+                    }
+
                     response.RemoveMedia(media);
                 }
 
@@ -87,6 +102,14 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                         response.Id,
                         storageObject.Id,
                         0));
+                }
+
+                // Обновить порядок сортировки согласно переданному списку
+                for (int i = 0; i < request.dto.ObjectStorageIds.Count; i++)
+                {
+                    var mediaItem = response.MediaProducts
+                        .FirstOrDefault(m => m.StorageObjectId == request.dto.ObjectStorageIds[i]);
+                    mediaItem?.UpdateSortOrder(i);
                 }
             }
             var incomingTagIds = request.dto.Tags.ToHashSet();

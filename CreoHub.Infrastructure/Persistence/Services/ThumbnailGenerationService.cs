@@ -76,6 +76,7 @@ public class ThumbnailGenerationService : IThumbnailGenerationService
                 new FileInfo(thumbPath).Length,
                 "image/jpeg",
                 video.OwnerId);
+            thumbObject.ChangeFileType(FileType.Thumbnail);
 
             await _storageObjectRepository.AddAsync(thumbObject);
             await _unitOfWork.SaveChangesAsync(cancellationToken); // нужен Id для FK

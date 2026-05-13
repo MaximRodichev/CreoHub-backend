@@ -5,5 +5,6 @@ public enum TransactionType
     Withdrawal,
     UpBalance,
     Purchase,
-    ShopSale
+    ShopSale,
+    Transfer
 }

@@ -78,4 +78,10 @@ public class ContentFileRepository : IContentFileRepository
             .Include(cf => cf.StorageObject)
             .FirstOrDefaultAsync(cf => cf.Id == id);
     }
+
+    public Task<bool> HasPurchasesAsync(Guid contentFileId)
+    {
+        return _db.ContentAccesses
+            .AnyAsync(ca => ca.ContentFileId == contentFileId);
+    }
 }
