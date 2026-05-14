@@ -23,6 +23,16 @@ public class ShopConfiguration : IEntityTypeConfiguration<Shop>
         
         builder.HasOne(x => x.Owner).WithOne(x => x.Shop).HasForeignKey<Shop>(x => x.OwnerId);
         builder.HasMany(x => x.Products).WithOne(x => x.Owner).HasForeignKey(x => x.OwnerId);
+
+        builder.HasOne(x => x.Banner)
+            .WithMany()
+            .HasForeignKey(x => x.BannerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.Logo)
+            .WithMany()
+            .HasForeignKey(x => x.LogoId)
+            .OnDelete(DeleteBehavior.SetNull);
         
         builder.HasOne(x => x.Balance)
             .WithOne()

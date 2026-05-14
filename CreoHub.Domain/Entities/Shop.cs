@@ -14,6 +14,11 @@ public class Shop
     public IReadOnlyCollection<StorageObject> Files => _files.AsReadOnly();
     public User Owner { get; private init; }
     public Guid OwnerId { get; private init; }
+
+    public Guid? BannerId { get; private set; }
+    public Guid? LogoId   { get; private set; }
+    public StorageObject? Banner { get; private set; }
+    public StorageObject? Logo   { get; private set; }
     public IReadOnlyCollection<ShopTransaction> Transactions { get; private set; } = new List<ShopTransaction>();
     public ShopBalance Balance { get; private init; }
     public Guid BalanceId { get; private init; }
@@ -36,5 +41,11 @@ public class Shop
     public void UpdateDescription(string description)
     {
         Description = description ?? throw new ArgumentNullException(nameof(description));
+    }
+
+    public void UpdateDecorations(Guid? bannerId, Guid? logoId)
+    {
+        BannerId = bannerId;
+        LogoId   = logoId;
     }
 }

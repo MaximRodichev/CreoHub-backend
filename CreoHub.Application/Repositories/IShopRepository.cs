@@ -11,5 +11,6 @@ public interface IShopRepository : IRepository<Shop, Guid>
     Task<List<ShopShortInfoDTO>> GetShopsShortInfoAsync();
     Task<ShopShortInfoDTO> GetShopShortInfoAsync(Guid guid);
     Task<ShopStatsDTO> GetShopStatsAsync(Guid guid, DateTime? from = null, DateTime? to = null);
-
+    Task<ShopPublicDTO?> GetShopPublicAsync(string name);
+    Task<Shop?> GetShopByIdAsync(Guid shopId);
 }

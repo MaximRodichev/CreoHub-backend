@@ -8,6 +8,7 @@ using CreoHub.Application.Repositories;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
 namespace CreoHub.API.Controllers;
 
@@ -151,6 +152,39 @@ public class ShopController : ShopOwnerControllerBase
         if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
 
         var response = await _mediator.Send(new GetShopTransactionsQuery(shopId));
+        return Ok(response);
+    }
+
+    // ── Public shop page ──────────────────────────────────────────────────────
+
+    [HttpGet("public/{name}")]
+    public async Task<IActionResult> GetPublic(string name)
+    {
+        var response = await _mediator.Send(new GetShopPublicQuery(name));
+        if (response.Status != ResponseStatus.Success)
+            return NotFound(response);
+        return Ok(response);
+    }
+
+    // ── Decorations (banner / logo upload) ────────────────────────────────────
+
+    [Authorize]
+    [HttpPost("decorations")]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+    public async Task<IActionResult> UploadDecoration(
+        IFormFile file,
+        [FromQuery] string slot)
+    {
+        if (slot != "banner" && slot != "logo")
+            return BadRequest(BaseResponse<bool>.Fail("slot должен быть 'banner' или 'logo'"));
+
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        await using var stream = file.OpenReadStream();
+        var response = await _mediator.Send(
+            new UpdateShopDecorationsCommand(stream, file.FileName, file.ContentType, slot, shopId));
+
         return Ok(response);
     }
 }

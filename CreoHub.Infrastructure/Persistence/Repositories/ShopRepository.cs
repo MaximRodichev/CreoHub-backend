@@ -150,4 +150,80 @@ public class ShopRepository : IShopRepository
     {
         return _db.Shops.Attach(entity).Entity;
     }
+
+    public async Task<ShopPublicDTO?> GetShopPublicAsync(string name)
+    {
+        var shop = await _db.Shops
+            .AsNoTracking()
+            .Include(s => s.Banner)
+            .Include(s => s.Logo)
+            .Where(s => s.Name == name)
+            .Select(s => new
+            {
+                s.Id,
+                s.Name,
+                s.Description,
+                s.CreatedAt,
+                BannerKey = s.Banner != null ? s.Banner.Key : null,
+                LogoKey   = s.Logo   != null ? s.Logo.Key   : null,
+            })
+            .FirstOrDefaultAsync();
+
+        if (shop is null) return null;
+
+        var totalDeals = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.Status == OrderStatus.Completed &&
+                        o.Items.Any(oi => oi.Product.OwnerId == shop.Id))
+            .CountAsync();
+
+        var products = await _db.Products
+            .AsNoTracking()
+            .Where(p => p.OwnerId == shop.Id && p.ProductStatus == ProductStatus.Active)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new ShopPublicProductDTO
+            {
+                Id   = p.Id,
+                Name = p.Name,
+                Price = p.Prices
+                    .OrderByDescending(pr => pr.Date)
+                    .Select(pr => pr.Value)
+                    .FirstOrDefault(),
+                PriceWithoutDiscount = p.BundleItems
+                    .Select(bi => bi.Product.Prices
+                        .OrderByDescending(pr => pr.Date)
+                        .Select(pr => pr.Value)
+                        .FirstOrDefault())
+                    .Sum(),
+                PreviewKey = p.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.StorageObject.Key)
+                    .FirstOrDefault(),
+                PreviewThumbnailKey = p.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.Thumbnail != null ? m.Thumbnail.Key : null)
+                    .FirstOrDefault(),
+                ProductType  = p.ProductType.ToString(),
+                IsHotProduct = p.OrderItems.Count > 6,
+            })
+            .ToListAsync();
+
+        return new ShopPublicDTO
+        {
+            Id            = shop.Id,
+            Name          = shop.Name,
+            Description   = shop.Description,
+            CreatedAt     = shop.CreatedAt,
+            BannerKey     = shop.BannerKey,
+            LogoKey       = shop.LogoKey,
+            TotalProducts = products.Count,
+            TotalDeals    = totalDeals,
+            Products      = products,
+        };
+    }
+
+    public async Task<Shop?> GetShopByIdAsync(Guid shopId)
+    {
+        return await _db.Shops.FirstOrDefaultAsync(s => s.Id == shopId);
+    }
 }
