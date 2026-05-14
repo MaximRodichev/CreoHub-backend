@@ -14,7 +14,6 @@ public class ProductViewDTO
     public string Name { get; set; }
     public decimal? PriceWithoutDiscount { get; set; }
     public decimal Price { get; set; }
-    public List<string> Tags { get; set; }
     public string PreviewKey { get; set; }
     public string? PreviewThumbnailKey { get; set; }
 }

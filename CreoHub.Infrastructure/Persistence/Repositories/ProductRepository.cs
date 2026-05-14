@@ -141,7 +141,6 @@ public class ProductRepository : IProductRepository
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.Value)
                     .FirstOrDefault(),
-                Tags = x.Tags.Select(t => t.Name).ToList(),
                 isHotProduct = x.OrderItems.Count > 6,
                 Date = x.CreatedAt,
                 ProductType = x.ProductType,
