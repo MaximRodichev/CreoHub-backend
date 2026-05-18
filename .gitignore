@@ -7,3 +7,4 @@ riderModule.iml
 /CreoHub.API/appsettings.Development.json
 CreoHub.API/ffmpeg/ffmpeg.exe
 CreoHub.API/ffmpeg/ffprobe.exe
+/publish/

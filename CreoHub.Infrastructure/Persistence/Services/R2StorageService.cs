@@ -9,7 +9,7 @@ public class R2StorageService : IStorageService
 {
     private readonly IAmazonS3 _s3Client;
     //TODO: test bucket now usages
-    private const string BucketMainName = "creohub-raw";
+    private const string BucketMainName = "creohub";
     private const string BucketPreviewName = "creohub-preview";
     private const string BucketContentType = "creohub-content";
 
@@ -70,5 +70,33 @@ public class R2StorageService : IStorageService
         };
 
         return _s3Client.GetPreSignedURL(request);
+    }
+
+    public Task<string> GeneratePresignedUploadUrlAsync(string key, string mimeType, int expiresInMinutes = 30)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName  = BucketMainName,
+            Key         = key,
+            Expires     = DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            Protocol    = Protocol.HTTPS,
+            Verb        = HttpVerb.PUT,
+            ContentType = mimeType
+        };
+
+        return Task.FromResult(_s3Client.GetPreSignedURL(request));
+    }
+
+    public async Task<bool> FileExistsAsync(string key)
+    {
+        try
+        {
+            await _s3Client.GetObjectMetadataAsync(BucketMainName, key);
+            return true;
+        }
+        catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
     }
 }

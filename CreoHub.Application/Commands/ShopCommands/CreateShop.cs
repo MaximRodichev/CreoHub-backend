@@ -28,6 +28,8 @@ public class CreateShopHandler : IRequestHandler<CreateShopCommand, BaseResponse
     
     public async Task<BaseResponse<Guid>> Handle(CreateShopCommand request, CancellationToken cancellationToken)
     {
+        return BaseResponse<Guid>.Fail("Создание магазина временно недоступно");
+        /* LOCKED FOR DEVELOPMENT
         try
         {
             var shop = new Shop(
@@ -51,5 +53,6 @@ public class CreateShopHandler : IRequestHandler<CreateShopCommand, BaseResponse
         {
             return BaseResponse<Guid>.Fail(ex.Message);
         }
+        */
     }
 }

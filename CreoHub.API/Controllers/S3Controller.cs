@@ -35,7 +35,51 @@ public class S3Controller : ShopOwnerControllerBase
         _shopRepository = shopRepository;
     }
 
-    // ── Upload ────────────────────────────────────────────────────────────────
+    // ── Presigned upload (new flow) ───────────────────────────────────────────
+
+    public record RequestUploadDto(string FileName, string MimeType, long FileSize);
+    public record ConfirmUploadDto(string Key, string FileName, string MimeType, long FileSize);
+
+    /// <summary>
+    /// Шаг 1: получить presigned PUT URL для прямой загрузки в R2.
+    /// БД не трогается — только генерируется ключ и URL.
+    /// </summary>
+    [Authorize]
+    [HttpPost("request-upload")]
+    public async Task<IActionResult> RequestUpload([FromBody] RequestUploadDto dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var limit = GetLimit(dto.MimeType);
+        if (dto.FileSize > limit)
+        {
+            var limitMb = limit / 1024 / 1024;
+            return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {dto.MimeType}: {limitMb} MB"));
+        }
+
+        var command  = new RequestStorageUploadCommand(dto.FileName, dto.MimeType, dto.FileSize, shopId);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Шаг 2: подтвердить загрузку. Backend делает HEAD к R2, создаёт StorageObject в БД.
+    /// Вызывается только после успешного PUT напрямую в R2.
+    /// </summary>
+    [Authorize]
+    [HttpPost("confirm-upload")]
+    public async Task<IActionResult> ConfirmUpload([FromBody] ConfirmUploadDto dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var command  = new ConfirmStorageUploadCommand(dto.Key, dto.FileName, dto.MimeType, dto.FileSize, shopId);
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    // ── Upload (legacy — оставлен для совместимости) ──────────────────────────
 
     [Authorize]
     [RequestSizeLimit(2L * 1024 * 1024 * 1024)]

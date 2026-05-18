@@ -429,7 +429,6 @@ public class ProductRepository : IProductRepository
                 isHotProduct = x.OrderItems.Count > 6,
                 SellsCount = x.OrderItems.Count,
                 ProductStatus = x.ProductStatus,
-                Tags = x.Tags.Select(t => t.Name).ToList(),
                 Date = x.CreatedAt,
                 PreviewKey = x.MediaProducts
                     .OrderBy(m => m.SortOrder)
