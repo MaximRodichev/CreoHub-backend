@@ -12,6 +12,7 @@ public class ProductViewDTO
     public ProductType ProductType { get; set; }
     public DateTime Date { get; set; }
     public string Name { get; set; }
+    public string Slug { get; set; }
     public decimal? PriceWithoutDiscount { get; set; }
     public decimal Price { get; set; }
     public string PreviewKey { get; set; }

@@ -6,18 +6,15 @@ namespace CreoHub.Domain.Services;
 /// Алгоритм:
 ///   1. bundleDiscPct = (sumChildPrices - bundlePrice) / sumChildPrices
 ///   2. Для каждого дочернего продукта i:
-///        effectivePrice_i = childBasePrice_i × (nonOwnedWeight_i / totalWeight_i)^α
-///        ownedValue_i     = childBasePrice_i × (ownedWeight_i   / totalWeight_i)^α
+///        effectivePrice_i = childBasePrice_i × (nonOwnedWeight_i / totalWeight_i)^α(totalFiles_i)
+///        ownedValue_i     = childBasePrice_i × (ownedWeight_i   / totalWeight_i)^α(totalFiles_i)
 ///   3. Порог 50%: if ΣownedValue_i / ΣchildBasePrice_i > 0.5 → покупка отклоняется
 ///   4. finalPrice = ΣeffectivePrice_i × (1 − bundleDiscPct)
 ///
-/// Использует тот же α=0.5, что и Product.CalculatePrice (степенная кривая).
+/// α вычисляется динамически из PricingConfig через делегат computeAlpha(totalFiles).
 /// </summary>
 public static class BundleCalculator
 {
-    /// <summary>Тот же α, что и в Product.PartialPurchaseAlpha.</summary>
-    private const double Alpha = 0.5;
-
     /// <summary>
     /// Порог: если пользователь уже владеет долей стоимости набора, превышающей это значение,
     /// покупать набор не имеет смысла (скидка на набор работала бы против платформы).
@@ -36,27 +33,27 @@ public static class BundleCalculator
     }
 
     /// <summary>
-    /// Цена НЕ-купленной части файлов одного дочернего продукта по экспоненциальной кривой.
+    /// Цена НЕ-купленной части файлов одного дочернего продукта по степенной кривой.
     /// Возвращает 0 если все файлы уже куплены или вес нулевой.
     /// </summary>
-    public static decimal EffectiveNonOwnedPrice(decimal basePrice, int totalWeight, int ownedWeight)
+    public static decimal EffectiveNonOwnedPrice(decimal basePrice, int totalWeight, int ownedWeight, double alpha)
     {
         if (totalWeight <= 0 || basePrice <= 0m) return 0m;
         var nonOwnedWeight = totalWeight - ownedWeight;
         if (nonOwnedWeight <= 0) return 0m;
         var ratio = (double)nonOwnedWeight / totalWeight;
-        return (decimal)((double)basePrice * Math.Pow(ratio, 1.0 - Alpha));
+        return (decimal)((double)basePrice * Math.Pow(ratio, alpha));
     }
 
     /// <summary>
     /// «Ценность» уже купленных файлов одного дочернего продукта по той же кривой.
     /// Используется для проверки порога 50%.
     /// </summary>
-    public static decimal EffectiveOwnedValue(decimal basePrice, int totalWeight, int ownedWeight)
+    public static decimal EffectiveOwnedValue(decimal basePrice, int totalWeight, int ownedWeight, double alpha)
     {
         if (totalWeight <= 0 || ownedWeight <= 0 || basePrice <= 0m) return 0m;
         var ratio = (double)ownedWeight / totalWeight;
-        return (decimal)((double)basePrice * Math.Pow(ratio, 1.0 - Alpha));
+        return (decimal)((double)basePrice * Math.Pow(ratio, alpha));
     }
 
     /// <summary>
@@ -80,13 +77,19 @@ public static class BundleCalculator
     /// </summary>
     /// <param name="bundlePrice">Хранимая цена набора.</param>
     /// <param name="children">
-    ///   Список (basePrice, totalWeight, ownedWeight) для каждого дочернего продукта.
+    ///   Список (basePrice, totalWeight, ownedWeight, totalFiles) для каждого дочернего продукта.
     ///   totalWeight = сумма PriceWeight всех ContentFile продукта;
-    ///   ownedWeight = сумма PriceWeight файлов, которыми пользователь уже владеет.
+    ///   ownedWeight = сумма PriceWeight файлов, которыми пользователь уже владеет;
+    ///   totalFiles  = количество ContentFile продукта (определяет α).
+    /// </param>
+    /// <param name="computeAlpha">
+    ///   Делегат для вычисления динамического α по числу файлов.
+    ///   Если не передан — α = 1.0 (линейное ценообразование).
     /// </param>
     public static BundleAdjustmentResult Calculate(
         decimal bundlePrice,
-        IReadOnlyList<(decimal BasePrice, int TotalWeight, int OwnedWeight)> children)
+        IReadOnlyList<(decimal BasePrice, int TotalWeight, int OwnedWeight, int TotalFiles)> children,
+        Func<int, double>? computeAlpha = null)
     {
         if (children.Count == 0)
         {
@@ -105,10 +108,11 @@ public static class BundleCalculator
         var totalOwnedValue   = 0m;
         var adjustedSubtotal  = 0m;
 
-        foreach (var (basePrice, totalWeight, ownedWeight) in children)
+        foreach (var (basePrice, totalWeight, ownedWeight, totalFiles) in children)
         {
-            totalOwnedValue  += EffectiveOwnedValue(basePrice, totalWeight, ownedWeight);
-            adjustedSubtotal += EffectiveNonOwnedPrice(basePrice, totalWeight, ownedWeight);
+            var alpha = computeAlpha != null ? computeAlpha(totalFiles) : 1.0;
+            totalOwnedValue  += EffectiveOwnedValue(basePrice, totalWeight, ownedWeight, alpha);
+            adjustedSubtotal += EffectiveNonOwnedPrice(basePrice, totalWeight, ownedWeight, alpha);
         }
 
         var ownedFraction    = sumChildPrices > 0m ? totalOwnedValue / sumChildPrices : 0m;

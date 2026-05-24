@@ -1,9 +1,11 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace CreoHub.Application.Queries.Orders;
 
@@ -14,21 +16,24 @@ public record CalculateOrderPriceQuery(List<CheckoutItemDTO> Items, Guid? UserId
 public class CalculateOrderPriceHandler
     : IRequestHandler<CalculateOrderPriceQuery, BaseResponse<PriceBreakdownDTO>>
 {
-    private readonly IProductRepository      _productRepository;
-    private readonly IAccountRepository      _accountRepository;
-    private readonly IContentFileRepository  _contentFileRepository;
+    private readonly IProductRepository       _productRepository;
+    private readonly IAccountRepository       _accountRepository;
+    private readonly IContentFileRepository   _contentFileRepository;
     private readonly IContentAccessRepository _accessRepository;
+    private readonly PricingConfig            _pricing;
 
     public CalculateOrderPriceHandler(
         IProductRepository       productRepository,
         IAccountRepository       accountRepository,
         IContentFileRepository   contentFileRepository,
-        IContentAccessRepository accessRepository)
+        IContentAccessRepository accessRepository,
+        IOptions<PricingConfig>  pricing)
     {
         _productRepository     = productRepository;
         _accountRepository     = accountRepository;
         _contentFileRepository = contentFileRepository;
         _accessRepository      = accessRepository;
+        _pricing               = pricing.Value;
     }
 
     public async Task<BaseResponse<PriceBreakdownDTO>> Handle(
@@ -96,19 +101,19 @@ public class CalculateOrderPriceHandler
                     if (product.ProductType == ProductType.Bundle && allChildFiles.Count > 0 && ownedFileIds.Count > 0)
                     {
                         // Частичное владение — пересчитываем цену через BundleCalculator
-                        var childParams = new List<(decimal BasePrice, int TotalWeight, int OwnedWeight)>();
+                        var childParams = new List<(decimal BasePrice, int TotalWeight, int OwnedWeight, int TotalFiles)>();
                         foreach (var bundleItem in product.BundleItems)
                         {
                             if (!productMap.TryGetValue(bundleItem.ProductId, out var childProduct)) continue;
                             var childFileList = filesByChild.GetValueOrDefault(bundleItem.ProductId, new List<Domain.Entities.ContentFile>());
                             var totalWeight   = childFileList.Sum(f => f.PriceWeight);
                             var ownedWeight   = childFileList.Where(f => ownedFileIds.Contains(f.Id)).Sum(f => f.PriceWeight);
-                            childParams.Add((childProduct.GetCurrentPrice(), totalWeight, ownedWeight));
+                            childParams.Add((childProduct.GetCurrentPrice(), totalWeight, ownedWeight, childFileList.Count));
                         }
 
                         if (childParams.Count > 0 && childParams.Any(c => c.OwnedWeight > 0))
                         {
-                            var adj = BundleCalculator.Calculate(product.GetCurrentPrice(), childParams);
+                            var adj = BundleCalculator.Calculate(product.GetCurrentPrice(), childParams, _pricing.ComputeAlpha);
                             price     = adj.ExceedsThreshold ? product.GetCurrentPrice() : adj.FinalPrice;
                             isPartial = childParams.Any(c => c.OwnedWeight > 0 && c.OwnedWeight < c.TotalWeight);
                         }
@@ -134,7 +139,8 @@ public class CalculateOrderPriceHandler
                         throw new InvalidOperationException(
                             $"Some content files for product {item.ProductId} were not found.");
 
-                    price     = product.CalculatePrice(selected);
+                    var alpha = _pricing.ComputeAlpha(product.ContentFiles.Count);
+                    price     = product.CalculatePrice(selected, alpha);
                     isPartial = true;
                 }
 

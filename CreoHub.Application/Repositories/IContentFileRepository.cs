@@ -10,4 +10,7 @@ public interface IContentFileRepository : IRepository<ContentFile, Guid>
     public Task<List<ContentFile>> GetByProductIdsAsync(IEnumerable<int> productIds);
     Task<ContentFile?> GetByIdWithStorageAsync(Guid id);
     Task<bool> HasPurchasesAsync(Guid contentFileId);
+    Task<int> GetAccessCountAsync(Guid contentFileId);
+    /// <summary>Количество активных (не архивированных) контент-файлов у товара.</summary>
+    Task<int> GetActiveCountByProductIdAsync(int productId);
 }

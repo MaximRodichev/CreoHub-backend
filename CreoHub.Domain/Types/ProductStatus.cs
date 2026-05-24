@@ -2,8 +2,9 @@ namespace CreoHub.Domain.Types;
 
 public enum ProductStatus
 {
-    Active,
-    Hidden,
-    OnModerating,
-    ModerationFailed
+    Active          = 0,
+    Hidden          = 1,
+    OnModerating    = 2,
+    ModerationFailed = 3,
+    Archived        = 4,
 }

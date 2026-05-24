@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using Amazon.S3;
 using CreoHub.API.Services;
 using CreoHub.Application.Commands.AccountCommands;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Infrastructure.Persistence;
@@ -83,6 +84,9 @@ public static class Initialization
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssemblyContaining<AuthAccountHandler>());
         
+        services.Configure<PricingConfig>(
+            configuration.GetSection(PricingConfig.SectionName));
+
         services.AddLogging();
 
         // AutoMapper

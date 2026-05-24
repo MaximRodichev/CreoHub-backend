@@ -76,6 +76,7 @@ public class ContentFileRepository : IContentFileRepository
     {
         return await _db.ContentFiles
             .Include(cf => cf.StorageObject)
+            .Include(cf => cf.Product)
             .FirstOrDefaultAsync(cf => cf.Id == id);
     }
 
@@ -83,5 +84,17 @@ public class ContentFileRepository : IContentFileRepository
     {
         return _db.ContentAccesses
             .AnyAsync(ca => ca.ContentFileId == contentFileId);
+    }
+
+    public Task<int> GetAccessCountAsync(Guid contentFileId)
+    {
+        return _db.ContentAccesses
+            .CountAsync(ca => ca.ContentFileId == contentFileId);
+    }
+
+    public Task<int> GetActiveCountByProductIdAsync(int productId)
+    {
+        return _db.ContentFiles
+            .CountAsync(cf => cf.ProductId == productId && cf.ArchivedAt == null);
     }
 }

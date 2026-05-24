@@ -96,7 +96,9 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                 foreach (var storageObjectId in toAdd)
                 {
                     var storageObject = await _storageObjectRepository.GetByIdAsync(storageObjectId);
+                    if (storageObject == null) continue;
                     storageObject.ChangeFileType(FileType.Media);
+                    _storageObjectRepository.Update(storageObject); // AsNoTracking → explicit Update required
 
                     response.AddMedia(new MediaProduct(
                         response.Id,

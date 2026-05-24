@@ -13,6 +13,11 @@ public class StorageObjectResponseDTO
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public FileType FileType { get; set; }
 
+    public DateTime UploadedAt { get; set; }
+
+    /// <summary>True — файл заблокирован системой (есть покупатели, нельзя удалить).</summary>
+    public bool IsSystemLocked { get; set; }
+
     public List<LinkedProductInfo> LinkedProducts { get; set; }
 }
 

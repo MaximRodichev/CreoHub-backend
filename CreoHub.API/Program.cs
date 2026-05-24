@@ -104,7 +104,7 @@ builder.WebHost.ConfigureKestrel((context, options) =>
 });
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024; // 2GB
+    options.MultipartBodyLengthLimit = 4L * 1024 * 1024 * 1024; // 4GB (temp)
 });
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

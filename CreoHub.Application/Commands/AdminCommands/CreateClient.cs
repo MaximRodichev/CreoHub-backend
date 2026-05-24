@@ -6,7 +6,12 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.AdminCommands;
 
-public record CreateClientCommand(string Name, string? Email) : IRequest<BaseResponse<Guid>>;
+public record CreateClientCommand(
+    string  Name,
+    long?   TelegramId,
+    string? TelegramUsername,
+    string? Email
+) : IRequest<BaseResponse<Guid>>;
 
 public class CreateClientHandler : IRequestHandler<CreateClientCommand, BaseResponse<Guid>>
 {
@@ -28,8 +33,10 @@ public class CreateClientHandler : IRequestHandler<CreateClientCommand, BaseResp
 
             // User.Create() внутри создаёт Cart и UserBalance
             var user = User.Create(
-                name:     request.Name.Trim(),
-                email:    request.Email?.Trim()
+                name:              request.Name.Trim(),
+                email:             request.Email?.Trim(),
+                telegramId:        request.TelegramId,
+                telegramUsername:  request.TelegramUsername?.Trim()
             );
 
             await _accounts.AddAsync(user);

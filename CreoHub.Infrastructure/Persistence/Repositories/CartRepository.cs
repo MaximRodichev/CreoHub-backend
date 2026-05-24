@@ -110,4 +110,18 @@ public class CartRepository : ICartRepository
 
         _db.CartItems.RemoveRange(items);
     }
+
+    public async Task RemoveCartItemsByProductIdsAsync(Guid userId, IEnumerable<int> productIds)
+    {
+        var cartId = (await _db.Carts.FirstOrDefaultAsync(c => c.UserId == userId))?.Id;
+        if (cartId is null) return;
+
+        var productIdSet = productIds.ToHashSet();
+        var items = await _db.CartItems
+            .Where(ci => ci.CartId == cartId && productIdSet.Contains(ci.ProductId))
+            .ToListAsync();
+
+        if (items.Count > 0)
+            _db.CartItems.RemoveRange(items);
+    }
 }

@@ -9,6 +9,7 @@ public record ProductInfoDTO
 {
     public int Id { get; set; }
     public string Name { get; set; }
+    public string Slug { get; set; }
     public decimal Price { get; set; }
     public string Description { get; set; }
     // от 
@@ -23,4 +24,7 @@ public record ProductInfoDTO
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductType ProductType { get; set; }
     public List<ProductShortInfoDTO>? inBundleProducts { get; set; }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ProductStatus ProductStatus { get; set; }
 }

@@ -11,4 +11,6 @@ public interface IOrderRepository : IRepository<Order, Guid>
     Task<OrderFullInfoDTO> GetOrderInfoById(Guid id);
     Task<List<OrderShortInfoDTO>> GetOrdersShortInfoByShopIdAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null);
     Task<Order?> GetByTransactionIdWithItemsAsync(Guid transactionId);
+    /// <summary>Заказы в статусе Created, созданные раньше указанного времени.</summary>
+    Task<List<Order>> GetStaleCreatedOrdersAsync(DateTime olderThan);
 }

@@ -17,7 +17,7 @@ public class S3Controller : ShopOwnerControllerBase
     {
         { "video",       50L  * 1024 * 1024 },
         { "image",       5L   * 1024 * 1024 },
-        { "application", 2L   * 1024 * 1024 * 1024 },
+        { "application", 4L   * 1024 * 1024 * 1024 }, // temp 4GB
     };
 
     public static long GetLimit(string mimeType)
@@ -82,8 +82,8 @@ public class S3Controller : ShopOwnerControllerBase
     // ── Upload (legacy — оставлен для совместимости) ──────────────────────────
 
     [Authorize]
-    [RequestSizeLimit(2L * 1024 * 1024 * 1024)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024)]
+    [RequestSizeLimit(4L * 1024 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 4L * 1024 * 1024 * 1024)]
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
@@ -226,6 +226,56 @@ public class S3Controller : ShopOwnerControllerBase
 
         var command  = new OptimizeStorageObjectCommand(storageObjectId, shopId);
         var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+
+    // ── Owner download (presigned URL with Content-Disposition) ──────────────
+
+    /// <summary>Одиночный файл: presigned URL с правильным именем для скачивания.</summary>
+    [Authorize]
+    [HttpGet("owner-download")]
+    public async Task<IActionResult> OwnerDownload([FromQuery] Guid id)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var query    = new OwnerDownloadQuery(id, shopId);
+        var response = await _mediator.Send(query);
+        return Ok(response);
+    }
+
+    public record BulkDownloadRequestDto(List<Guid> Ids);
+
+    /// <summary>Пакетный запрос: список presigned URL для скачивания через aria2c/wget.</summary>
+    [Authorize]
+    [HttpPost("bulk-download-urls")]
+    public async Task<IActionResult> BulkDownloadUrls([FromBody] BulkDownloadRequestDto dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var query    = new BulkOwnerDownloadQuery(dto.Ids, shopId);
+        var response = await _mediator.Send(query);
+        return Ok(response);
+    }
+
+    // ── Content detach info ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Проверяет можно ли чисто отвязать контент файл (нет ContentAccess)
+    /// или нужно архивирование (есть покупатели).
+    /// </summary>
+    [Authorize]
+    [HttpGet("content-detach-info")]
+    public async Task<IActionResult> ContentDetachInfo(
+        [FromQuery] int  productId,
+        [FromQuery] Guid storageObjectId)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var query    = new ContentDetachInfoQuery(productId, storageObjectId, shopId);
+        var response = await _mediator.Send(query);
         return Ok(response);
     }
 

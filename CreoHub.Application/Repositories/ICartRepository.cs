@@ -14,4 +14,6 @@ public interface ICartRepository : IRepository<Cart, Guid>
     public Task<CartItem?> GetCartItemWithFilesAsync(Guid cartItemId);
     /// <summary>Удалить все CartItem из корзины пользователя.</summary>
     public Task ClearCartAsync(Guid userId);
+    /// <summary>Удалить CartItem только для указанных productId (после оплаты).</summary>
+    public Task RemoveCartItemsByProductIdsAsync(Guid userId, IEnumerable<int> productIds);
 }

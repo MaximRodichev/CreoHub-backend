@@ -1,10 +1,12 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.Extensions.Options;
 using static CreoHub.Domain.Services.BundleCalculator;
 
 namespace CreoHub.Application.Commands.OrderCommands;
@@ -30,6 +32,8 @@ public class CheckoutWithBalanceHandler
     private readonly IShopBalanceRepository _shopBalanceRepository;
     private readonly IAccountRepository _accountRepository;
 
+    private readonly PricingConfig _pricing;
+
     public CheckoutWithBalanceHandler(
         IUnitOfWork unitOfWork,
         IOrderRepository orderRepository,
@@ -41,7 +45,8 @@ public class CheckoutWithBalanceHandler
         ICartRepository cartRepository,
         IShopTransactionRepository shopTransactionRepository,
         IShopBalanceRepository shopBalanceRepository,
-        IAccountRepository accountRepository)
+        IAccountRepository accountRepository,
+        IOptions<PricingConfig> pricing)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -54,6 +59,7 @@ public class CheckoutWithBalanceHandler
         _shopTransactionRepository = shopTransactionRepository;
         _shopBalanceRepository = shopBalanceRepository;
         _accountRepository = accountRepository;
+        _pricing = pricing.Value;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -149,7 +155,7 @@ public class CheckoutWithBalanceHandler
                             // Строим параметры для BundleCalculator: (basePrice, totalWeight, ownedWeight)
                             // Цену каждого дочернего продукта берём из productMap (если уже загружен),
                             // либо запрашиваем при необходимости.
-                            var childParams = new List<(decimal BasePrice, int TotalWeight, int OwnedWeight)>();
+                            var childParams = new List<(decimal BasePrice, int TotalWeight, int OwnedWeight, int TotalFiles)>();
                             foreach (var bundleItem in product.BundleItems)
                             {
                                 if (!productMap.TryGetValue(bundleItem.ProductId, out var childProduct))
@@ -159,12 +165,12 @@ public class CheckoutWithBalanceHandler
                                 var totalWeight    = childFileList.Sum(f => f.PriceWeight);
                                 var ownedWeight    = childFileList.Where(f => ownedFileIds.Contains(f.Id))
                                                                   .Sum(f => f.PriceWeight);
-                                childParams.Add((childProduct.GetCurrentPrice(), totalWeight, ownedWeight));
+                                childParams.Add((childProduct.GetCurrentPrice(), totalWeight, ownedWeight, childFileList.Count));
                             }
 
                             if (childParams.Count > 0)
                             {
-                                var adj = BundleCalculator.Calculate(product.GetCurrentPrice(), childParams);
+                                var adj = BundleCalculator.Calculate(product.GetCurrentPrice(), childParams, _pricing.ComputeAlpha);
 
                                 if (adj.ExceedsThreshold)
                                     return BaseResponse<CheckoutResultDTO>.Fail(
@@ -220,7 +226,8 @@ public class CheckoutWithBalanceHandler
                 description:    string.Empty,
                 items:          orderItems,
                 customerId:     request.UserId,
-                priceOverrides: bundleAdjustedPrices.Count > 0 ? bundleAdjustedPrices : null);
+                priceOverrides: bundleAdjustedPrices.Count > 0 ? bundleAdjustedPrices : null,
+                computeAlpha:   _pricing.ComputeAlpha);
 
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);

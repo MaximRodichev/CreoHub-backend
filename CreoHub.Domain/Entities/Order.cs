@@ -55,7 +55,8 @@ public class Order
     public static Order Open(string description,
         List<(Product product, List<ContentFile> selectedFiles)> items,
         Guid customerId,
-        Dictionary<int, decimal>? priceOverrides = null)
+        Dictionary<int, decimal>? priceOverrides = null,
+        Func<int, double>? computeAlpha = null)
     {
         if (items == null || items.Count == 0)
             throw new ArgumentException("Items cannot be empty.", nameof(items));
@@ -85,8 +86,11 @@ public class Order
             }
             else
             {
-                // Частичная покупка — цена по весу выбранных файлов
-                price            = product.CalculatePrice(selectedFiles);
+                // Частичная покупка — цена по весу выбранных файлов, α из PricingConfig
+                // Все вызывающие стороны передают computeAlpha из PricingConfig; 1.0 = линейный fallback
+                var n     = product.ContentFiles.Count;
+                var alpha = computeAlpha != null ? computeAlpha(n) : 1.0;
+                price            = product.CalculatePrice(selectedFiles, alpha);
                 purchasedFileIds = selectedFiles.Select(f => f.Id);
             }
 

@@ -7,9 +7,10 @@ namespace CreoHub.Tests.DiscountTests;
 /// <summary>
 /// Тесты BundleCalculator — частичное ценообразование набора.
 ///
-/// Формула: effectivePrice_i = basePrice_i × (nonOwnedWeight_i / totalWeight_i)^0.5
+/// Формула: effectivePrice_i = basePrice_i × (nonOwnedWeight_i / totalWeight_i)^α
 ///          finalPrice = Σ effectivePrice_i × (1 − bundleDiscFraction)
 ///          порог 50%: Σ ownedValue_i / Σ basePrice_i > 0.5
+/// α вычисляется динамически через переданный делегат computeAlpha(totalFiles).
 /// </summary>
 public class BundleCalculatorTests
 {
@@ -34,14 +35,14 @@ public class BundleCalculatorTests
     // ── EffectiveNonOwnedPrice ───────────────────────────────────────────────
 
     [Theory]
-    [InlineData(15, 7, 0,  15.0)]    // ничего не куплено → полная цена
-    [InlineData(15, 7, 7,   0.0)]    // всё куплено → 0
-    [InlineData(15, 4, 2,  10.606)]  // 2 из 4 куплено: 15*(2/4)^0.5 = 15*0.7071 ≈ 10.607
-    [InlineData(15, 0, 0,   0.0)]    // нулевой вес → 0
+    [InlineData(15, 7, 0,  15.0,   0.5)]   // ничего не куплено → полная цена (ratio=1 → ^any = 1)
+    [InlineData(15, 7, 7,   0.0,   0.5)]   // всё куплено → 0
+    [InlineData(15, 4, 2,  10.606, 0.5)]   // 2 из 4 куплено: 15*(2/4)^0.5 ≈ 10.606
+    [InlineData(15, 0, 0,   0.0,   0.5)]   // нулевой вес → 0
     public void EffectiveNonOwnedPrice_ReturnsCorrectValue(
-        double basePrice, int totalWeight, int ownedWeight, double expectedApprox)
+        double basePrice, int totalWeight, int ownedWeight, double expectedApprox, double alpha)
     {
-        var result = BundleCalculator.EffectiveNonOwnedPrice((decimal)basePrice, totalWeight, ownedWeight);
+        var result = BundleCalculator.EffectiveNonOwnedPrice((decimal)basePrice, totalWeight, ownedWeight, alpha);
         _output.WriteLine($"nonOwned price = {result}");
         Assert.Equal((double)result, expectedApprox, 2); // точность 2 знака после запятой
     }
@@ -49,13 +50,13 @@ public class BundleCalculatorTests
     // ── EffectiveOwnedValue ──────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(15, 7, 0, 0.0)]      // ничего не куплено → 0
-    [InlineData(15, 4, 4, 15.0)]     // всё куплено → полная цена
-    [InlineData(15, 4, 2, 10.606)]   // 2 из 4: 15*(2/4)^0.5
+    [InlineData(15, 7, 0, 0.0,    0.5)]    // ничего не куплено → 0
+    [InlineData(15, 4, 4, 15.0,   0.5)]    // всё куплено → полная цена (ratio=1)
+    [InlineData(15, 4, 2, 10.606, 0.5)]    // 2 из 4: 15*(2/4)^0.5
     public void EffectiveOwnedValue_ReturnsCorrectValue(
-        double basePrice, int totalWeight, int ownedWeight, double expectedApprox)
+        double basePrice, int totalWeight, int ownedWeight, double expectedApprox, double alpha)
     {
-        var result = BundleCalculator.EffectiveOwnedValue((decimal)basePrice, totalWeight, ownedWeight);
+        var result = BundleCalculator.EffectiveOwnedValue((decimal)basePrice, totalWeight, ownedWeight, alpha);
         Assert.Equal((double)result, expectedApprox, 2);
     }
 
@@ -65,12 +66,13 @@ public class BundleCalculatorTests
     public void Calculate_NoOwnership_ReturnsBundlePriceWithDiscount()
     {
         // Bundle: 3 × $15 = $45 по-штучно, bundlePrice=$36 → discFrac=0.20
-        // Никто ничего не купил → adjustedSubtotal = 45, finalPrice = 45*(1-0.2) = 36
-        var children = new List<(decimal, int, int)>
+        // Никто ничего не купил → nonOwned/total = 1 → effectivePrice = basePrice
+        // adjustedSubtotal = 45, finalPrice = 45*(1-0.2) = 36
+        var children = new List<(decimal, int, int, int)>
         {
-            (15m, 7, 0),
-            (15m, 9, 0),
-            (15m, 8, 0),
+            (15m, 7, 0, 1),
+            (15m, 9, 0, 1),
+            (15m, 8, 0, 1),
         };
 
         var result = BundleCalculator.Calculate(36m, children);
@@ -89,16 +91,11 @@ public class BundleCalculatorTests
     {
         // Bundle: 3 дочерних продукта по $15, bundlePrice=$36 → 20% discFrac
         // Пользователь купил: из Item1 (totalWeight=7) куплено 3 (ownedWeight=3)
-        //   effectivePrice1 = 15 * (4/7)^0.5 ≈ 11.339...  (nonOwnedWeight=4)
-        // Item2 и Item3 не куплены → effectivePrice = 15 каждый
-        // adjustedSubtotal ≈ 11.339 + 15 + 15 = 41.339
-        // finalPrice ≈ 41.339 * 0.8 ≈ 33.07
-
-        var children = new List<(decimal, int, int)>
+        var children = new List<(decimal, int, int, int)>
         {
-            (15m, 7, 3),  // 3 из 7 куплено
-            (15m, 9, 0),
-            (15m, 8, 0),
+            (15m, 7, 3, 1),  // 3 из 7 куплено
+            (15m, 9, 0, 1),
+            (15m, 8, 0, 1),
         };
 
         var result = BundleCalculator.Calculate(36m, children);
@@ -108,7 +105,6 @@ public class BundleCalculatorTests
         Assert.False(result.ExceedsThreshold);
         Assert.True(result.FinalPrice < 36m);    // дешевле полного набора
         Assert.True(result.FinalPrice > 0m);
-        // ownedValue1 = 15*(3/7)^0.5 ≈ 8.79 из sumChildPrices=45 → ~19.5%
         Assert.True(result.OwnedFraction < 0.5m);
     }
 
@@ -118,12 +114,12 @@ public class BundleCalculatorTests
     public void Calculate_Ownership_Above50Pct_ExceedsThreshold()
     {
         // Bundle: 3 × $15 = $45, bundlePrice=$36
-        // Куплено: Item1 всё (7/7) + Item2 всё (9/9) → ownedValue ≈ 15+15 = 30 из 45 = 66.7%
-        var children = new List<(decimal, int, int)>
+        // Куплено: Item1 всё (7/7) + Item2 всё (9/9) → ownedValue = 15+15 = 30 из 45 = 66.7%
+        var children = new List<(decimal, int, int, int)>
         {
-            (15m, 7, 7),  // полностью куплен
-            (15m, 9, 9),  // полностью куплен
-            (15m, 8, 0),
+            (15m, 7, 7, 1),  // полностью куплен
+            (15m, 9, 9, 1),  // полностью куплен
+            (15m, 8, 0, 1),
         };
 
         var result = BundleCalculator.Calculate(36m, children);
@@ -139,11 +135,11 @@ public class BundleCalculatorTests
     [Fact]
     public void Calculate_AllOwned_ReturnsZeroFinalPrice()
     {
-        var children = new List<(decimal, int, int)>
+        var children = new List<(decimal, int, int, int)>
         {
-            (15m, 7, 7),
-            (15m, 9, 9),
-            (15m, 8, 8),
+            (15m, 7, 7, 1),
+            (15m, 9, 9, 1),
+            (15m, 8, 8, 1),
         };
 
         var result = BundleCalculator.Calculate(36m, children);
@@ -157,14 +153,14 @@ public class BundleCalculatorTests
     [Fact]
     public void Calculate_EmptyChildren_ReturnsBundlePriceAsIs()
     {
-        var result = BundleCalculator.Calculate(40m, new List<(decimal, int, int)>());
+        var result = BundleCalculator.Calculate(40m, new List<(decimal, int, int, int)>());
 
         Assert.Equal(40m, result.FinalPrice);
         Assert.False(result.ExceedsThreshold);
         Assert.Equal(0m, result.BundleDiscountFraction);
     }
 
-    // ── Итоговый сценарий из Excel ────────────────────────────────────────────
+    // ── Итоговый сценарий: α=0.5, 20% скидка набора, Item1 частично куплен ───
 
     [Fact]
     public void Calculate_ExcelScenario_Item1PartiallyOwned_20PctBundleDiscount()
@@ -177,19 +173,20 @@ public class BundleCalculatorTests
         // adjustedSubtotal ≈ 41.339
         // finalPrice ≈ 41.339 * 0.8 ≈ 33.07
 
-        var children = new List<(decimal, int, int)>
+        var children = new List<(decimal, int, int, int)>
         {
-            (15m, 7, 3),
-            (15m, 9, 0),
-            (15m, 8, 0),
+            (15m, 7, 3, 1),
+            (15m, 9, 0, 1),
+            (15m, 8, 0, 1),
         };
 
-        var result = BundleCalculator.Calculate(36m, children);
+        // Фиксируем α=0.5 для воспроизводимости теста
+        var result = BundleCalculator.Calculate(36m, children, computeAlpha: _ => 0.5);
 
         _output.WriteLine($"Adjusted subtotal={result.AdjustedSubtotal:F3}, finalPrice={result.FinalPrice:F3}");
         _output.WriteLine($"Disc={result.BundleDiscountFraction:P2}, ownedFrac={result.OwnedFraction:P2}");
 
-        var nonOwned1 = 15m * (decimal)Math.Sqrt(4.0 / 7.0);
+        var nonOwned1        = 15m * (decimal)Math.Sqrt(4.0 / 7.0);
         var expectedSubtotal = nonOwned1 + 15m + 15m;
         var expectedFinal    = expectedSubtotal * 0.8m;
 

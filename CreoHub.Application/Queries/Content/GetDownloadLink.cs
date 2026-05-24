@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
@@ -36,8 +37,18 @@ public class GetDownloadLinkHandler : IRequestHandler<GetDownloadLinkQuery, Base
             var contentFile = await _contentFileRepository.GetByIdWithStorageAsync(request.ContentFileId)
                 ?? throw new InvalidOperationException("Content file not found.");
 
-            // Presigned URL на 10 минут
-            var url = _storageService.GeneratePresignedUrl(contentFile.StorageObject.Key, expiresInMinutes: 10);
+            // Строим имя файла: "{ProductName} — {PreviewName}.{ext}"
+            var ext             = Path.GetExtension(contentFile.StorageObject.FileName); // ".zip", ".png" ...
+            var productName     = contentFile.Product?.Name ?? "File";
+            var displayName     = contentFile.PreviewName;
+            var rawFileName     = $"{productName} — {displayName}{ext}";
+            var safeFileName    = SanitizeFileName(rawFileName);
+            var contentDisp     = $"attachment; filename=\"{safeFileName}\"; filename*=UTF-8''{Uri.EscapeDataString(safeFileName)}";
+
+            var url = _storageService.GeneratePresignedUrl(
+                contentFile.StorageObject.Key,
+                expiresInMinutes: 10,
+                contentDisposition: contentDisp);
 
             return BaseResponse<string>.Success(url);
         }
@@ -49,5 +60,17 @@ public class GetDownloadLinkHandler : IRequestHandler<GetDownloadLinkQuery, Base
         {
             return BaseResponse<string>.Fail(ex.Message);
         }
+    }
+
+    /// <summary>Убирает символы, недопустимые в именах файлов.</summary>
+    private static string SanitizeFileName(string name)
+    {
+        // Заменяем недопустимые символы на подчёркивание
+        var invalid = new string(Path.GetInvalidFileNameChars());
+        var pattern = $"[{Regex.Escape(invalid)}]";
+        var sanitized = Regex.Replace(name, pattern, "_");
+        // Убираем двойные пробелы/подчёркивания
+        sanitized = Regex.Replace(sanitized, @"_{2,}", "_");
+        return sanitized.Trim('_', ' ');
     }
 }

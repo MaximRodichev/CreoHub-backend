@@ -63,7 +63,7 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> CreateClient([FromBody] AdminCreateClientDto dto)
     {
         if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.Email));
+        var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.TelegramId, dto.TelegramUsername, dto.Email));
         return result.Status == Application.DTO.ResponseStatus.Success
             ? Ok(result)
             : BadRequest(result);

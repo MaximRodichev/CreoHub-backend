@@ -31,33 +31,37 @@ public class VideoConversionService : IVideoConversionService
             return;
         }
         
-        var inputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mp4");
-        var outputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.webm");
+        var inputPath  = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mp4");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mp4");
 
         try
         {
-            _logger.LogInformation("Starting conversion for {Key}", video.Key);
+            _logger.LogInformation("Starting H.264 conversion for {Key}", video.Key);
 
             await _storageService.DownloadFileAsync(video.Key, inputPath);
 
+            // H.264/AAC — в 3–4× быстрее VP9, памяти в разы меньше, поддержка везде
+            // CRF 30 = агрессивное сжатие, scale=-2:720 = 720p с сохранением пропорций
+            // faststart = MP4-атом moov в начале файла (стриминг без полной загрузки)
             await FFmpeg.Conversions.New()
-                .AddParameter($"-i {inputPath}")
-                .AddParameter("-c:v libvpx-vp9 -crf 40 -b:v 0")
-                .AddParameter("-c:a libopus -b:a 64k")
-                .AddParameter("-deadline realtime")
+                .AddParameter($"-i \"{inputPath}\"")
+                .AddParameter("-c:v libx264 -crf 30 -preset slow")
+                .AddParameter("-vf scale=-2:720")
+                .AddParameter("-c:a aac -b:a 64k")
+                .AddParameter("-movflags +faststart")
                 .SetOutput(outputPath)
                 .Start(cancellationToken);
 
-            var newKey = Path.ChangeExtension(video.Key, ".webm");
+            var newKey = Path.ChangeExtension(video.Key, ".mp4");
             using var stream = File.OpenRead(outputPath);
-            await _storageService.UploadFileAsync(stream, newKey, "video/webm");
+            await _storageService.UploadFileAsync(stream, newKey, "video/mp4");
             await _storageService.DeleteFileAsync(video.Key);
-            
-            video.ReplaceFile(newKey, video.FileName, new FileInfo(outputPath).Length, "video/webm");
-            
+
+            video.ReplaceFile(newKey, video.FileName, new FileInfo(outputPath).Length, "video/mp4");
+
             _storageObjectRepository.Update(video);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Conversion done {Key}", newKey);
+            _logger.LogInformation("H.264 conversion done {Key}", newKey);
         }
         catch (Exception ex)
         {

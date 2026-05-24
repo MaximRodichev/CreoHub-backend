@@ -1,11 +1,13 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
@@ -22,6 +24,7 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
     private readonly IAccountRepository _accountRepository;
     private readonly IContentFileRepository _contentFileRepository;
     private readonly IContentAccessRepository _accessRepository;
+    private readonly PricingConfig            _pricing;
 
     public CreateCheckoutHandler(
         IUnitOfWork unitOfWork,
@@ -31,7 +34,8 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         IPaymentGatewayService paymentService,
         IAccountRepository accountRepository,
         IContentFileRepository contentFileRepository,
-        IContentAccessRepository accessRepository)
+        IContentAccessRepository accessRepository,
+        IOptions<PricingConfig> pricing)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -41,6 +45,7 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         _accountRepository = accountRepository;
         _contentFileRepository = contentFileRepository;
         _accessRepository = accessRepository;
+        _pricing = pricing.Value;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -150,7 +155,11 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
                 orderItems.Add((product, selectedFiles));
             }
 
-            var order = Order.Open(description: string.Empty, items: orderItems, customerId: request.UserId);
+            var order = Order.Open(
+                description:  string.Empty,
+                items:        orderItems,
+                customerId:   request.UserId,
+                computeAlpha: _pricing.ComputeAlpha);
 
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);

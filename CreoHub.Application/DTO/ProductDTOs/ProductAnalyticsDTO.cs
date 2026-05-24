@@ -22,5 +22,6 @@ public record ProductAnalyticsDTO
     public ProductType ProductType { get; set; }
     public List<ProductShortInfoDTO>? inBundleProducts { get; set; }
     public List<StorageObjectViewDTO> MediaViews { get; set; }
-    
+    /// <summary>Суммарная выручка — сумма PriceAtPurchase по всем выполненным OrderItem-ам.</summary>
+    public decimal TotalRevenue { get; set; }
 }

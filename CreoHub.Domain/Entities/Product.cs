@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.RegularExpressions;
 using CreoHub.Domain.Types;
 
 namespace CreoHub.Domain.Entities;
@@ -12,15 +13,18 @@ public class Product
     private readonly List<ContentFile> _contentFiles = new();
     private readonly List<Tag> _tags = new();
 
-    /// <summary>
-    /// Агрессивность наценки при частичной покупке (0 = нет наценки, 1 = линейно).
-    /// 0.5 — умеренная кривая: покупка 20% файлов стоит ~45% от полной цены.
-    /// </summary>
-    private const double PartialPurchaseAlpha = 0.5;
+    // PartialPurchaseAlpha удалён — динамический α вычисляется в Application слое
+    // через PricingConfig.ComputeAlpha(totalFiles) и передаётся в CalculatePrice.
 
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; private init; }
     public string Name { get; private set; }
+    /// <summary>
+    /// URL-идентификатор продукта. Генерируется из Name при создании,
+    /// может быть переопределён вручную. Не меняется автоматически при смене Name.
+    /// Уникален в рамках всей платформы.
+    /// </summary>
+    public string Slug { get; private set; }
     public string Description { get; private set; }
     public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
 
@@ -39,23 +43,28 @@ public class Product
 
     private Product() {}
 
-    private static readonly System.Text.RegularExpressions.Regex ForbiddenNameChars =
-        new(@"[,!\.\-]", System.Text.RegularExpressions.RegexOptions.Compiled);
-
-    private static string ValidateName(string name)
+    /// <summary>
+    /// Генерирует URL-безопасный slug из произвольного названия.
+    /// "Fire Pack: Vol. 3 — Premium" → "fire-pack-vol-3-premium"
+    /// </summary>
+    public static string GenerateSlug(string name)
     {
-        if (name == null) throw new ArgumentNullException(nameof(name));
-        if (ForbiddenNameChars.IsMatch(name))
-            throw new ArgumentException("Название не должно содержать символы: , ! . -");
-        return name;
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+        var s = name.ToLowerInvariant();
+        s = Regex.Replace(s, @"[^\w\s-]", " ");   // оставляем буквы, цифры, пробелы, дефисы
+        s = Regex.Replace(s, @"\s+", "-");          // пробелы → дефисы
+        s = Regex.Replace(s, @"-{2,}", "-");         // двойные дефисы → одиночные
+        return s.Trim('-');
     }
 
     public Product(string name, string description, Guid ownerId, IEnumerable<Tag>? tags = null)
     {
-        Name = ValidateName(name);
+        if (name == null) throw new ArgumentNullException(nameof(name));
+        Name        = name;
+        Slug        = GenerateSlug(name);
         Description = description ?? throw new ArgumentNullException(nameof(description));
-        OwnerId = ownerId;
-        
+        OwnerId     = ownerId;
+
         if (tags != null)
         {
             foreach (var tag in tags)
@@ -88,7 +97,14 @@ public class Product
 
     public void UpdateName(string name)
     {
-        Name = ValidateName(name);
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        // Slug НЕ меняется автоматически — URL должен оставаться стабильным
+    }
+
+    /// <summary>Явное переопределение slug (если null — регенерировать из текущего Name).</summary>
+    public void UpdateSlug(string? slug = null)
+    {
+        Slug = slug is not null ? slug.Trim('-').ToLowerInvariant() : GenerateSlug(Name);
     }
 
     public void UpdateDescription(string description)
@@ -159,11 +175,12 @@ public class Product
 
     /// <summary>
     /// Цена за подмножество файлов по степенной кривой:
-    ///   price = basePrice × ratio^(1 − α)
-    /// где ratio = selectedPts / totalPts, α = PartialPurchaseAlpha.
+    ///   price = basePrice × ratio^α
+    /// где ratio = selectedWeight / totalWeight.
+    /// α вычисляется в Application слое через PricingConfig.ComputeAlpha(ContentFiles.Count).
     /// При ratio = 1 возвращает полную цену без наценки.
     /// </summary>
-    public decimal CalculatePrice(List<ContentFile> selectedFiles)
+    public decimal CalculatePrice(List<ContentFile> selectedFiles, double alpha)
     {
         var totalWeight = _contentFiles.Sum(f => f.PriceWeight);
         if (totalWeight == 0)
@@ -175,7 +192,7 @@ public class Product
         var selectedWeight = selectedFiles.Sum(f => f.PriceWeight);
         var ratio = (double)selectedWeight / totalWeight;
 
-        var price = (double)GetCurrentPrice() * Math.Pow(ratio, 1.0 - PartialPurchaseAlpha);
+        var price = (double)GetCurrentPrice() * Math.Pow(ratio, alpha);
 
         return Math.Round((decimal)price, 2);
     }
@@ -213,6 +230,15 @@ public class Product
         if (ProductStatus != ProductStatus.OnModerating)
             throw new InvalidOperationException("Only products on moderation can be rejected.");
         ProductStatus = ProductStatus.ModerationFailed;
+    }
+
+    /// <summary>
+    /// Архивирует товар: скрывает из каталога, но сохраняет доступ покупателей.
+    /// Вызывается вместо удаления если у товара есть покупатели.
+    /// </summary>
+    public void Archive()
+    {
+        ProductStatus = ProductStatus.Archived;
     }
     
     public void AddContentFile(ContentFile contentFile)

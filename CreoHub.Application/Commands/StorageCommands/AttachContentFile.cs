@@ -7,9 +7,9 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.StorageCommands;
 
-public record AttachContentFileCommand(Guid ShopId, AttachContentFileDTO Dto) : IRequest<BaseResponse<bool>>;
+public record AttachContentFileCommand(Guid ShopId, AttachContentFileDTO Dto) : IRequest<BaseResponse<ContentFileInfo>>;
 
-public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand, BaseResponse<bool>>
+public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand, BaseResponse<ContentFileInfo>>
 {
     private readonly IProductRepository _productRepository;
     private readonly IStorageObjectRepository _storageObjectRepository;
@@ -25,41 +25,50 @@ public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand
         _contentFileRepository = contentFileRepository;
     }
     
-    public async Task<BaseResponse<bool>> Handle(AttachContentFileCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<ContentFileInfo>> Handle(AttachContentFileCommand request, CancellationToken cancellationToken)
     {
         try
         {
             Product? product = await _productRepository.GetByIdAsync(request.Dto.ProductId);
             if (product == null)
-                return BaseResponse<bool>.Fail("Товар не найден.");
+                return BaseResponse<ContentFileInfo>.Fail("Товар не найден.");
             if (product.OwnerId != request.ShopId)
-                return BaseResponse<bool>.Fail("У вас нет прав для редактирования этого товара");
-            
+                return BaseResponse<ContentFileInfo>.Fail("У вас нет прав для редактирования этого товара");
+
             StorageObject? storageObject = await _storageObjectRepository.GetByIdAsync(request.Dto.StorageObjectId);
             if (storageObject == null)
-                return BaseResponse<bool>.Fail("Not found StorageObject");
+                return BaseResponse<ContentFileInfo>.Fail("Not found StorageObject");
 
             storageObject.ChangeFileType(FileType.Content);
-                
+
             ContentFile contentFile = new ContentFile(
                 request.Dto.PriceWeight,
                 request.Dto.PreviewName,
                 request.Dto.StorageObjectId,
                 request.Dto.ProductId);
-            
+
             product.AddContentFile(contentFile);
             _storageObjectRepository.Update(storageObject);
             await _contentFileRepository.AddAsync(contentFile);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return BaseResponse<bool>.Success(true);
+
+            return BaseResponse<ContentFileInfo>.Success(new ContentFileInfo
+            {
+                Id              = contentFile.Id,
+                StorageObjectId = contentFile.StorageObjectId,
+                PreviewName     = contentFile.PreviewName,
+                PriceWeight     = contentFile.PriceWeight,
+                StorageFileName = storageObject.FileName,
+                IsArchived      = false,
+            });
         }
         catch (Exception ex) when (ExceptionChainContains(ex, "IX_ContentFiles_ProductId_StorageObjectId"))
         {
-            return BaseResponse<bool>.Fail("Этот файл уже прикреплён к данному товару.");
+            return BaseResponse<ContentFileInfo>.Fail("Этот файл уже прикреплён к данному товару.");
         }
         catch (Exception ex)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<ContentFileInfo>.Fail(ex.Message);
         }
     }
 

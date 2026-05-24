@@ -1,7 +1,12 @@
 namespace CreoHub.Application.DTO.AdminDTOs;
 
 // ── Входящие ──────────────────────────────────────────────────────────────
-public record AdminCreateClientDto(string Name, string? Email);
+public record AdminCreateClientDto(
+    string  Name,
+    long?   TelegramId,
+    string? TelegramUsername,
+    string? Email
+);
 
 // ── Пользователи ──────────────────────────────────────────────────────────
 public record AdminUserDto(

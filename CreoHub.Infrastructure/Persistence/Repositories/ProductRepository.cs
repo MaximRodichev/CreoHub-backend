@@ -137,6 +137,7 @@ public class ProductRepository : IProductRepository
             {
                 Id = x.Id,
                 Name = x.Name,
+                Slug = x.Slug,
                 Price =  x.Prices
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.Value)
@@ -163,11 +164,12 @@ public class ProductRepository : IProductRepository
     {
         var product = await _db.Products
             .AsNoTracking()
-            .Where(x => x.ProductStatus == ProductStatus.Active && x.Id == id)
+            .Where(x => (x.ProductStatus == ProductStatus.Active || x.ProductStatus == ProductStatus.Archived) && x.Id == id)
             .Select(x => new ProductInfoDTO
             {
                 Id = x.Id,
                 Name = x.Name,
+                Slug = x.Slug,
                 Description = x.Description,
                 Date = x.CreatedAt,
                 Price = x.Prices
@@ -179,6 +181,7 @@ public class ProductRepository : IProductRepository
                 ShopName = x.Owner.Name,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
                 ProductType = x.ProductType,
+                ProductStatus = x.ProductStatus,
                 inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
                 {
                     Name = b.Product.Name,
@@ -188,12 +191,17 @@ public class ProductRepository : IProductRepository
                         .Select(p => p.Value)
                         .FirstOrDefault(),
                 }).ToList(),
-                ContentFileInfos = x.ContentFiles.Select(cf => new ContentFileInfo()
-                {
-                    Id = cf.Id,
-                    PreviewName = cf.PreviewName,
-                    PriceWeight = cf.PriceWeight
-                }).ToList(),
+                // Публичный API: только активные (не архивные) контент файлы
+                ContentFileInfos = x.ContentFiles
+                    .Where(cf => cf.ArchivedAt == null)
+                    .Select(cf => new ContentFileInfo()
+                    {
+                        Id              = cf.Id,
+                        StorageObjectId = cf.StorageObjectId,
+                        PreviewName     = cf.PreviewName,
+                        PriceWeight     = cf.PriceWeight,
+                        IsArchived      = false,
+                    }).ToList(),
             })
             .FirstOrDefaultAsync();
 
@@ -255,13 +263,16 @@ public class ProductRepository : IProductRepository
 
     public async Task<ProductInfoDTO> GetProductByName(string name)
     {
+        // Ищем сначала по Slug (основной путь), потом по Name (обратная совместимость)
         var product = await _db.Products
             .AsNoTracking()
-            .Where(x => x.ProductStatus == ProductStatus.Active && x.Name == name)
+            .Where(x => (x.ProductStatus == ProductStatus.Active || x.ProductStatus == ProductStatus.Archived)
+                        && (x.Slug == name || x.Name == name))
             .Select(x => new ProductInfoDTO
             {
                 Id = x.Id,
                 Name = x.Name,
+                Slug = x.Slug,
                 Description = x.Description,
                 Date = x.CreatedAt,
                 Price = x.Prices
@@ -273,6 +284,7 @@ public class ProductRepository : IProductRepository
                 ShopName = x.Owner.Name,
                 Tags = x.Tags.Select(t => t.Name).ToList(),
                 ProductType = x.ProductType,
+                ProductStatus = x.ProductStatus,
                 inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
                 {
                     Name = b.Product.Name,
@@ -282,12 +294,17 @@ public class ProductRepository : IProductRepository
                         .Select(p => p.Value)
                         .FirstOrDefault(),
                 }).ToList(),
-                ContentFileInfos = x.ContentFiles.Select(x => new ContentFileInfo()
-                {
-                    Id = x.Id,
-                    PreviewName = x.PreviewName,
-                    PriceWeight = x.PriceWeight
-                }).ToList(),
+                // Публичный API: только активные контент файлы
+                ContentFileInfos = x.ContentFiles
+                    .Where(cf => cf.ArchivedAt == null)
+                    .Select(cf => new ContentFileInfo()
+                    {
+                        Id              = cf.Id,
+                        StorageObjectId = cf.StorageObjectId,
+                        PreviewName     = cf.PreviewName,
+                        PriceWeight     = cf.PriceWeight,
+                        IsArchived      = false,
+                    }).ToList(),
             })
             .FirstOrDefaultAsync();
 
@@ -355,6 +372,7 @@ public class ProductRepository : IProductRepository
                 .ThenInclude(x=>x.Order)
                 .ThenInclude(x=>x.Customer)
             .Include(x=>x.ContentFiles)
+                .ThenInclude(cf => cf.StorageObject)
             .Where(x => x.Id == id)
             .Select(x => new 
             {
@@ -371,7 +389,13 @@ public class ProductRepository : IProductRepository
                 x.BundleItems,
                 x.MediaProducts,
                 ContentFile = x.ContentFiles,
-                CustomerBuyHistory = x.OrderItems.Select(y=> new OrderSellDTO(){BuyDate = y.Order.OrderDate, CustomerName= y.Order.Customer.Name}).ToList(),
+                CustomerBuyHistory = x.OrderItems.Select(y => new OrderSellDTO
+                {
+                    BuyDate      = y.Order.OrderDate,
+                    CustomerName = y.Order.Customer.Name,
+                    Amount       = y.PriceAtPurchase,
+                }).ToList(),
+                TotalRevenue = x.OrderItems.Sum(y => y.PriceAtPurchase),
             })
             .FirstOrDefaultAsync();
 
@@ -407,11 +431,16 @@ public class ProductRepository : IProductRepository
                     ThumbnailKey = x.Thumbnail?.Key
                 }).ToList(),
             SellsHistory = rawData.CustomerBuyHistory,
-            ContentFileInfos = rawData.ContentFile.Select(x=> new ContentFileInfo()
+            TotalRevenue = rawData.TotalRevenue,
+            // Аналитика (владелец): показываем ВСЕ файлы включая архивные
+            ContentFileInfos = rawData.ContentFile.Select(x => new ContentFileInfo()
             {
-                Id = x.Id,
-                PreviewName = x.PreviewName,
-                PriceWeight = x.PriceWeight
+                Id              = x.Id,
+                StorageObjectId = x.StorageObjectId,
+                PreviewName     = x.PreviewName,
+                PriceWeight     = x.PriceWeight,
+                StorageFileName = x.StorageObject?.FileName,
+                IsArchived      = x.ArchivedAt.HasValue,
             }).ToList(),
         };
     }
@@ -425,6 +454,7 @@ public class ProductRepository : IProductRepository
             {
                 Id = x.Id,
                 Name = x.Name,
+                Slug = x.Slug,
                 Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
                 isHotProduct = x.OrderItems.Count > 6,
                 SellsCount = x.OrderItems.Count,

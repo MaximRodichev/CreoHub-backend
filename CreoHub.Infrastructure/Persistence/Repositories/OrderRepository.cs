@@ -190,7 +190,14 @@ public class OrderRepository : IOrderRepository
         return await _db.Orders
             .Include(o => o.Items)
             .ThenInclude(i => i.Files)
-            .Include(o => o.Transaction) 
+            .Include(o => o.Transaction)
             .FirstOrDefaultAsync(o => o.Transaction.Id == transactionId);
+    }
+
+    public async Task<List<Order>> GetStaleCreatedOrdersAsync(DateTime olderThan)
+    {
+        return await _db.Orders
+            .Where(o => o.Status == OrderStatus.Created && o.OrderDate < olderThan)
+            .ToListAsync();
     }
 }

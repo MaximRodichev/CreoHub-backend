@@ -11,6 +11,13 @@ public class StorageObject
     public string MimeType { get; private set; }
     public DateTime UploadedAt { get; private init; } = DateTime.UtcNow;
     public FileType FileType { get; private set; } = FileType.Unregistred;
+
+    /// <summary>
+    /// True — файл содержит данные покупателей. Удаление и оптимизация запрещены.
+    /// Привязка к другим товарам разрешена.
+    /// </summary>
+    public bool IsSystemLocked { get; private set; }
+
     public Shop Owner { get; private init; }
     public Guid OwnerId { get; private init; }
     
@@ -42,11 +49,22 @@ public class StorageObject
 
     public void ChangeFileType(FileType fileType)
     {
-        if (FileType == FileType.Content &&  fileType == FileType.Media)
+        if (FileType == FileType.Content && fileType == FileType.Media)
             throw new InvalidOperationException("Cannot change file type content to media.");
-        if (FileType == FileType.Media &&  fileType == FileType.Content)
+        if (FileType == FileType.Media && fileType == FileType.Content)
             throw new InvalidOperationException("Cannot change file type media to content.");
+        if (IsSystemLocked && fileType == FileType.Unregistred)
+            throw new InvalidOperationException("Cannot unregister a system-locked storage object.");
         FileType = fileType;
+    }
+
+    /// <summary>
+    /// Блокирует файл от удаления и оптимизации.
+    /// Вызывается при архивировании контент файла с существующими покупателями.
+    /// </summary>
+    public void Lock()
+    {
+        IsSystemLocked = true;
     }
 }
 

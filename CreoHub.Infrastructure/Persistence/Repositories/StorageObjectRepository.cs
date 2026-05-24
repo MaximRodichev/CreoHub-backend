@@ -22,7 +22,10 @@ public class StorageObjectRepository : IStorageObjectRepository
 
     public async Task<List<StorageObject>> GetByIdsAsync(List<Guid> rangeKeys)
     {
-        throw new NotImplementedException();
+        return await _db.StorageObjects
+            .AsNoTracking()
+            .Where(x => rangeKeys.Contains(x.Id))
+            .ToListAsync();
     }
 
     public async Task<List<StorageObject>> GetAllAsync()
@@ -80,7 +83,9 @@ public class StorageObjectRepository : IStorageObjectRepository
             FileSize = x.Storage.FileSize,
             FileName = x.Storage.FileName,
             FileType = x.Storage.FileType,
-    
+            UploadedAt = x.Storage.UploadedAt,
+            IsSystemLocked = x.Storage.IsSystemLocked,
+
             LinkedProducts = x.Files
                 .Concat(x.HasMedia 
                     ? new[] { new LinkedProductInfo { ProductId = x.MediaId, ProductName = x.MediaName } } 

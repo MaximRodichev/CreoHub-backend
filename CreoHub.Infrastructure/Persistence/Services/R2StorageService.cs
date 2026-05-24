@@ -63,10 +63,28 @@ public class R2StorageService : IStorageService
         var request = new GetPreSignedUrlRequest
         {
             BucketName = BucketMainName,
-            Key = key,
-            Expires = DateTime.UtcNow.AddMinutes(expiresInMinutes),
-            Protocol = Protocol.HTTPS,
-            Verb = HttpVerb.GET
+            Key        = key,
+            Expires    = DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            Protocol   = Protocol.HTTPS,
+            Verb       = HttpVerb.GET
+        };
+
+        return _s3Client.GetPreSignedURL(request);
+    }
+
+    public string GeneratePresignedUrl(string key, int expiresInMinutes, string contentDisposition)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName               = BucketMainName,
+            Key                      = key,
+            Expires                  = DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            Protocol                 = Protocol.HTTPS,
+            Verb                     = HttpVerb.GET,
+            ResponseHeaderOverrides  = new ResponseHeaderOverrides
+            {
+                ContentDisposition = contentDisposition
+            }
         };
 
         return _s3Client.GetPreSignedURL(request);

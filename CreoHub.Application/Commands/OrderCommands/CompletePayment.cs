@@ -22,6 +22,7 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
     private readonly IShopBalanceRepository _shopBalanceRepository;
     private readonly IAccountRepository _accountRepository;
     private readonly ISubscriptionPromoCodeRepository _promoCodeRepository;
+    private readonly ICartRepository _cartRepository;
 
     // Пороги LifetimeSpent → промо-коды AutoSlot
     private static readonly (decimal Threshold, int Days, string Tag)[] Milestones =
@@ -41,7 +42,8 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         IShopTransactionRepository shopTransactionRepository,
         IShopBalanceRepository shopBalanceRepository,
         IAccountRepository accountRepository,
-        ISubscriptionPromoCodeRepository promoCodeRepository)
+        ISubscriptionPromoCodeRepository promoCodeRepository,
+        ICartRepository cartRepository)
     {
         _unitOfWork = unitOfWork;
         _transactionRepository = transactionRepository;
@@ -53,6 +55,7 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         _shopBalanceRepository = shopBalanceRepository;
         _accountRepository = accountRepository;
         _promoCodeRepository = promoCodeRepository;
+        _cartRepository = cartRepository;
     }
 
     public async Task<BaseResponse<bool>> Handle(
@@ -133,6 +136,12 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // ── Очистка корзины: удаляем только купленные позиции ─────────
+            var purchasedProductIds = order.Items.Select(i => i.ProductId).Distinct();
+            await _cartRepository.RemoveCartItemsByProductIdsAsync(order.CustomerId, purchasedProductIds);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)
