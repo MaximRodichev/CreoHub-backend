@@ -1,4 +1,5 @@
 using Creohub.AutoSlot;
+using CreoHub.API.Configuration;
 using CreoHub.API.DI;
 using CreoHub.API.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -100,11 +101,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    options.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2GB
+    options.Limits.MaxRequestBodySize = FileLimits.MaxUpload;
 });
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 4L * 1024 * 1024 * 1024; // 4GB (temp)
+    options.MultipartBodyLengthLimit = FileLimits.MaxUpload;
 });
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

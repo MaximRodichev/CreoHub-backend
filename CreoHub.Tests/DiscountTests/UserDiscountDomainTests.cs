@@ -62,14 +62,14 @@ public class UserDiscountDomainTests
     [InlineData(249,  0.00)]
     [InlineData(250,  0.02)]
     [InlineData(499,  0.02)]
-    [InlineData(500,  0.04)]
-    [InlineData(999,  0.04)]
-    [InlineData(1000, 0.06)]
-    [InlineData(2499, 0.06)]
-    [InlineData(2500, 0.09)]
-    [InlineData(4999, 0.09)]
-    [InlineData(5000, 0.12)]
-    [InlineData(9999, 0.12)]
+    [InlineData(500,  0.03)]
+    [InlineData(999,  0.03)]
+    [InlineData(1000, 0.05)]
+    [InlineData(2499, 0.05)]
+    [InlineData(2500, 0.07)]
+    [InlineData(4999, 0.07)]
+    [InlineData(5000, 0.09)]
+    [InlineData(9999, 0.09)]
     public void GetLifetimeDiscount_ReturnsCorrectRate(double spentD, double expectedD)
     {
         var spent            = (decimal)spentD;

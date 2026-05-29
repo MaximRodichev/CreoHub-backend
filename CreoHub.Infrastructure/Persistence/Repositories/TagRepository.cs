@@ -47,14 +47,15 @@ public class TagRepository : ITagRepository
 
     public async Task<List<Tag>> GetByNamesAsync(List<string> names)
     {
-        // 1. Получаем теги, которые уже существуют в базе
+        // 1. Получаем теги, которые уже существуют в базе (без учёта регистра)
+        var namesLower   = names.Select(n => n.ToLower()).ToList();
         var existingTags = await _db.Tags
-            .Where(t => names.Contains(t.Name))
+            .Where(t => namesLower.Contains(t.Name.ToLower()))
             .ToListAsync();
 
-        // 2. Вычисляем, каких имен не хватает
-        var existingNames = existingTags.Select(t => t.Name).ToList();
-        var missingNames = names.Except(existingNames).ToList();
+        // 2. Вычисляем, каких имен не хватает (без учёта регистра)
+        var existingNamesLower = existingTags.Select(t => t.Name.ToLower()).ToHashSet();
+        var missingNames = names.Where(n => !existingNamesLower.Contains(n.ToLower())).ToList();
 
         // 3. Создаем новые объекты для недостающих имен
         if (missingNames.Any())
@@ -69,6 +70,12 @@ public class TagRepository : ITagRepository
         }
 
         return existingTags;
+    }
+
+    public async Task<bool> ExistsByNameAsync(string name)
+    {
+        var nameLower = name.ToLower();
+        return await _db.Tags.AnyAsync(t => t.Name.ToLower() == nameLower);
     }
 
     public async Task<List<TagStatsDTO>> GetTagStatsByShopAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null)

@@ -1,3 +1,4 @@
+using CreoHub.API.Configuration;
 using CreoHub.Application.Commands.StorageCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.StorageDTOs;
@@ -13,19 +14,6 @@ namespace CreoHub.API.Controllers;
 [Route("[controller]")]
 public class S3Controller : ShopOwnerControllerBase
 {
-    private static readonly Dictionary<string, long> Limits = new()
-    {
-        { "video",       50L  * 1024 * 1024 },
-        { "image",       5L   * 1024 * 1024 },
-        { "application", 4L   * 1024 * 1024 * 1024 }, // temp 4GB
-    };
-
-    public static long GetLimit(string mimeType)
-    {
-        var category = mimeType.Split('/')[0];
-        return Limits.TryGetValue(category, out var limit) ? limit : 10L * 1024 * 1024;
-    }
-
     private readonly IMediator        _mediator;
     private readonly IShopRepository  _shopRepository;
 
@@ -51,12 +39,9 @@ public class S3Controller : ShopOwnerControllerBase
         var (ok, shopId) = await TryGetShopId(_shopRepository);
         if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
 
-        var limit = GetLimit(dto.MimeType);
+        var limit = FileLimits.For(dto.MimeType);
         if (dto.FileSize > limit)
-        {
-            var limitMb = limit / 1024 / 1024;
-            return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {dto.MimeType}: {limitMb} MB"));
-        }
+            return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {dto.MimeType}: {FileLimits.Format(limit)}"));
 
         var command  = new RequestStorageUploadCommand(dto.FileName, dto.MimeType, dto.FileSize, shopId);
         var response = await _mediator.Send(command);
@@ -82,8 +67,8 @@ public class S3Controller : ShopOwnerControllerBase
     // ── Upload (legacy — оставлен для совместимости) ──────────────────────────
 
     [Authorize]
-    [RequestSizeLimit(4L * 1024 * 1024 * 1024)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 4L * 1024 * 1024 * 1024)]
+    [RequestSizeLimit(FileLimits.MaxUpload)]
+    [RequestFormLimits(MultipartBodyLengthLimit = FileLimits.MaxUpload)]
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
@@ -92,13 +77,10 @@ public class S3Controller : ShopOwnerControllerBase
 
         using var stream = file.OpenReadStream();
         var fileSize = stream.Length;
-        var limit    = GetLimit(file.ContentType);
+        var limit    = FileLimits.For(file.ContentType);
 
         if (fileSize > limit)
-        {
-            var limitMb = limit / 1024 / 1024;
-            return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {file.ContentType}: {limitMb} MB"));
-        }
+            return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {file.ContentType}: {FileLimits.Format(limit)}"));
 
         var command  = new UploadStorageObjectCommand(stream, file.FileName, file.ContentType, shopId);
         var response = await _mediator.Send(command);

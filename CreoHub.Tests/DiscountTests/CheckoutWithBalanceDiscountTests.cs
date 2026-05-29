@@ -3,7 +3,9 @@ using System.Runtime.CompilerServices;
 using CreoHub.Application.Commands.OrderCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
+using Microsoft.Extensions.Options;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using NSubstitute;
@@ -52,7 +54,8 @@ public class CheckoutWithBalanceDiscountTests
     private CheckoutWithBalanceHandler MakeHandler() =>
         new(_unitOfWork, _orderRepo, _productRepo, _transactionRepo,
             _balanceRepo, _contentFileRepo, _accessRepo, _cartRepo,
-            _shopTxRepo, _shopBalanceRepo, _accountRepo);
+            _shopTxRepo, _shopBalanceRepo, _accountRepo,
+            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
 
     /// <summary>Мокает общие зависимости, которые нужны для прохождения через handler.</summary>
     private void SetupDefaultMocks()
@@ -157,12 +160,12 @@ public class CheckoutWithBalanceDiscountTests
         return (T)field!.GetValue(obj)!;
     }
 
-    // ── F2: cart volume discount применяется ─────────────────────────────────
+    // ── F2: count discount — 1 товар скидки нет ─────────────────────────────
 
     [Fact]
-    public async Task Checkout_CartTotal50_Applies3PercentDiscount()
+    public async Task Checkout_OneItem_NoDiscount_PaysFull()
     {
-        // product price = $50 → cart volume 3% → buyerPays = $48.50
+        // 1 product = no count discount, no lifetime → pays full $50
         var product = MakeProduct(50m);
         var user    = MakeUser(0m);
         var balance = new UserBalance(UserId);
@@ -185,18 +188,54 @@ public class CheckoutWithBalanceDiscountTests
         _output.WriteLine($"Status={result.Status}, Error={result.ErrorMessage}");
         Assert.Equal(ResponseStatus.Success, result.Status);
 
-        // 50 * (1 - 0.03) = 48.50
-        var expectedPays = 50m * (1m - 0.03m);
-        Assert.Equal(expectedPays, 100m - balance.AvailableAmount);
+        // 1 item → count 0% → pays full $50
+        Assert.Equal(50m, 100m - balance.AvailableAmount);
+    }
+
+    // ── F2: count discount — 3 товара → 3% ───────────────────────────────────
+
+    [Fact]
+    public async Task Checkout_ThreeItems_Applies3PercentCountDiscount()
+    {
+        // 3 items × $30 = $90, count 3% → buyerPays = $87.30
+        var p1 = MakeProduct(30m); SetProp(p1, "Id", 11);
+        var p2 = MakeProduct(30m); SetProp(p2, "Id", 12);
+        var p3 = MakeProduct(30m); SetProp(p3, "Id", 13);
+        var user    = MakeUser(0m);
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(200m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { p1, p2, p3 });
+        _contentFileRepo.GetByProductIdAsync(11).Returns(new List<ContentFile>());
+        _contentFileRepo.GetByProductIdAsync(12).Returns(new List<ContentFile>());
+        _contentFileRepo.GetByProductIdAsync(13).Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = new List<CheckoutItemDTO>
+        {
+            new() { ProductId = 11, FileIds = new List<Guid>() },
+            new() { ProductId = 12, FileIds = new List<Guid>() },
+            new() { ProductId = 13, FileIds = new List<Guid>() },
+        };
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        var expectedPays = 90m * (1m - 0.03m);  // $87.30
+        _output.WriteLine($"expectedPays={expectedPays}, spent={200m - balance.AvailableAmount}");
+        Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
     }
 
     // ── F1: lifetime discount применяется ────────────────────────────────────
 
     [Fact]
-    public async Task Checkout_LifetimeSpent1000_Applies6PercentDiscount()
+    public async Task Checkout_LifetimeSpent1000_Applies5PercentDiscount()
     {
-        // product price = $30, lifetime 6%, cart 0% (< $50)
-        // buyerPays = 30 * 0.94 = 28.20
+        // product price = $30, lifetime 5% (new tier ≥$1000), count 0% (1 item)
+        // MAX(5%, 0%) = 5% → buyerPays = 30 * 0.95 = 28.50
         var product = MakeProduct(30m);
         var user    = MakeUser(1000m);
         var balance = new UserBalance(UserId);
@@ -218,31 +257,37 @@ public class CheckoutWithBalanceDiscountTests
 
         Assert.Equal(ResponseStatus.Success, result.Status);
 
-        var expectedPays = 30m * (1m - 0.06m);   // 28.20
+        var expectedPays = 30m * (1m - 0.05m);   // 28.50
         Assert.Equal(expectedPays, 100m - balance.AvailableAmount);
     }
 
-    // ── F1 + F2 складываются ─────────────────────────────────────────────────
+    // ── F1 + F2: MAX побеждает lifetime ──────────────────────────────────────
 
     [Fact]
-    public async Task Checkout_Lifetime6_Cart6_TotalDiscount12Percent()
+    public async Task Checkout_Lifetime5_Count3_MaxTakesLifetime()
     {
-        // product price = $120: lifetime 6% (≥1000) + cart 6% ($100-$199) = 12%
-        // buyerPays = 120 * 0.88 = 105.60
-        var product = MakeProduct(120m);
+        // 3 items × $40 = $120, lifetime 5% (≥1000) vs count 3% (3 items)
+        // MAX(5%, 3%) = 5% → buyerPays = 120 * 0.95 = 114
+        var p1 = MakeProduct(40m); SetProp(p1, "Id", 21);
+        var p2 = MakeProduct(40m); SetProp(p2, "Id", 22);
+        var p3 = MakeProduct(40m); SetProp(p3, "Id", 23);
         var user    = MakeUser(1000m);
         var balance = new UserBalance(UserId);
         balance.AddFunds(200m);
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
-        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
-        _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { p1, p2, p3 });
+        _contentFileRepo.GetByProductIdAsync(21).Returns(new List<ContentFile>());
+        _contentFileRepo.GetByProductIdAsync(22).Returns(new List<ContentFile>());
+        _contentFileRepo.GetByProductIdAsync(23).Returns(new List<ContentFile>());
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
 
         var items = new List<CheckoutItemDTO>
         {
-            new() { ProductId = product.Id, FileIds = new List<Guid>() }
+            new() { ProductId = 21, FileIds = new List<Guid>() },
+            new() { ProductId = 22, FileIds = new List<Guid>() },
+            new() { ProductId = 23, FileIds = new List<Guid>() },
         };
 
         var result = await MakeHandler().Handle(
@@ -250,9 +295,47 @@ public class CheckoutWithBalanceDiscountTests
 
         Assert.Equal(ResponseStatus.Success, result.Status);
 
-        var expectedPays = 120m * (1m - 0.12m);   // 105.60
-        Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
+        var expectedPays = 120m * (1m - 0.05m);   // 114
         _output.WriteLine($"Balance after: {balance.AvailableAmount}, expected pays: {expectedPays}");
+        Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
+    }
+
+    // ── F2 побеждает lifetime ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Checkout_Count9_Lifetime0_MaxTakesCart()
+    {
+        // 9 items, no lifetime → count 9% wins
+        // buyerPays = 90 * 0.91 = 81.90
+        var products = Enumerable.Range(31, 9).Select(id =>
+        {
+            var p = MakeProduct(10m); SetProp(p, "Id", id); return p;
+        }).ToList();
+
+        var user    = MakeUser(0m);
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(200m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(products);
+        foreach (var p in products)
+            _contentFileRepo.GetByProductIdAsync((int)typeof(Product)
+                .GetProperty("Id")!.GetValue(p)!)
+                .Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = Enumerable.Range(31, 9).Select(id =>
+            new CheckoutItemDTO { ProductId = id, FileIds = new List<Guid>() }
+        ).ToList();
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        var expectedPays = 90m * (1m - 0.09m);  // 81.90
+        _output.WriteLine($"expectedPays={expectedPays}, spent={200m - balance.AvailableAmount}");
+        Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
     }
 
     // ── AddSpend использует rawTotal, а не discounted buyerPays ─────────────
@@ -260,7 +343,7 @@ public class CheckoutWithBalanceDiscountTests
     [Fact]
     public async Task Checkout_AddSpend_UsesRawTotal_NotDiscountedAmount()
     {
-        // product $50, cart 3% → buyerPays=48.50, но LifetimeSpent += 50 (rawTotal)
+        // product $50, 1 item = no count discount → buyerPays=50, LifetimeSpent += 50 (rawTotal)
         var product = MakeProduct(50m);
         var user    = MakeUser(0m);
         var balance = new UserBalance(UserId);
@@ -412,16 +495,16 @@ public class CheckoutWithBalanceDiscountTests
         Assert.Contains("уже приобрели", result.ErrorMessage);
     }
 
-    // ── Недостаточно баланса с учётом скидки ────────────────────────────────
+    // ── Недостаточно баланса ────────────────────────────────────────────────
 
     [Fact]
-    public async Task Checkout_InsufficientBalance_AfterDiscount_ReturnsError()
+    public async Task Checkout_InsufficientBalance_ReturnsError()
     {
-        // product $50, cart 3%, buyerPays = 48.50, balance = 48.00 → fail
+        // product $50, 1 item = no discount, balance = 48.00 → fail
         var product = MakeProduct(50m);
         var user    = MakeUser(0m);
         var balance = new UserBalance(UserId);
-        balance.AddFunds(48m);   // меньше 48.50
+        balance.AddFunds(48m);   // меньше 50
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);

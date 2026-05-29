@@ -2,6 +2,7 @@ using System.Security.Claims;
 using CreoHub.Application.Commands.ProductCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
+using CreoHub.Application.Queries.Admin;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Repositories;
@@ -136,6 +137,23 @@ public class ProductController : ShopOwnerControllerBase
         if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
 
         var response = await _mediator.Send(new DeleteProductCommand(shopId, id));
+        return Ok(response);
+    }
+
+    /// <summary>История изменений статуса товара (для владельца магазина).</summary>
+    [Authorize]
+    [HttpGet("{id:int}/status-log")]
+    public async Task<IActionResult> GetStatusLog([FromRoute] int id)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        // Проверяем, что товар принадлежит этому магазину
+        var product = await _productRepository.GetProductById(id);
+        if (product is null || product.OwnerId != shopId)
+            return StatusCode(403, BaseResponse<bool>.Fail("Нет доступа к этому товару"));
+
+        var response = await _mediator.Send(new GetProductStatusLogQuery(id));
         return Ok(response);
     }
 }

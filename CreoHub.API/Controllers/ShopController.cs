@@ -1,3 +1,4 @@
+using CreoHub.API.Configuration;
 using CreoHub.Application.Commands.ShopCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ShopDTOs;
@@ -170,7 +171,7 @@ public class ShopController : ShopOwnerControllerBase
 
     [Authorize]
     [HttpPost("decorations")]
-    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+    [RequestSizeLimit(FileLimits.Decoration)]
     public async Task<IActionResult> UploadDecoration(
         IFormFile file,
         [FromQuery] string slot)

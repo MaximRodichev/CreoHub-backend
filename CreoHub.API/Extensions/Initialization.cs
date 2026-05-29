@@ -66,7 +66,9 @@ public static class Initialization
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ISubscriptionPromoCodeRepository, SubscriptionPromoCodeRepository>();
         services.AddScoped<IAdminRepository, AdminRepository>();
-        
+        services.AddScoped<IProductStatusLogRepository, ProductStatusLogRepository>();
+        services.AddScoped<IProductEditHistoryRepository, ProductEditHistoryRepository>();
+
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
         services.AddScoped<IThumbnailGenerationService, ThumbnailGenerationService>();

@@ -6,12 +6,19 @@ using CreoHub.Application.DTO.AdminDTOs;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Queries.Admin;
 using CreoHub.Application.Queries.Orders;
+using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Queries.Shop;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CreoHub.API.Controllers;
+
+// DTOs for admin product actions
+public record AdminBanProductDto(string Reason);
+public record AdminRejectProductDto(string? Reason = null);
+public record AdminHideProductDto(string? Reason = null);
+public record AdminSendToModerationDto(string? Reason = null);
 
 /// <summary>
 /// Все эндпоинты доступны только для аккаунта icreoaffilate@gmail.com.
@@ -34,6 +41,12 @@ public class AdminController : ControllerBase
     {
         var emailaddress = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
         return emailaddress == AdminEmail;
+    }
+
+    private Guid GetAdminUserId()
+    {
+        var sub = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
     }
 
     // ══════════════════════════════════════════
@@ -125,6 +138,102 @@ public class AdminController : ControllerBase
     {
         if (!IsAdmin()) return Forbidden();
         var result = await _mediator.Send(new GetAdminProductsListQuery());
+        return Ok(result);
+    }
+
+    // ══════════════════════════════════════════
+    // ТОВАРЫ — статусы
+    // ══════════════════════════════════════════
+
+    /// <summary>Забанить товар с причиной.</summary>
+    [HttpPost("product/{id:int}/ban")]
+    public async Task<IActionResult> BanProduct(int id, [FromBody] AdminBanProductDto dto)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var adminId = GetAdminUserId();
+        var result  = await _mediator.Send(new BanProductCommand(id, dto.Reason, adminId));
+        return Ok(result);
+    }
+
+    /// <summary>Снять бан с товара.</summary>
+    [HttpPost("product/{id:int}/unban")]
+    public async Task<IActionResult> UnbanProduct(int id)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var adminId = GetAdminUserId();
+        var result  = await _mediator.Send(new UnbanProductCommand(id, adminId));
+        return Ok(result);
+    }
+
+    /// <summary>История изменений статуса товара.</summary>
+    [HttpGet("product/{id:int}/status-log")]
+    public async Task<IActionResult> GetProductStatusLog(int id)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetProductStatusLogQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>Список товаров по статусу для панели модерации. status: OnModerating | Banned | Hidden</summary>
+    [HttpGet("moderation")]
+    public async Task<IActionResult> GetModerationQueue([FromQuery] string status = "OnModerating")
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetProductsOnModerationQuery(status));
+        return Ok(result);
+    }
+
+    /// <summary>Полная информация о товаре (для просмотра в очереди модерации). Работает при любом статусе.</summary>
+    [HttpGet("product/{id:int}")]
+    public async Task<IActionResult> GetProductDetail(int id)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetProductInfoByIdQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>История правок товара (JSON-снапшоты состояния до каждого сохранения).</summary>
+    [HttpGet("product/{id:int}/edit-history")]
+    public async Task<IActionResult> GetProductEditHistory(int id)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetProductEditHistoryQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>Принудительно скрыть любой товар.</summary>
+    [HttpPost("product/{id:int}/hide")]
+    public async Task<IActionResult> HideProduct(int id, [FromBody] AdminHideProductDto dto)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new AdminHideProductCommand(id, GetAdminUserId(), dto.Reason));
+        return Ok(result);
+    }
+
+    /// <summary>Принудительно отправить любой товар на модерацию.</summary>
+    [HttpPost("product/{id:int}/send-to-moderation")]
+    public async Task<IActionResult> AdminSendToModeration(int id, [FromBody] AdminSendToModerationDto dto)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new AdminSendToModerationCommand(id, GetAdminUserId(), dto.Reason));
+        return Ok(result);
+    }
+
+    /// <summary>Одобрить модерацию товара.</summary>
+    [HttpPost("product/{id:int}/approve")]
+    public async Task<IActionResult> ApproveProduct(int id)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new ApproveModerationCommand(id, GetAdminUserId()));
+        return Ok(result);
+    }
+
+    /// <summary>Отклонить модерацию товара.</summary>
+    [HttpPost("product/{id:int}/reject")]
+    public async Task<IActionResult> RejectProduct(int id, [FromBody] AdminRejectProductDto dto)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new RejectModerationCommand(id, GetAdminUserId(), dto.Reason));
         return Ok(result);
     }
 

@@ -21,6 +21,8 @@ public class OrderHandlerTests
     private readonly IAccountRepository _accountRepo;
     private readonly IProductRepository _productRepo;
     private readonly IPriceRepository _priceRepo;
+    private readonly IContentFileRepository _contentFileRepo;
+    private readonly IContentAccessRepository _contentAccessRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     private static readonly Guid UserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -28,12 +30,18 @@ public class OrderHandlerTests
 
     public OrderHandlerTests(ITestOutputHelper output)
     {
-        _output = output;
-        _orderRepo = Substitute.For<IOrderRepository>();
-        _accountRepo = Substitute.For<IAccountRepository>();
-        _productRepo = Substitute.For<IProductRepository>();
-        _priceRepo = Substitute.For<IPriceRepository>();
-        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _output           = output;
+        _orderRepo        = Substitute.For<IOrderRepository>();
+        _accountRepo      = Substitute.For<IAccountRepository>();
+        _productRepo      = Substitute.For<IProductRepository>();
+        _priceRepo        = Substitute.For<IPriceRepository>();
+        _contentFileRepo  = Substitute.For<IContentFileRepository>();
+        _contentAccessRepo= Substitute.For<IContentAccessRepository>();
+        _unitOfWork       = Substitute.For<IUnitOfWork>();
+
+        // Default: every product has no content files (prevents NRE in GetByProductIdAsync)
+        _contentFileRepo.GetByProductIdAsync(Arg.Any<int>())
+            .Returns(Task.FromResult(new List<ContentFile>()));
     }
 
     // ── GetUserOrders ─────────────────────────────────────────────────────────
@@ -264,14 +272,15 @@ public class OrderHandlerTests
         _orderRepo.AddAsync(Arg.Any<Order>()).Returns(ci => Task.FromResult(ci.Arg<Order>()));
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
-        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _priceRepo);
+        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _contentFileRepo, _contentAccessRepo);
         var result = await handler.Handle(new CreateOrderDevCommand(dto), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}");
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.True(result.Data);
         await _orderRepo.Received(1).AddAsync(Arg.Any<Order>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        // Handler calls SaveChanges twice: once after AddAsync, once after granting access + LifetimeSpent
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -279,7 +288,7 @@ public class OrderHandlerTests
     {
         _accountRepo.GetByIdAsync(Arg.Any<Guid>()).ReturnsNull();
 
-        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _priceRepo);
+        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _contentFileRepo, _contentAccessRepo);
         var result = await handler.Handle(
             new CreateOrderDevCommand(new CreateOrderDevDTO
             {
@@ -302,7 +311,7 @@ public class OrderHandlerTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product>()));   // 0 returned, 2 requested
 
-        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _priceRepo);
+        var handler = new CreateOrderDevHandler(_unitOfWork, _orderRepo, _productRepo, _accountRepo, _contentFileRepo, _contentAccessRepo);
         var result = await handler.Handle(
             new CreateOrderDevCommand(new CreateOrderDevDTO
             {

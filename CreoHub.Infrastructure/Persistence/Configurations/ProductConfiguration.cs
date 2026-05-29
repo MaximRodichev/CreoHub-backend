@@ -34,7 +34,10 @@ public class ProductConfiguration :  IEntityTypeConfiguration<Product>
 
         builder.Property(p => p.ProductStatus)
             .HasConversion<string>();
-        
+
+        builder.Property(p => p.BanReason)
+            .HasMaxLength(1000);
+
         builder.HasMany(x=>x.Prices).WithOne(x=>x.Product).HasForeignKey(x=>x.ProductId);
         builder.HasOne(x => x.Owner).WithMany(x => x.Products).HasForeignKey(x => x.OwnerId);
         builder.HasMany(x => x.OrderItems) 

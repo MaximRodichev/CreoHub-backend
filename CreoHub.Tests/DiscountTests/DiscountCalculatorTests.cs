@@ -41,30 +41,58 @@ public class DiscountCalculatorTests
         Assert.Equal(expected, result);
     }
 
-    // ── GetTotalDiscount ─────────────────────────────────────────────────────
+    // ── GetCartCountDiscount — все пороги ────────────────────────────────────
+
+    [Theory]
+    [InlineData(0,  0.00)]
+    [InlineData(1,  0.00)]
+    [InlineData(2,  0.00)]
+    [InlineData(3,  0.03)]
+    [InlineData(4,  0.03)]
+    [InlineData(5,  0.06)]
+    [InlineData(7,  0.06)]
+    [InlineData(8,  0.09)]
+    [InlineData(11, 0.09)]
+    [InlineData(12, 0.12)]
+    [InlineData(20, 0.12)]
+    public void GetCartCountDiscount_ReturnsCorrectRate(int count, double expectedD)
+    {
+        var result = DiscountCalculator.GetCartCountDiscount(count);
+        Assert.Equal((decimal)expectedD, result);
+    }
+
+    // ── GetTotalDiscount (MAX logic) ─────────────────────────────────────────
 
     [Fact]
-    public void GetTotalDiscount_SumsDiscounts()
+    public void GetTotalDiscount_TakesMax_LifetimeWins()
     {
-        // 6% lifetime + 3% cart = 9%
+        // lifetime 6% > cart 3% → MAX = 6%
         var total = DiscountCalculator.GetTotalDiscount(0.06m, 0.03m);
+        Assert.Equal(0.06m, total);
+    }
+
+    [Fact]
+    public void GetTotalDiscount_TakesMax_CartWins()
+    {
+        // cart 9% > lifetime 5% → MAX = 9%
+        var total = DiscountCalculator.GetTotalDiscount(0.05m, 0.09m);
         Assert.Equal(0.09m, total);
     }
 
     [Fact]
-    public void GetTotalDiscount_MaxCase_CapsAtOne()
+    public void GetTotalDiscount_TakesMax_BothEqual()
     {
-        // pathological: 0.99 + 0.99 = 1.98 → capped to 1
-        var total = DiscountCalculator.GetTotalDiscount(0.99m, 0.99m);
-        Assert.Equal(1m, total);
+        // both 6% → MAX = 6%
+        var total = DiscountCalculator.GetTotalDiscount(0.06m, 0.06m);
+        Assert.Equal(0.06m, total);
     }
 
     [Fact]
-    public void GetTotalDiscount_MaxRealCase_12Plus9_Is21Percent()
+    public void GetTotalDiscount_MaxRealCase_9Vs12_Returns12()
     {
-        // 12% lifetime + 9% cart = 21%
-        var total = DiscountCalculator.GetTotalDiscount(0.12m, 0.09m);
-        Assert.Equal(0.21m, total);
+        // lifetime 9% (top tier), cart 12% (12 items) → MAX = 12%
+        var total = DiscountCalculator.GetTotalDiscount(0.09m, 0.12m);
+        Assert.Equal(0.12m, total);
     }
 
     [Fact]
@@ -91,11 +119,11 @@ public class DiscountCalculatorTests
     }
 
     [Fact]
-    public void ApplyDiscount_21Percent_CorrectAmount()
+    public void ApplyDiscount_12Percent_CorrectAmount()
     {
-        // max real discount: 12% + 9% = 21%
-        var result = DiscountCalculator.ApplyDiscount(100m, 0.21m);
-        Assert.Equal(79m, result);
+        // max real discount: MAX(9% lifetime, 12% cart) = 12%
+        var result = DiscountCalculator.ApplyDiscount(100m, 0.12m);
+        Assert.Equal(88m, result);
     }
 
     [Fact]
@@ -108,19 +136,36 @@ public class DiscountCalculatorTests
     // ── Комбинированный сценарий ─────────────────────────────────────────────
 
     [Fact]
-    public void FullFlow_Lifetime6_Cart3_On120Dollars()
+    public void FullFlow_Lifetime5_Count3_TakesMax()
     {
-        // subtotal = $120, lifetime 6% (spent ≥ $1000), cart 6% ($100–$199)
-        const decimal subtotal = 120m;
-        var lifetimeDisc   = 0.06m;
-        var cartDisc       = DiscountCalculator.GetCartVolumeDiscount(subtotal);  // 0.06
-        var totalDisc      = DiscountCalculator.GetTotalDiscount(lifetimeDisc, cartDisc); // 0.12
-        var buyerPays      = DiscountCalculator.ApplyDiscount(subtotal, totalDisc); // 105.60
+        // 3 items: count discount 3%, lifetime 5% (spent ≥ $1000)
+        // MAX(0.05, 0.03) = 0.05, total = $120 × 0.95 = $114
+        const decimal subtotal   = 120m;
+        const decimal lifetimeDisc = 0.05m;    // $1000+ tier
+        var cartDisc             = DiscountCalculator.GetCartCountDiscount(3);  // 0.03
+        var totalDisc            = DiscountCalculator.GetTotalDiscount(lifetimeDisc, cartDisc); // MAX = 0.05
+        var buyerPays            = DiscountCalculator.ApplyDiscount(subtotal, totalDisc); // 114
 
         _output.WriteLine($"subtotal={subtotal}, cartDisc={cartDisc}, totalDisc={totalDisc}, buyerPays={buyerPays}");
 
-        Assert.Equal(0.06m, cartDisc);
+        Assert.Equal(0.03m, cartDisc);
+        Assert.Equal(0.05m, totalDisc);
+        Assert.Equal(114m, buyerPays);
+    }
+
+    [Fact]
+    public void FullFlow_Lifetime0_Count12_TakesCartMax()
+    {
+        // 12 items, no lifetime → count 12% wins
+        // MAX(0, 0.12) = 0.12, total = $300 × 0.88 = $264
+        const decimal subtotal    = 300m;
+        const decimal lifetimeDisc = 0m;
+        var cartDisc              = DiscountCalculator.GetCartCountDiscount(12);  // 0.12
+        var totalDisc             = DiscountCalculator.GetTotalDiscount(lifetimeDisc, cartDisc);
+        var buyerPays             = DiscountCalculator.ApplyDiscount(subtotal, totalDisc);
+
+        Assert.Equal(0.12m, cartDisc);
         Assert.Equal(0.12m, totalDisc);
-        Assert.Equal(105.60m, buyerPays);
+        Assert.Equal(264m, buyerPays);
     }
 }

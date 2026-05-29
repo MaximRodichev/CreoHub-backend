@@ -34,7 +34,6 @@ public class BestProductsHandlerTests
                 Name  = $"{prefix} #{i}",
                 Price = i * 10m,
                 Date  = DateTime.UtcNow.AddDays(-i),
-                Tags  = new List<string>()
             })
             .ToList();
 

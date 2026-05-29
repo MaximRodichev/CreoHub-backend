@@ -64,6 +64,18 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
             if (products.Count != productIds.Count)
                 throw new InvalidOperationException("Some products were not found.");
 
+            // ── Проверяем что все товары доступны для покупки ──────────
+            var unavailable = products
+                .Where(p => p.ProductStatus != ProductStatus.Active)
+                .ToList();
+            if (unavailable.Any())
+            {
+                var names = string.Join(", ", unavailable.Select(p => $"«{p.Name}»"));
+                return BaseResponse<CheckoutResultDTO>.Fail(
+                    $"Следующие товары недоступны для покупки: {names}. " +
+                    "Возможно, они были сняты с продажи или заблокированы.");
+            }
+
             var productMap = products.ToDictionary(p => p.Id);
 
             // ── Проверка коллизии: товар И бандл с этим товаром одновременно ──
@@ -164,7 +176,7 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);
             var lifetimeDisc = user?.GetLifetimeDiscount() ?? 0m;
-            var cartDisc     = DiscountCalculator.GetCartVolumeDiscount(order.Subtotal);
+            var cartDisc     = DiscountCalculator.GetCartCountDiscount(orderItems.Count);
             order.ApplyDiscounts(lifetimeDisc, cartDisc);
 
             await _orderRepository.AddAsync(order);

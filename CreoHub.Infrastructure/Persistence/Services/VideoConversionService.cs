@@ -55,7 +55,10 @@ public class VideoConversionService : IVideoConversionService
             var newKey = Path.ChangeExtension(video.Key, ".mp4");
             using var stream = File.OpenRead(outputPath);
             await _storageService.UploadFileAsync(stream, newKey, "video/mp4");
-            await _storageService.DeleteFileAsync(video.Key);
+            // Удаляем старый файл только если ключ изменился (e.g. .webm → .mp4).
+            // Если ключ тот же (уже .mp4), UploadFileAsync уже перезаписал файл — удалять не нужно.
+            if (!string.Equals(newKey, video.Key, StringComparison.OrdinalIgnoreCase))
+                await _storageService.DeleteFileAsync(video.Key);
 
             video.ReplaceFile(newKey, video.FileName, new FileInfo(outputPath).Length, "video/mp4");
 

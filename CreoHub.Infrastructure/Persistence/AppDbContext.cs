@@ -36,6 +36,12 @@ public class AppDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<PanelSession> PanelSessions { get; set; }
     public DbSet<SubscriptionPromoCode> SubscriptionPromoCodes { get; set; }
+
+    // product status log
+    public DbSet<ProductStatusLog> ProductStatusLogs { get; set; }
+
+    // product edit history (audit snapshots)
+    public DbSet<ProductEditHistory> ProductEditHistories { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

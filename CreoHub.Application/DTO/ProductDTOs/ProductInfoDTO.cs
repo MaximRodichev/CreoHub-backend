@@ -27,4 +27,6 @@ public record ProductInfoDTO
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProductStatus ProductStatus { get; set; }
+
+    public string? BanReason { get; set; }
 }

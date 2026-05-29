@@ -176,7 +176,7 @@ public class AdminHandlerTests
 
         var handler = new CreateClientHandler(_accountRepo, _unitOfWork);
         var result  = await handler.Handle(
-            new CreateClientCommand("MaxG", "max@gmail.com"), CancellationToken.None);
+            new CreateClientCommand("MaxG", null, null, "max@gmail.com"), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Id: {result.Data}");
         Assert.Equal(ResponseStatus.Success, result.Status);
@@ -193,7 +193,7 @@ public class AdminHandlerTests
 
         var handler = new CreateClientHandler(_accountRepo, _unitOfWork);
         var result  = await handler.Handle(
-            new CreateClientCommand("Anonymous", null), CancellationToken.None);
+            new CreateClientCommand("Anonymous", null, null, null), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
         await _accountRepo.Received(1).AddAsync(Arg.Is<User>(u => u.EmailAddress == null));
@@ -204,7 +204,7 @@ public class AdminHandlerTests
     {
         var handler = new CreateClientHandler(_accountRepo, _unitOfWork);
         var result  = await handler.Handle(
-            new CreateClientCommand("   ", null), CancellationToken.None);
+            new CreateClientCommand("   ", null, null, null), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");
         Assert.Equal(ResponseStatus.Error, result.Status);
@@ -221,7 +221,7 @@ public class AdminHandlerTests
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
         var handler = new CreateClientHandler(_accountRepo, _unitOfWork);
-        await handler.Handle(new CreateClientCommand("  Alice  ", null), CancellationToken.None);
+        await handler.Handle(new CreateClientCommand("  Alice  ", null, null, null), CancellationToken.None);
 
         Assert.NotNull(capturedUser);
         Assert.Equal("Alice", capturedUser!.Name);
@@ -234,7 +234,7 @@ public class AdminHandlerTests
 
         var handler = new CreateClientHandler(_accountRepo, _unitOfWork);
         var result  = await handler.Handle(
-            new CreateClientCommand("Bob", "bob@example.com"), CancellationToken.None);
+            new CreateClientCommand("Bob", null, null, "bob@example.com"), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
         Assert.Contains("Duplicate email", result.ErrorMessage);

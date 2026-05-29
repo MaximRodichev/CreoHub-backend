@@ -1,7 +1,9 @@
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit.Abstractions;
@@ -53,7 +55,7 @@ public class PricingTests
         var product = MakeProduct(25m, 10, 8, 7);
         var allFiles = product.ContentFiles.ToList();
 
-        var price = product.CalculatePrice(allFiles);
+        var price = product.CalculatePrice(allFiles, 0.5);
 
         _output.WriteLine($"All files: {price}");
         Assert.Equal(25.00m, price);
@@ -68,7 +70,7 @@ public class PricingTests
         var product = MakeProduct(25m, 10, 10);
         var firstFile = product.ContentFiles.First();
 
-        var price = product.CalculatePrice(new List<ContentFile> { firstFile });
+        var price = product.CalculatePrice(new List<ContentFile> { firstFile }, 0.5);
 
         var expected = Math.Round(25m * (decimal)Math.Sqrt(0.5), 2);
         _output.WriteLine($"50% by weight → price: {price}, expected: {expected}");
@@ -87,7 +89,7 @@ public class PricingTests
         var product = MakeProduct(25m, 10, 10, 10, 10, 10);
         var oneFile = product.ContentFiles.First();
 
-        var price = product.CalculatePrice(new List<ContentFile> { oneFile });
+        var price = product.CalculatePrice(new List<ContentFile> { oneFile }, 0.5);
 
         var expected = Math.Round(25m * (decimal)Math.Sqrt(0.2), 2);
         _output.WriteLine($"20% by weight → price: {price}, expected: {expected}, linear would be $5.00");
@@ -106,7 +108,7 @@ public class PricingTests
         var product = MakeProduct(100m, 9, 1);
         var smallFile = product.ContentFiles.Last();
 
-        var price = product.CalculatePrice(new List<ContentFile> { smallFile });
+        var price = product.CalculatePrice(new List<ContentFile> { smallFile }, 0.5);
 
         var expected = Math.Round(100m * (decimal)Math.Sqrt(0.1), 2);
         _output.WriteLine($"10% by weight → price: {price}, linear would be $10.00");
@@ -134,7 +136,7 @@ public class PricingTests
         var ratio = (double)selectedWeight / totalWeight;
         var expected = Math.Round((decimal)((double)basePrice * Math.Pow(ratio, 0.5)), 2);
 
-        var price = product.CalculatePrice(selected);
+        var price = product.CalculatePrice(selected, 0.5);
 
         _output.WriteLine($"ratio≈{ratio:F2}, expected={expected}, got={price}");
         Assert.Equal(expected, price);
@@ -146,7 +148,7 @@ public class PricingTests
         var product = MakeProduct(25m, 5, 5);
 
         Assert.Throws<ArgumentException>(() =>
-            product.CalculatePrice(new List<ContentFile>()));
+            product.CalculatePrice(new List<ContentFile>(), 0.5));
     }
 
     [Fact]
@@ -156,7 +158,7 @@ public class PricingTests
         product.AddPrice(25m);
 
         Assert.Throws<InvalidOperationException>(() =>
-            product.CalculatePrice(new List<ContentFile>()));
+            product.CalculatePrice(new List<ContentFile>(), 0.5));
     }
 
     // ── CalculateOrderPriceHandler ───────────────────────────────────────────
@@ -168,7 +170,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -193,7 +195,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -201,8 +203,12 @@ public class PricingTests
             }),
             CancellationToken.None);
 
-        var expected = Math.Round(25m * (decimal)Math.Sqrt(0.5), 2);
-        _output.WriteLine($"Partial: {result.Data?.Total}, expected: {expected}");
+        // Хендлер использует динамический alpha = PricingConfig.ComputeAlpha(totalFiles)
+        // При CapN=30, MinOvershoot=1.2, MaxOvershoot=2.0, totalFiles=2: alpha ≈ 0.553
+        var pricingCfg = new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 };
+        var alpha      = pricingCfg.ComputeAlpha(product.ContentFiles.Count);
+        var expected   = Math.Round(25m * (decimal)Math.Pow(0.5, alpha), 2);
+        _output.WriteLine($"Partial: {result.Data?.Total}, expected: {expected} (alpha={alpha:F4})");
         Assert.Equal(Application.DTO.ResponseStatus.Success, result.Status);
         Assert.Equal(expected, result.Data.Total);
         Assert.True(result.Data.Lines[0].IsPartialPurchase);
@@ -219,7 +225,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { p1, p2 }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -237,7 +243,7 @@ public class PricingTests
     [Fact]
     public async Task CalculateOrderPrice_EmptyItems_ReturnsError()
     {
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>()),
             CancellationToken.None);
@@ -251,7 +257,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product>())); // пусто — продукт не найден
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -269,7 +275,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Returns(Task.FromResult(new List<Product> { product }));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {
@@ -288,7 +294,7 @@ public class PricingTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>())
             .Throws(new Exception("DB timeout"));
 
-        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>());
+        var handler = new CalculateOrderPriceHandler(_productRepo, Substitute.For<IAccountRepository>(), Substitute.For<IContentFileRepository>(), Substitute.For<IContentAccessRepository>(), Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
         var result = await handler.Handle(
             new CalculateOrderPriceQuery(new List<CheckoutItemDTO>
             {

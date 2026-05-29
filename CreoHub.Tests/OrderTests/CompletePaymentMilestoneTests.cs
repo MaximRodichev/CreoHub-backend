@@ -60,7 +60,8 @@ public class CompletePaymentMilestoneTests
 
     private CompletePaymentHandler BuildHandler() =>
         new(_unitOfWork, _txRepo, _orderRepo, _contentFileRepo, _accessRepo,
-            _productRepo, _shopTxRepo, _shopBalanceRepo, _accountRepo, _promoRepo);
+            _productRepo, _shopTxRepo, _shopBalanceRepo, _accountRepo, _promoRepo,
+            Substitute.For<ICartRepository>());
 
     private (UserTransaction tx, Order order, Product product, User user) BuildScenario(
         decimal itemPrice, decimal userLifetimeSpent = 0m, string trackId = "track-123")

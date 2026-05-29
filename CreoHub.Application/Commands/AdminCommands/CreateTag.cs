@@ -25,7 +25,12 @@ public class CreateTagHandler : IRequestHandler<CreateTagCommand, BaseResponse<b
     {
         try
         {
-            var tag = new Tag(request.name);
+            var nameTrimmed = request.name.Trim();
+
+            if (await _tagRepository.ExistsByNameAsync(nameTrimmed))
+                return BaseResponse<bool>.Fail($"Тег «{nameTrimmed}» уже существует");
+
+            var tag = new Tag(nameTrimmed);
             await _tagRepository.AddAsync(tag);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<bool>.Success(true);

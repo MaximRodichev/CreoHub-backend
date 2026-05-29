@@ -90,10 +90,10 @@ public class User
     /// </summary>
     public decimal GetLifetimeDiscount() => LifetimeSpent switch
     {
-        >= 5000m => 0.12m,
-        >= 2500m => 0.09m,
-        >= 1000m => 0.06m,
-        >= 500m  => 0.04m,
+        >= 5000m => 0.09m,
+        >= 2500m => 0.07m,
+        >= 1000m => 0.05m,
+        >= 500m  => 0.03m,
         >= 250m  => 0.02m,
         _        => 0m,
     };

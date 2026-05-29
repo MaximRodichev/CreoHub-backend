@@ -232,7 +232,7 @@ public class CheckoutWithBalanceHandler
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);
             var lifetimeDisc = user?.GetLifetimeDiscount() ?? 0m;
-            var cartDisc     = DiscountCalculator.GetCartVolumeDiscount(order.Subtotal);
+            var cartDisc     = DiscountCalculator.GetCartCountDiscount(orderItems.Count);
             order.ApplyDiscounts(lifetimeDisc, cartDisc);
 
             var buyerPays = order.Price; // уже пересчитан после ApplyDiscounts

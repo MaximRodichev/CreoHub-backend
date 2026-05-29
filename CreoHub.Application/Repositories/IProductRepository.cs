@@ -1,6 +1,7 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.DTO.StatsDTOs;
+using CreoHub.Application.Queries.Admin;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Interfaces;
 
@@ -23,4 +24,6 @@ public interface IProductRepository : IRepository<Product, int>
     public Task<List<ProductStatsDTO>> GetProductsStatsByShopIdAsync(Guid shopId, DateTime? from = null, DateTime? to = null, int? limit = null);
     /// <summary>Возвращает бандлы, которые содержат хотя бы один из указанных дочерних продуктов.</summary>
     public Task<List<Product>> GetBundlesByChildProductIdsAsync(IEnumerable<int> childProductIds);
+    /// <summary>Список товаров с указанным статусом (для панели модерации).</summary>
+    public Task<List<ModerationQueueItemDTO>> GetProductsByStatusAsync(Domain.Types.ProductStatus status, CancellationToken ct = default);
 }

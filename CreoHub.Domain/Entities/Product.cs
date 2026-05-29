@@ -29,7 +29,8 @@ public class Product
     public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
 
     public ProductType ProductType { get; private set; } = ProductType.Single;
-    public ProductStatus ProductStatus { get; private set; } = ProductStatus.Active;
+    public ProductStatus ProductStatus { get; private set; } = ProductStatus.OnModerating;
+    public string? BanReason { get; private set; }
 
     public Shop Owner { get; private init; }
     public Guid OwnerId { get; private init; }
@@ -199,22 +200,28 @@ public class Product
 
     public void Activate()
     {
-        if (ProductStatus != ProductStatus.Hidden)
-            throw new InvalidOperationException("Only hidden products can be activated.");
+        if (ProductStatus == ProductStatus.Banned)
+            throw new InvalidOperationException("Banned products can only be activated by admin.");
         ProductStatus = ProductStatus.Active;
     }
 
     public void Hide()
     {
-        if (ProductStatus != ProductStatus.Active)
-            throw new InvalidOperationException("Only active products can be hidden.");
+        if (ProductStatus == ProductStatus.Banned)
+            throw new InvalidOperationException("Banned products cannot be hidden.");
         ProductStatus = ProductStatus.Hidden;
     }
 
+    /// <summary>
+    /// Отправить на модерацию. Допускается из Hidden, ModerationFailed.
+    /// Также вызывается автоматически при любом редактировании.
+    /// </summary>
     public void SendToModeration()
     {
-        if (ProductStatus != ProductStatus.Active)
-            throw new InvalidOperationException("Only active products can be sent to moderation.");
+        if (ProductStatus == ProductStatus.Banned)
+            throw new InvalidOperationException("Banned products cannot be sent to moderation.");
+        if (ProductStatus == ProductStatus.Archived)
+            throw new InvalidOperationException("Archived products cannot be sent to moderation.");
         ProductStatus = ProductStatus.OnModerating;
     }
 
@@ -230,6 +237,52 @@ public class Product
         if (ProductStatus != ProductStatus.OnModerating)
             throw new InvalidOperationException("Only products on moderation can be rejected.");
         ProductStatus = ProductStatus.ModerationFailed;
+    }
+
+    /// <summary>Администратор банит товар с указанием причины.</summary>
+    public void Ban(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("Ban reason is required.", nameof(reason));
+        if (ProductStatus == ProductStatus.Archived)
+            throw new InvalidOperationException("Archived products cannot be banned.");
+        ProductStatus = ProductStatus.Banned;
+        BanReason = reason;
+    }
+
+    /// <summary>Администратор снимает бан.</summary>
+    public void Unban()
+    {
+        if (ProductStatus != ProductStatus.Banned)
+            throw new InvalidOperationException("Only banned products can be unbanned.");
+        ProductStatus = ProductStatus.Hidden;
+        BanReason = null;
+    }
+
+    /// <summary>
+    /// Администратор принудительно скрывает товар.
+    /// Работает при любом статусе кроме Archived и Banned.
+    /// </summary>
+    public void AdminHide()
+    {
+        if (ProductStatus == ProductStatus.Archived)
+            throw new InvalidOperationException("Нельзя скрыть архивированный товар.");
+        if (ProductStatus == ProductStatus.Banned)
+            throw new InvalidOperationException("Нельзя скрыть забаненный товар. Используйте Unban.");
+        ProductStatus = ProductStatus.Hidden;
+    }
+
+    /// <summary>
+    /// Администратор принудительно отправляет товар на модерацию.
+    /// Работает при любом статусе кроме Archived и Banned.
+    /// </summary>
+    public void AdminSendToModeration()
+    {
+        if (ProductStatus == ProductStatus.Archived)
+            throw new InvalidOperationException("Нельзя отправить на модерацию архивированный товар.");
+        if (ProductStatus == ProductStatus.Banned)
+            throw new InvalidOperationException("Нельзя отправить на модерацию забаненный товар. Снимите бан сначала.");
+        ProductStatus = ProductStatus.OnModerating;
     }
 
     /// <summary>

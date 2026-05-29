@@ -14,6 +14,7 @@ public class ProductStatusDeleteTests
 {
     private readonly ITestOutputHelper _output;
     private readonly IProductRepository _productRepo;
+    private readonly IProductStatusLogRepository _statusLogRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     private static readonly Guid ShopId      = Guid.Parse("eeee0001-0000-0000-0000-000000000000");
@@ -23,21 +24,45 @@ public class ProductStatusDeleteTests
 
     public ProductStatusDeleteTests(ITestOutputHelper output)
     {
-        _output     = output;
-        _productRepo = Substitute.For<IProductRepository>();
-        _unitOfWork  = Substitute.For<IUnitOfWork>();
+        _output        = output;
+        _productRepo   = Substitute.For<IProductRepository>();
+        _statusLogRepo = Substitute.For<IProductStatusLogRepository>();
+        _unitOfWork    = Substitute.For<IUnitOfWork>();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Создаёт Product в нужном статусе через доменные методы.
+    /// Новые продукты стартуют в OnModerating — переходы через ApproveModeration / Hide / Ban и т.д.
+    /// </summary>
     private static Product MakeProduct(Guid shopId, ProductStatus status = ProductStatus.Active)
     {
         var product = new Product("Test Product", "Description", shopId);
-        // Если нужен Hidden — один раз Hide() (через рефлексию т.к. приватное состояние)
-        if (status == ProductStatus.Hidden)
-            typeof(Product)
-                .GetProperty("ProductStatus")!
-                .SetValue(product, ProductStatus.Hidden);
+        // Продукт по умолчанию OnModerating — доводим до нужного статуса через domain API
+        switch (status)
+        {
+            case ProductStatus.Active:
+                product.ApproveModeration();      // OnModerating → Active
+                break;
+            case ProductStatus.Hidden:
+                product.ApproveModeration();      // OnModerating → Active
+                product.Hide();                   // Active → Hidden
+                break;
+            case ProductStatus.ModerationFailed:
+                product.RejectModeration();       // OnModerating → ModerationFailed
+                break;
+            case ProductStatus.Banned:
+                product.ApproveModeration();
+                product.Ban("Тестовая блокировка");
+                break;
+            case ProductStatus.Archived:
+                product.Archive();
+                break;
+            case ProductStatus.OnModerating:
+            default:
+                break; // дефолт
+        }
         return product;
     }
 
@@ -46,7 +71,7 @@ public class ProductStatusDeleteTests
     [Fact]
     public void Product_Hide_ActiveProduct_ChangesStatusToHidden()
     {
-        var product = new Product("Test", "Desc", ShopId);
+        var product = MakeProduct(ShopId, ProductStatus.Active);
         Assert.Equal(ProductStatus.Active, product.ProductStatus);
 
         product.Hide();
@@ -66,17 +91,24 @@ public class ProductStatusDeleteTests
     }
 
     [Fact]
-    public void Product_Hide_AlreadyHidden_Throws()
+    public void Product_Hide_AlreadyHidden_IsIdempotent()
     {
+        // Hide() не бросает исключение если товар уже скрыт — идемпотентная операция
         var product = MakeProduct(ShopId, ProductStatus.Hidden);
-        Assert.Throws<InvalidOperationException>(() => product.Hide());
+        product.Hide(); // должен не упасть
+        Assert.Equal(ProductStatus.Hidden, product.ProductStatus);
     }
 
     [Fact]
-    public void Product_Activate_AlreadyActive_Throws()
+    public void Product_Activate_FromOnModerating_ChangesStatusToActive()
     {
+        // Activate() не требует Active — переводит из любого не-Banned статуса
         var product = new Product("Test", "Desc", ShopId);
-        Assert.Throws<InvalidOperationException>(() => product.Activate());
+        Assert.Equal(ProductStatus.OnModerating, product.ProductStatus);
+
+        product.Activate();
+
+        Assert.Equal(ProductStatus.Active, product.ProductStatus);
     }
 
     // ── Handler: ChangeProductStatusHandler ───────────────────────────────────
@@ -88,7 +120,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -107,7 +139,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Active"),
             CancellationToken.None);
@@ -123,7 +155,7 @@ public class ProductStatusDeleteTests
     {
         _productRepo.GetProductById(ProductId).ReturnsNull();
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -141,7 +173,7 @@ public class ProductStatusDeleteTests
         var product = MakeProduct(OtherShopId); // принадлежит другому шопу
         _productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -159,7 +191,7 @@ public class ProductStatusDeleteTests
         var product = MakeProduct(ShopId);
         _productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Deleted"), // неверный статус
             CancellationToken.None);
@@ -178,7 +210,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _unitOfWork);
 
         // "HIDDEN", "hidden", "Hidden" — все должны работать
         var result = await handler.Handle(

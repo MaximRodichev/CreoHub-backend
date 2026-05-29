@@ -5,6 +5,7 @@ using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -66,7 +67,7 @@ public class ProductHandlerTests
         _output.WriteLine($"Status: {result.Status}");
 
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.True(result.Data);
+        // result.Data = product ID assigned by DB (0 in unit tests — no real persistence)
         await _productRepo.Received(1).AddAsync(Arg.Any<Product>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -148,7 +149,7 @@ public class ProductHandlerTests
     {
         _productRepo.GetProductById(ProductId).Returns(Task.FromResult<Product>(null!));
 
-        var handler = new UpdateProductHandler(_productRepo, _unitOfWork, _tagRepo, _priceRepo, _storageRepo);
+        var handler = new UpdateProductHandler(_productRepo, Substitute.For<IProductStatusLogRepository>(), Substitute.For<IProductEditHistoryRepository>(), _unitOfWork, _tagRepo, _priceRepo, _storageRepo, Substitute.For<IStorageService>());
         var result = await handler.Handle(
             new UpdateProductCommand(ShopId, new UpdateProductInfoDTO
             {
@@ -176,7 +177,7 @@ public class ProductHandlerTests
         _productRepo.Update(Arg.Any<Product>()).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
-        var handler = new UpdateProductHandler(_productRepo, _unitOfWork, _tagRepo, _priceRepo, _storageRepo);
+        var handler = new UpdateProductHandler(_productRepo, Substitute.For<IProductStatusLogRepository>(), Substitute.For<IProductEditHistoryRepository>(), _unitOfWork, _tagRepo, _priceRepo, _storageRepo, Substitute.For<IStorageService>());
         var result = await handler.Handle(
             new UpdateProductCommand(ShopId, new UpdateProductInfoDTO
             {
@@ -208,7 +209,7 @@ public class ProductHandlerTests
         _productRepo.Update(Arg.Any<Product>()).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
-        var handler = new UpdateProductHandler(_productRepo, _unitOfWork, _tagRepo, _priceRepo, _storageRepo);
+        var handler = new UpdateProductHandler(_productRepo, Substitute.For<IProductStatusLogRepository>(), Substitute.For<IProductEditHistoryRepository>(), _unitOfWork, _tagRepo, _priceRepo, _storageRepo, Substitute.For<IStorageService>());
         var result = await handler.Handle(
             new UpdateProductCommand(ShopId, new UpdateProductInfoDTO
             {

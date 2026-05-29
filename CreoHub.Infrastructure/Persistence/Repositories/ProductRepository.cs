@@ -3,6 +3,7 @@ using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.DTO.ProductDTOs;
 using CreoHub.Application.DTO.StatsDTOs;
 using CreoHub.Application.DTO.StorageDTOs;
+using CreoHub.Application.Queries.Admin;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
@@ -162,9 +163,10 @@ public class ProductRepository : IProductRepository
 
     public async Task<ProductInfoDTO> GetProductInfoById(int id)
     {
+        // Отдаём при любом статусе — фронтенд сам показывает нужный блок
         var product = await _db.Products
             .AsNoTracking()
-            .Where(x => (x.ProductStatus == ProductStatus.Active || x.ProductStatus == ProductStatus.Archived) && x.Id == id)
+            .Where(x => x.Id == id)
             .Select(x => new ProductInfoDTO
             {
                 Id = x.Id,
@@ -182,6 +184,7 @@ public class ProductRepository : IProductRepository
                 Tags = x.Tags.Select(t => t.Name).ToList(),
                 ProductType = x.ProductType,
                 ProductStatus = x.ProductStatus,
+                BanReason = x.BanReason,
                 inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
                 {
                     Name = b.Product.Name,
@@ -191,7 +194,6 @@ public class ProductRepository : IProductRepository
                         .Select(p => p.Value)
                         .FirstOrDefault(),
                 }).ToList(),
-                // Публичный API: только активные (не архивные) контент файлы
                 ContentFileInfos = x.ContentFiles
                     .Where(cf => cf.ArchivedAt == null)
                     .Select(cf => new ContentFileInfo()
@@ -565,6 +567,26 @@ public class ProductRepository : IProductRepository
                         p.BundleItems.Any(bi => ids.Contains(bi.ProductId)))
             .Include(p => p.BundleItems)
             .ToListAsync();
+    }
+
+    public async Task<List<ModerationQueueItemDTO>> GetProductsByStatusAsync(ProductStatus status, CancellationToken ct = default)
+    {
+        return await _db.Products
+            .AsNoTracking()
+            .Where(x => x.ProductStatus == status)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new ModerationQueueItemDTO(
+                x.Id,
+                x.Name,
+                x.Slug,
+                x.Owner.Name,
+                x.OwnerId,
+                x.MediaProducts
+                    .OrderBy(m => m.SortOrder)
+                    .Select(m => m.Thumbnail != null ? m.Thumbnail.Key : m.StorageObject.Key)
+                    .FirstOrDefault(),
+                x.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public Product Attach(Product entity)

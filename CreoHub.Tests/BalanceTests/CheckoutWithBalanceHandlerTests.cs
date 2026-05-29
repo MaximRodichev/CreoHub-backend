@@ -1,8 +1,10 @@
 using CreoHub.Application.Commands.OrderCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
+using CreoHub.Application.Pricing;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Repositories;
+using Microsoft.Extensions.Options;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using NSubstitute;
@@ -48,7 +50,8 @@ public class CheckoutWithBalanceHandlerTests
             Substitute.For<ICartRepository>(),
             Substitute.For<IShopTransactionRepository>(),
             Substitute.For<IShopBalanceRepository>(),
-            Substitute.For<IAccountRepository>());
+            Substitute.For<IAccountRepository>(),
+            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
 
     /// <summary>Создаёт Product с ценой (через рефлексию не нужно — используем публичный API).</summary>
     private static Product MakeProductWithPrice(decimal price)
@@ -71,7 +74,7 @@ public class CheckoutWithBalanceHandlerTests
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accessRepo.GetByUserIdAsync(UserId).Returns(new List<ContentAccess>());
-        // accountRepo returns null → no lifetime discount; cart $50 → 3% discount → buyerPays = 48.50
+        // accountRepo returns null → no lifetime discount; 1 item → count 0% → buyerPays = 50
 
         var items = new List<CheckoutItemDTO>
         {
@@ -85,8 +88,8 @@ public class CheckoutWithBalanceHandlerTests
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.NotEqual(Guid.Empty, result.Data!.OrderId);
         Assert.Equal(string.Empty, result.Data.PaymentUrl);
-        // cart 3% discount: buyerPays = 50 * 0.97 = 48.50 → balance = 100 - 48.50 = 51.50
-        Assert.Equal(51.50m, balance.AvailableAmount);
+        // 1 item = count discount 0%, no lifetime → buyerPays = 50 → balance = 100 - 50 = 50
+        Assert.Equal(50m, balance.AvailableAmount);
         // SaveChanges вызывается 2 раза: единый атомарный коммит (Order+баланс+доступы)
         // + коммит очистки корзины (try/catch). LifetimeSpent пропускается т.к. user == null.
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());

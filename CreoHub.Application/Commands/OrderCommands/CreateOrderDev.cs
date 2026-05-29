@@ -49,10 +49,42 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
                 .Select(p => (p, p.ContentFiles.ToList()))
                 .ToList();
 
+            // ── Если задана кастомная цена — распределяем пропорционально ─
+            Dictionary<int, decimal>? priceOverrides = null;
+            if (request.dto.Price > 0 && products.Count > 0)
+            {
+                var normalPrices = products
+                    .Select(p => new { p.Id, Price = p.GetCurrentPrice() })
+                    .ToList();
+                var totalNormalPrice = normalPrices.Sum(x => x.Price);
+
+                if (totalNormalPrice > 0)
+                {
+                    var allocated = 0m;
+                    priceOverrides = new Dictionary<int, decimal>();
+                    for (var i = 0; i < normalPrices.Count; i++)
+                    {
+                        var x = normalPrices[i];
+                        if (i == normalPrices.Count - 1)
+                        {
+                            // Последний продукт — берём остаток, чтобы не было погрешностей округления
+                            priceOverrides[x.Id] = request.dto.Price - allocated;
+                        }
+                        else
+                        {
+                            var share = Math.Round(request.dto.Price * (x.Price / totalNormalPrice), 2);
+                            priceOverrides[x.Id] = share;
+                            allocated += share;
+                        }
+                    }
+                }
+            }
+
             var order = Order.Open(
                 description: "",
                 items: items,
-                customerId: customer.Id
+                customerId: customer.Id,
+                priceOverrides: priceOverrides
             );
 
             await _orderRepository.AddAsync(order);
@@ -70,9 +102,11 @@ public class CreateOrderDevHandler : IRequestHandler<CreateOrderDevCommand, Base
             }
 
             // ── LifetimeSpent ─────────────────────────────────────────
-            if (request.dto.Price > 0)
+            // Используем фактическую сумму заказа: кастомную если задана, иначе по прайсу
+            var spendAmount = request.dto.Price > 0 ? request.dto.Price : order.Price;
+            if (spendAmount > 0)
             {
-                customer.AddSpend(request.dto.Price);
+                customer.AddSpend(spendAmount);
                 _accountRepository.Update(customer);
             }
 
