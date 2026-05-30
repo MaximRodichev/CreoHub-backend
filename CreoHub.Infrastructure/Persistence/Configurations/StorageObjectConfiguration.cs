@@ -21,6 +21,11 @@ public class StorageObjectConfiguration : IEntityTypeConfiguration<StorageObject
         builder.Property(x=>x.FileType).IsRequired();
         builder.Property(x => x.FileType)
             .HasConversion<string>();
+
+        builder.Property(x => x.VideoOptimizationStatus)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasDefaultValue(Domain.Types.VideoOptimizationStatus.None);
             
         builder.Property(x => x.UploadedAt)
             .HasConversion(

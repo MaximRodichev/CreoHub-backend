@@ -58,12 +58,20 @@ public class Product
         return s.Trim('-');
     }
 
+    public const int MaxNameLength        = 50;
+    public const int MaxDescriptionLength = 2000;
+
     public Product(string name, string description, Guid ownerId, IEnumerable<Tag>? tags = null)
     {
-        if (name == null) throw new ArgumentNullException(nameof(name));
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+        if (name.Length > MaxNameLength)
+            throw new ArgumentException($"Имя товара не должно превышать {MaxNameLength} символов (сейчас {name.Length}).");
         Name        = name;
         Slug        = GenerateSlug(name);
-        Description = description ?? throw new ArgumentNullException(nameof(description));
+        if (description == null) throw new ArgumentNullException(nameof(description));
+        if (description.Length > MaxDescriptionLength)
+            throw new ArgumentException($"Описание не должно превышать {MaxDescriptionLength} символов (сейчас {description.Length}).");
+        Description = description;
         OwnerId     = ownerId;
 
         if (tags != null)
@@ -98,7 +106,10 @@ public class Product
 
     public void UpdateName(string name)
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+        if (name.Length > MaxNameLength)
+            throw new ArgumentException($"Имя товара не должно превышать {MaxNameLength} символов (сейчас {name.Length}).");
+        Name = name;
         // Slug НЕ меняется автоматически — URL должен оставаться стабильным
     }
 
@@ -110,7 +121,10 @@ public class Product
 
     public void UpdateDescription(string description)
     {
-        Description = description ?? throw new ArgumentNullException(nameof(description));
+        if (description == null) throw new ArgumentNullException(nameof(description));
+        if (description.Length > MaxDescriptionLength)
+            throw new ArgumentException($"Описание не должно превышать {MaxDescriptionLength} символов (сейчас {description.Length}).");
+        Description = description;
     }
 
     public void AddPrice(decimal amount)

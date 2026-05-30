@@ -18,6 +18,12 @@ public class StorageObject
     /// </summary>
     public bool IsSystemLocked { get; private set; }
 
+    /// <summary>
+    /// Статус фоновой видео-оптимизации (H.264 конвертация + thumbnail).
+    /// None — не запускалась. Queued/Processing — в работе. Done/Failed — завершено.
+    /// </summary>
+    public VideoOptimizationStatus VideoOptimizationStatus { get; private set; } = VideoOptimizationStatus.None;
+
     public Shop Owner { get; private init; }
     public Guid OwnerId { get; private init; }
     
@@ -65,6 +71,28 @@ public class StorageObject
     public void Lock()
     {
         IsSystemLocked = true;
+    }
+
+    // ── Video optimisation status lifecycle ───────────────────────────────────
+
+    public void MarkQueued()
+    {
+        VideoOptimizationStatus = VideoOptimizationStatus.Queued;
+    }
+
+    public void MarkProcessing()
+    {
+        VideoOptimizationStatus = VideoOptimizationStatus.Processing;
+    }
+
+    public void MarkOptimizationDone()
+    {
+        VideoOptimizationStatus = VideoOptimizationStatus.Done;
+    }
+
+    public void MarkOptimizationFailed()
+    {
+        VideoOptimizationStatus = VideoOptimizationStatus.Failed;
     }
 }
 

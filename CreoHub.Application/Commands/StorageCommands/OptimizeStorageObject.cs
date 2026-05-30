@@ -6,20 +6,23 @@ using MediatR;
 
 namespace CreoHub.Application.Commands.StorageCommands;
 
-public record OptimizeStorageObjectCommand(Guid storageObjectId, Guid shopId) 
+public record OptimizeStorageObjectCommand(Guid storageObjectId, Guid shopId)
     : IRequest<BaseResponse<bool>>;
 
 public class OptimizeStorageObjectHandler : IRequestHandler<OptimizeStorageObjectCommand, BaseResponse<bool>>
 {
     private readonly IStorageObjectRepository _storageObjectRepository;
     private readonly IVideoOptimizationQueueService _queue;
+    private readonly IUnitOfWork _unitOfWork;
 
     public OptimizeStorageObjectHandler(
         IStorageObjectRepository storageObjectRepository,
-        IVideoOptimizationQueueService queue)
+        IVideoOptimizationQueueService queue,
+        IUnitOfWork unitOfWork)
     {
         _storageObjectRepository = storageObjectRepository;
         _queue = queue;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<BaseResponse<bool>> Handle(OptimizeStorageObjectCommand request, CancellationToken cancellationToken)
@@ -43,7 +46,18 @@ public class OptimizeStorageObjectHandler : IRequestHandler<OptimizeStorageObjec
             if (storageObject.FileType == FileType.Content)
                 return BaseResponse<bool>.Fail("Файл контента запрещено понижать в качестве, отвяжите от продукта перед сжатием");
 
-            _queue.Enqueue(request.storageObjectId);
+            // Проверка: уже в обработке или в очереди?
+            if (storageObject.VideoOptimizationStatus is VideoOptimizationStatus.Queued
+                                                     or VideoOptimizationStatus.Processing)
+                return BaseResponse<bool>.Fail("Файл уже находится в очереди на оптимизацию");
+
+            // Попытка добавить в очередь (in-memory дедупликация — второй барьер)
+            storageObject.MarkQueued();
+            _storageObjectRepository.Update(storageObject);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (!_queue.TryEnqueue(request.storageObjectId))
+                return BaseResponse<bool>.Fail("Файл уже находится в очереди на оптимизацию");
 
             return BaseResponse<bool>.Success(true);
         }

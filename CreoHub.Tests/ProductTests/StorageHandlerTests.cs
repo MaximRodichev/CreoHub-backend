@@ -419,12 +419,14 @@ public class StorageHandlerTests
         var storage = MakeStorage(mime: "video/mp4", size: 50 * 1024 * 1024);
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        _queue.TryEnqueue(storageId).Returns(true);
+
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}");
         Assert.Equal(ResponseStatus.Success, result.Status);
-        _queue.Received(1).Enqueue(storageId);
+        _queue.Received(1).TryEnqueue(storageId);
     }
 
     [Fact]
@@ -432,13 +434,13 @@ public class StorageHandlerTests
     {
         _storageRepo.GetByIdAsync(Arg.Any<Guid>()).ReturnsNull();
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(
             new OptimizeStorageObjectCommand(Guid.NewGuid(), ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
         Assert.Contains("Файл не найден", result.ErrorMessage);
-        _queue.DidNotReceive().Enqueue(Arg.Any<Guid>());
+        _queue.DidNotReceive().TryEnqueue(Arg.Any<Guid>());
     }
 
     [Fact]
@@ -448,7 +450,7 @@ public class StorageHandlerTests
         var storage = MakeStorage(Guid.NewGuid(), "video/mp4", 50_000_000);   // different shop
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
@@ -462,7 +464,7 @@ public class StorageHandlerTests
         var storage = MakeStorage(mime: "video/webm", size: 50_000_000);
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
@@ -476,7 +478,7 @@ public class StorageHandlerTests
         var storage = MakeStorage(mime: "video/mp4", size: 3 * 1024 * 1024);   // 3 MB < 5 MB
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
@@ -492,7 +494,7 @@ public class StorageHandlerTests
 
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
-        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue);
+        var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
