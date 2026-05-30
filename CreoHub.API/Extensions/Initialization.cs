@@ -8,6 +8,7 @@ using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Infrastructure.Persistence;
 using CreoHub.Infrastructure.Persistence.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Infrastructure.Persistence.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +73,7 @@ public static class Initialization
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
         services.AddScoped<IThumbnailGenerationService, ThumbnailGenerationService>();
+        services.AddScoped<ITelegramAuthVerifier, TelegramAuthVerifier>();
         
         
         services.AddScoped<JwtService>();

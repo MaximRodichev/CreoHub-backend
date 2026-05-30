@@ -11,8 +11,8 @@ public class User
 
     /// <summary>Накопленная сумма всех покупок пользователя (то, что он реально заплатил).</summary>
     public decimal LifetimeSpent { get; private set; } = 0m;
-    public long? TelegramId { get; private init; }
-    public string? TelegramUsername { get; private init; }
+    public long? TelegramId { get; private set; }
+    public string? TelegramUsername { get; private set; }
     public string? EmailAddress { get; private set; }
     public DateTime RegistrationDate { get; private init; } = DateTime.UtcNow;
 
@@ -53,6 +53,29 @@ public class User
         user.BalanceId = user.Balance.Id;
 
         return user;
+    }
+
+    /// <summary>
+    /// Привязывает Telegram к существующему аккаунту (Google-пользователь добавляет Telegram).
+    /// </summary>
+    public void LinkTelegram(long telegramId, string? username)
+    {
+        if (TelegramId.HasValue)
+            throw new InvalidOperationException("Telegram уже привязан к этому аккаунту.");
+        TelegramId = telegramId;
+        TelegramUsername = username;
+    }
+
+    /// <summary>
+    /// Привязывает Email к существующему аккаунту (Telegram-пользователь добавляет Google/Email).
+    /// </summary>
+    public void LinkEmail(string email)
+    {
+        if (!string.IsNullOrWhiteSpace(EmailAddress))
+            throw new InvalidOperationException("Email уже привязан к этому аккаунту.");
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+        EmailAddress = email;
     }
 
     public void AssignShop(Shop shop)

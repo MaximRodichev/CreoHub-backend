@@ -85,21 +85,82 @@ public class AccountController : ControllerBase
         var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         if (!result.Succeeded)
-            return BadRequest("Ошибка авторизации Google");
+            return Redirect($"{_configuration["Frontend"]}/signin?error=google_failed");
 
+        var email = result.Principal!.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+        if (string.IsNullOrWhiteSpace(email))
+            return Redirect($"{_configuration["Frontend"]}/signin?error=no_email");
+
+        // Режим привязки Google к существующему аккаунту (Telegram-пользователь)
+        result.Properties!.Items.TryGetValue("link_user_id", out var linkUserIdStr);
+        if (!string.IsNullOrEmpty(linkUserIdStr) && Guid.TryParse(linkUserIdStr, out var linkUserId))
+        {
+            var linkResponse = await _mediator.Send(new LinkEmailAccountCommand(linkUserId, email));
+            if (linkResponse.Status != ResponseStatus.Success)
+                return Redirect($"{_configuration["Frontend"]}/me/profile?link_error={Uri.EscapeDataString(linkResponse.ErrorMessage ?? "Ошибка привязки")}");
+
+            // Обновляем JWT с новыми данными (email теперь есть)
+            var token = _jwtService.GenerateToken(new UserClaimsModel(linkResponse.Data));
+            return Redirect($"{_configuration["Frontend"]}/me/profile?linked=google&token={token}");
+        }
+
+        // Обычный вход / регистрация через Google
         var userData = new AuthAccountDTO
         {
-            Name = result.Principal.Identity.Name,
-            Email = result.Principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value,
+            Name       = result.Principal.Identity!.Name ?? email,
+            Email      = email,
             TelegramId = null,
         };
 
         var response = await _mediator.Send(new AuthAccountCommand(userData));
         if (response.Status != ResponseStatus.Success)
-            return BadRequest(response.ErrorMessage);
+            return Redirect($"{_configuration["Frontend"]}/signin?error={Uri.EscapeDataString(response.ErrorMessage ?? "auth_failed")}");
+
+        var jwtToken = _jwtService.GenerateToken(new UserClaimsModel(response.Data));
+        return Redirect($"{_configuration["Frontend"]}/auth-callback?token={jwtToken}");
+    }
+
+    /// <summary>
+    /// Инициирует привязку Google-аккаунта к Telegram-пользователю.
+    /// [Authorize] — userId берётся из JWT. После OAuth редиректит обратно в GoogleResponse.
+    /// </summary>
+    [Authorize]
+    [HttpGet("link-google")]
+    public IActionResult LinkGoogle()
+    {
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action("GoogleResponse"),
+            Items       = { ["link_user_id"] = UserId.ToString() },
+        };
+        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+    }
+
+    /// <summary>
+    /// Привязывает Telegram к аккаунту пользователя (для тех, кто зашёл через Google).
+    /// Данные берутся из Telegram Login Widget.
+    /// </summary>
+    [Authorize]
+    [HttpPost("link-telegram")]
+    public async Task<IActionResult> LinkTelegram([FromBody] TelegramAuthData data)
+    {
+        var response = await _mediator.Send(new LinkTelegramAccountCommand(UserId, data));
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Авторизация / регистрация через Telegram Login Widget.
+    /// Возвращает JWT токен.
+    /// </summary>
+    [HttpPost("auth/telegram")]
+    public async Task<IActionResult> TelegramAuth([FromBody] TelegramAuthData data)
+    {
+        var response = await _mediator.Send(new AuthTelegramAccountCommand(data));
+        if (response.Status != ResponseStatus.Success)
+            return Ok(response);
 
         var token = _jwtService.GenerateToken(new UserClaimsModel(response.Data));
-        return Redirect($"{_configuration["Frontend"]}/auth-callback?token={token}");
+        return Ok(BaseResponse<string>.Success(token));
     }
 
     [HttpPost("auth/logout")]
