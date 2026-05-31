@@ -338,6 +338,8 @@ public class StorageHandlerTests
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
         // Handler calls GetByStorageObjectIdAsync(storageObject.Id) — storage.Id is auto-generated, use Arg.Any
         _contentFileRepo.GetByStorageObjectIdAsync(Arg.Any<Guid>()).Returns(Task.FromResult(new List<ContentFile> { contentFile }));
+        _contentFileRepo.GetActiveCountByProductIdAsync(ProductId).Returns(Task.FromResult(2)); // product has 2 files → detach allowed
+        _contentFileRepo.HasPurchasesAsync(Arg.Any<Guid>()).Returns(Task.FromResult(false));    // no purchases → clean delete path
         _contentFileRepo.Remove(Arg.Any<ContentFile>());
         _productRepo.Update(Arg.Any<Product>()).Returns(product);
         _storageRepo.Update(Arg.Any<StorageObject>()).Returns(storage);

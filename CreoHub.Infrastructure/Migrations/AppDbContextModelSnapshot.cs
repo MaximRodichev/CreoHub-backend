@@ -22,6 +22,58 @@ namespace CreoHub.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.BroadcastJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ErrorLog")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<int>("SentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("TotalUsers")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("BroadcastJobs");
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -364,45 +416,6 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("ProductBundles");
                 });
 
-            modelBuilder.Entity("CreoHub.Domain.Entities.ProductStatusLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<Guid?>("ChangedById")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .IsRequired()
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("NewStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("OldStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("ProductStatusLogs");
-                });
-
             modelBuilder.Entity("CreoHub.Domain.Entities.ProductEditHistory", b =>
                 {
                     b.Property<int>("Id")
@@ -431,6 +444,44 @@ namespace CreoHub.Infrastructure.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductEditHistories");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.ProductStatusLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid?>("ChangedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OldStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductStatusLogs");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.Shop", b =>
@@ -604,6 +655,7 @@ namespace CreoHub.Infrastructure.Migrations
 
                     b.Property<string>("VideoOptimizationStatus")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("None");
 
@@ -664,6 +716,12 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("NotifyOnModeration")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnPurchase")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
@@ -730,6 +788,47 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserBalances");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.UserEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("EventType", "CreatedAt");
+
+                    b.HasIndex("ProductId", "CreatedAt")
+                        .HasFilter("\"ProductId\" IS NOT NULL");
+
+                    b.ToTable("UserEvents");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.UserTransaction", b =>
@@ -1135,7 +1234,7 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("CreoHub.Domain.Entities.ProductStatusLog", b =>
+            modelBuilder.Entity("CreoHub.Domain.Entities.ProductEditHistory", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.Product", "Product")
                         .WithMany()
@@ -1146,7 +1245,7 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("CreoHub.Domain.Entities.ProductEditHistory", b =>
+            modelBuilder.Entity("CreoHub.Domain.Entities.ProductStatusLog", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.Product", "Product")
                         .WithMany()

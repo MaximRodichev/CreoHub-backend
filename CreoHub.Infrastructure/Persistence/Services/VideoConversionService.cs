@@ -12,13 +12,20 @@ public class VideoConversionService : IVideoConversionService
     private readonly IStorageService _storageService;
     private readonly ILogger<VideoConversionService> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IOptimizationProgressService _progressService;
 
-    public VideoConversionService(IUnitOfWork unitOfWork, IStorageObjectRepository storageObjectRepository, IStorageService storageService, ILogger<VideoConversionService> logger)
+    public VideoConversionService(
+        IUnitOfWork unitOfWork,
+        IStorageObjectRepository storageObjectRepository,
+        IStorageService storageService,
+        ILogger<VideoConversionService> logger,
+        IOptimizationProgressService progressService)
     {
         _storageObjectRepository = storageObjectRepository;
         _storageService = storageService;
         _logger = logger;
         _unitOfWork = unitOfWork;
+        _progressService = progressService;
     }
 
     public async Task ConvertAsync(Guid storageObjectId, CancellationToken cancellationToken)
@@ -43,14 +50,24 @@ public class VideoConversionService : IVideoConversionService
             // H.264/AAC — в 3–4× быстрее VP9, памяти в разы меньше, поддержка везде
             // CRF 30 = агрессивное сжатие, scale=-2:720 = 720p с сохранением пропорций
             // faststart = MP4-атом moov в начале файла (стриминг без полной загрузки)
-            await FFmpeg.Conversions.New()
+            _progressService.SetProgress(storageObjectId, 0);
+
+            var conversion = FFmpeg.Conversions.New()
                 .AddParameter($"-i \"{inputPath}\"")
                 .AddParameter("-c:v libx264 -crf 30 -preset slow")
                 .AddParameter("-vf scale=-2:720")
                 .AddParameter("-c:a aac -b:a 64k")
                 .AddParameter("-movflags +faststart")
-                .SetOutput(outputPath)
-                .Start(cancellationToken);
+                .SetOutput(outputPath);
+
+            conversion.OnProgress += (_, args) =>
+            {
+                // Ограничиваем 95% — thumbnail + Done-статус займут оставшиеся 5%
+                var pct = (int)Math.Min(95, args.Percent);
+                _progressService.SetProgress(storageObjectId, pct);
+            };
+
+            await conversion.Start(cancellationToken);
 
             var newKey = Path.ChangeExtension(video.Key, ".mp4");
             using var stream = File.OpenRead(outputPath);

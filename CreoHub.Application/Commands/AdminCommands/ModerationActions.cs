@@ -1,5 +1,6 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
@@ -16,17 +17,23 @@ public record RejectModerationCommand(int ProductId, Guid AdminUserId, string? R
 
 public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand, BaseResponse<bool>>
 {
-    private readonly IProductRepository         _productRepository;
+    private readonly IProductRepository          _productRepository;
     private readonly IProductStatusLogRepository _statusLogRepository;
-    private readonly IUnitOfWork                _unitOfWork;
+    private readonly IAccountRepository          _accountRepository;
+    private readonly INotificationService        _notifications;
+    private readonly IUnitOfWork                 _unitOfWork;
 
     public ApproveModerationHandler(
         IProductRepository productRepository,
         IProductStatusLogRepository statusLogRepository,
+        IAccountRepository accountRepository,
+        INotificationService notifications,
         IUnitOfWork unitOfWork)
     {
         _productRepository   = productRepository;
         _statusLogRepository = statusLogRepository;
+        _accountRepository   = accountRepository;
+        _notifications       = notifications;
         _unitOfWork          = unitOfWork;
     }
 
@@ -47,6 +54,10 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
                 changedById: request.AdminUserId), ct);
 
             await _unitOfWork.SaveChangesAsync(ct);
+
+            // Fire-and-forget notification to seller
+            _ = NotifySellerAsync(product.OwnerId, product.Name, approved: true, ct);
+
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)
@@ -54,23 +65,42 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
             return BaseResponse<bool>.Fail(ex.Message);
         }
     }
+
+    private async Task NotifySellerAsync(Guid shopId, string productName, bool approved, CancellationToken ct)
+    {
+        try
+        {
+            var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
+            if (seller is null || !seller.NotifyOnModeration) return;
+
+            var msg = $"✅ Ваш продукт <b>{productName}</b> прошёл модерацию и теперь доступен покупателям.";
+            await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+        }
+        catch { /* notifications must never affect the main flow */ }
+    }
 }
 
 // ── Reject ──────────────────────────────────────────────────────────────────
 
 public class RejectModerationHandler : IRequestHandler<RejectModerationCommand, BaseResponse<bool>>
 {
-    private readonly IProductRepository         _productRepository;
+    private readonly IProductRepository          _productRepository;
     private readonly IProductStatusLogRepository _statusLogRepository;
-    private readonly IUnitOfWork                _unitOfWork;
+    private readonly IAccountRepository          _accountRepository;
+    private readonly INotificationService        _notifications;
+    private readonly IUnitOfWork                 _unitOfWork;
 
     public RejectModerationHandler(
         IProductRepository productRepository,
         IProductStatusLogRepository statusLogRepository,
+        IAccountRepository accountRepository,
+        INotificationService notifications,
         IUnitOfWork unitOfWork)
     {
         _productRepository   = productRepository;
         _statusLogRepository = statusLogRepository;
+        _accountRepository   = accountRepository;
+        _notifications       = notifications;
         _unitOfWork          = unitOfWork;
     }
 
@@ -85,19 +115,38 @@ public class RejectModerationHandler : IRequestHandler<RejectModerationCommand, 
             product.RejectModeration();
             _productRepository.Update(product);
 
+            var reason = string.IsNullOrWhiteSpace(request.Reason)
+                ? "Отклонено администратором"
+                : request.Reason;
+
             await _statusLogRepository.AddAsync(new ProductStatusLog(
                 product.Id, oldStatus, ProductStatus.ModerationFailed,
-                reason: string.IsNullOrWhiteSpace(request.Reason)
-                    ? "Отклонено администратором"
-                    : request.Reason,
+                reason: reason,
                 changedById: request.AdminUserId), ct);
 
             await _unitOfWork.SaveChangesAsync(ct);
+
+            // Fire-and-forget notification to seller
+            _ = NotifySellerAsync(product.OwnerId, product.Name, reason, ct);
+
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)
         {
             return BaseResponse<bool>.Fail(ex.Message);
         }
+    }
+
+    private async Task NotifySellerAsync(Guid shopId, string productName, string reason, CancellationToken ct)
+    {
+        try
+        {
+            var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
+            if (seller is null || !seller.NotifyOnModeration) return;
+
+            var msg = $"❌ Ваш продукт <b>{productName}</b> не прошёл модерацию.\nПричина: {reason}";
+            await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+        }
+        catch { /* notifications must never affect the main flow */ }
     }
 }

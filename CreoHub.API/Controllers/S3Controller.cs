@@ -4,6 +4,7 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.StorageDTOs;
 using CreoHub.Application.Queries.Storage;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,13 +15,18 @@ namespace CreoHub.API.Controllers;
 [Route("[controller]")]
 public class S3Controller : ShopOwnerControllerBase
 {
-    private readonly IMediator        _mediator;
-    private readonly IShopRepository  _shopRepository;
+    private readonly IMediator                      _mediator;
+    private readonly IShopRepository                _shopRepository;
+    private readonly IOptimizationProgressService   _progressService;
 
-    public S3Controller(IMediator mediator, IShopRepository shopRepository)
+    public S3Controller(
+        IMediator mediator,
+        IShopRepository shopRepository,
+        IOptimizationProgressService progressService)
     {
-        _mediator       = mediator;
-        _shopRepository = shopRepository;
+        _mediator        = mediator;
+        _shopRepository  = shopRepository;
+        _progressService = progressService;
     }
 
     // ── Presigned upload (new flow) ───────────────────────────────────────────
@@ -105,12 +111,18 @@ public class S3Controller : ShopOwnerControllerBase
 
     [Authorize]
     [HttpGet("files")]
-    public async Task<IActionResult> GetFiles()
+    public async Task<IActionResult> GetFiles(
+        [FromQuery] int     page     = 1,
+        [FromQuery] int     pageSize = 20,
+        [FromQuery] string? search   = null,
+        [FromQuery] string? type     = null,
+        [FromQuery] string  sort     = "date",
+        [FromQuery] string  order    = "desc")
     {
         var (ok, shopId) = await TryGetShopId(_shopRepository);
         if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
 
-        var query    = new GetStorageObjectsQuery(shopId);
+        var query    = new GetStorageObjectsQuery(shopId, page, pageSize, search, type, sort, order);
         var response = await _mediator.Send(query);
         return Ok(response);
     }
@@ -259,6 +271,21 @@ public class S3Controller : ShopOwnerControllerBase
         var query    = new ContentDetachInfoQuery(productId, storageObjectId, shopId);
         var response = await _mediator.Send(query);
         return Ok(response);
+    }
+
+    // ── Optimization progress ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Возвращает прогресс FFmpeg-оптимизации для конкретного файла.
+    /// 0 = в очереди / не начат, 1-95 = конвертация H.264,
+    /// 96 = генерация thumbnail, 100 = готово, -1 = ошибка.
+    /// </summary>
+    [Authorize]
+    [HttpGet("optimization-progress/{storageObjectId:guid}")]
+    public IActionResult GetOptimizationProgress(Guid storageObjectId)
+    {
+        var progress = _progressService.GetProgress(storageObjectId);
+        return Ok(BaseResponse<int>.Success(progress));
     }
 
     // ── Backfill thumbnails ───────────────────────────────────────────────────

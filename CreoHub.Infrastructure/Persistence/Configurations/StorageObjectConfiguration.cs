@@ -33,10 +33,8 @@ public class StorageObjectConfiguration : IEntityTypeConfiguration<StorageObject
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
         
-        builder.HasOne(x=>x.MediaProduct)
-            .WithOne(x=>x.StorageObject)
-            .HasForeignKey<MediaProduct>(x=>x.StorageObjectId);
-        
+        // One-to-One с MediaProduct настраивается в MediaProductConfiguration (там же OnDelete.Restrict).
+
         builder.HasMany(x=>x.ContentFiles)
             .WithOne(x=>x.StorageObject)
             .HasForeignKey(x=>x.StorageObjectId);

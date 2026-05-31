@@ -54,4 +54,12 @@ public class UserBalanceRepository : IUserBalanceRepository
     {
         return await _db.UserBalances.FirstOrDefaultAsync(b => b.UserId == userId);
     }
+
+    /// <summary>SELECT … FOR UPDATE — блокирует строку до конца транзакции.</summary>
+    public async Task<UserBalance?> GetByUserIdForUpdateAsync(Guid userId)
+    {
+        return await _db.UserBalances
+            .FromSqlRaw(@"SELECT * FROM ""UserBalances"" WHERE ""UserId"" = {0} FOR UPDATE", userId)
+            .FirstOrDefaultAsync();
+    }
 }

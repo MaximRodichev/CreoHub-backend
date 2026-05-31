@@ -42,6 +42,12 @@ public class AppDbContext : DbContext
 
     // product edit history (audit snapshots)
     public DbSet<ProductEditHistory> ProductEditHistories { get; set; }
+
+    // behavioural analytics events
+    public DbSet<UserEvent> UserEvents { get; set; }
+
+    // admin broadcast jobs
+    public DbSet<BroadcastJob> BroadcastJobs { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

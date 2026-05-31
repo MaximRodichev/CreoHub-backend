@@ -1,5 +1,6 @@
 using Creohub.Domain.Entities;
 using CreoHub.Application.Commands.OrderCommands;
+using CreoHub.Application.Services;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Queries.Orders;
@@ -31,6 +32,7 @@ public class CompletePaymentMilestoneTests
     private readonly IShopBalanceRepository           _shopBalanceRepo;
     private readonly IAccountRepository               _accountRepo;
     private readonly ISubscriptionPromoCodeRepository _promoRepo;
+    private readonly IEventTracker _events;
 
     private static readonly Guid UserId = Guid.Parse("cccc0000-cccc-cccc-cccc-cccccccccccc");
     private static readonly Guid ShopId = Guid.Parse("dddd0000-dddd-dddd-dddd-dddddddddddd");
@@ -48,6 +50,7 @@ public class CompletePaymentMilestoneTests
         _shopBalanceRepo = Substitute.For<IShopBalanceRepository>();
         _accountRepo     = Substitute.For<IAccountRepository>();
         _promoRepo       = Substitute.For<ISubscriptionPromoCodeRepository>();
+        _events          = Substitute.For<IEventTracker>();
 
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
         _shopTxRepo.AddAsync(Arg.Any<ShopTransaction>())
@@ -61,7 +64,7 @@ public class CompletePaymentMilestoneTests
     private CompletePaymentHandler BuildHandler() =>
         new(_unitOfWork, _txRepo, _orderRepo, _contentFileRepo, _accessRepo,
             _productRepo, _shopTxRepo, _shopBalanceRepo, _accountRepo, _promoRepo,
-            Substitute.For<ICartRepository>());
+            Substitute.For<ICartRepository>(), _events, Substitute.For<INotificationService>());
 
     private (UserTransaction tx, Order order, Product product, User user) BuildScenario(
         decimal itemPrice, decimal userLifetimeSpent = 0m, string trackId = "track-123")

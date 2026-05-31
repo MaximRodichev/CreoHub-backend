@@ -9,4 +9,10 @@ public interface IStorageService
     string GeneratePresignedUrl(string key, int expiresInMinutes, string contentDisposition);
     Task<string> GeneratePresignedUploadUrlAsync(string key, string mimeType, int expiresInMinutes = 30);
     Task<bool> FileExistsAsync(string key);
+
+    /// <summary>
+    /// Листинг всех объектов в основном бакете с пагинацией.
+    /// Используется для поиска orphan-файлов (есть в R2, нет в БД).
+    /// </summary>
+    IAsyncEnumerable<(string Key, DateTime LastModified)> ListAllObjectsAsync();
 }

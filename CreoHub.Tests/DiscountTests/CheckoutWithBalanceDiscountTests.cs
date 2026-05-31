@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using CreoHub.Application.Commands.OrderCommands;
+using CreoHub.Application.Services;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Pricing;
@@ -55,7 +56,8 @@ public class CheckoutWithBalanceDiscountTests
         new(_unitOfWork, _orderRepo, _productRepo, _transactionRepo,
             _balanceRepo, _contentFileRepo, _accessRepo, _cartRepo,
             _shopTxRepo, _shopBalanceRepo, _accountRepo,
-            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
+            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }),
+            Substitute.For<IEventTracker>());
 
     /// <summary>Мокает общие зависимости, которые нужны для прохождения через handler.</summary>
     private void SetupDefaultMocks()

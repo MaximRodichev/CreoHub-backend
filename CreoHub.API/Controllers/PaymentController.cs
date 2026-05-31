@@ -84,12 +84,14 @@ public class PaymentController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpPost("webhook")]
-    public async Task<IActionResult> Webhook([FromBody] JsonElement body)
+    public async Task<IActionResult> Webhook()
     {
-        var hmacHeader = Request.Headers["hmac"].ToString();
-        var rawBody = body.ToString();
+        string rawBody;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: false))
+            rawBody = await reader.ReadToEndAsync();
 
-        var key = Encoding.UTF8.GetBytes(_config["OxaPay:MerchantApiKey"]!);
+        var hmacHeader = Request.Headers["hmac"].ToString();
+        var key  = Encoding.UTF8.GetBytes(_config["OxaPay:MerchantApiKey"]!);
         var data = Encoding.UTF8.GetBytes(rawBody);
         using var hmac = new HMACSHA512(key);
         var calculated = Convert.ToHexString(hmac.ComputeHash(data)).ToLower();
@@ -170,11 +172,13 @@ public class PaymentController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpPost("payout-webhook")]
-    public async Task<IActionResult> PayoutWebhook([FromBody] JsonElement body)
+    public async Task<IActionResult> PayoutWebhook()
     {
-        var hmacHeader = Request.Headers["hmac"].ToString();
-        var rawBody    = body.ToString();
+        string rawBody;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: false))
+            rawBody = await reader.ReadToEndAsync();
 
+        var hmacHeader = Request.Headers["hmac"].ToString();
         // Payout-вебхук подписывается PayoutApiKey, а не MerchantApiKey
         var key  = Encoding.UTF8.GetBytes(_config["OxaPay:PayoutApiKey"]!);
         var data = Encoding.UTF8.GetBytes(rawBody);
@@ -235,11 +239,4 @@ public class PaymentController : ControllerBase
         return Ok("ok");
     }
 
-    [AllowAnonymous]
-    [HttpGet("test-invoice")]
-    public async Task<IActionResult> TestInvoice()
-    {
-        var result = await _paymentService.CreateInvoiceAsync(10, "test-order-123");
-        return Ok(new { result.PaymentUrl, result.TrackId });
-    }
 }

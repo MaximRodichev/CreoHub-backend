@@ -3,6 +3,7 @@ using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
+// IEventTracker + EventTypes come from CreoHub.Application.Services
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
@@ -11,8 +12,11 @@ using Microsoft.Extensions.Options;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
-public record CreateCheckoutCommand(Guid UserId, List<CheckoutItemDTO> Items)
-    : IRequest<BaseResponse<CheckoutResultDTO>>;
+public record CreateCheckoutCommand(
+    Guid                  UserId,
+    List<CheckoutItemDTO> Items,
+    string?               SessionId = null
+) : IRequest<BaseResponse<CheckoutResultDTO>>;
 
 public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, BaseResponse<CheckoutResultDTO>>
 {
@@ -25,6 +29,7 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
     private readonly IContentFileRepository _contentFileRepository;
     private readonly IContentAccessRepository _accessRepository;
     private readonly PricingConfig            _pricing;
+    private readonly IEventTracker            _events;
 
     public CreateCheckoutHandler(
         IUnitOfWork unitOfWork,
@@ -35,7 +40,8 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         IAccountRepository accountRepository,
         IContentFileRepository contentFileRepository,
         IContentAccessRepository accessRepository,
-        IOptions<PricingConfig> pricing)
+        IOptions<PricingConfig> pricing,
+        IEventTracker events)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -46,6 +52,7 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
         _contentFileRepository = contentFileRepository;
         _accessRepository = accessRepository;
         _pricing = pricing.Value;
+        _events  = events;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -194,6 +201,13 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
 
             // Сохраняем транзакцию и обновлённый Order (TransactionId)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Track checkout_started for every product in the order
+            foreach (var (product, _) in orderItems)
+                _events.Track(EventTypes.CheckoutStarted,
+                    productId: product.Id,
+                    userId:    request.UserId,
+                    sessionId: request.SessionId);
 
             return BaseResponse<CheckoutResultDTO>.Success(new CheckoutResultDTO
             {

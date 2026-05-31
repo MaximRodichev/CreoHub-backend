@@ -21,6 +21,7 @@ public class CartHandlerTests
     private readonly IContentFileRepository _contentFileRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStorageService _storageService;
+    private readonly IEventTracker _events;
 
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private const int ProductId = 42;
@@ -34,6 +35,7 @@ public class CartHandlerTests
         _mediaProductRepo = Substitute.For<IMediaProductRepository>();
         _contentFileRepo = Substitute.For<IContentFileRepository>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+        _events     = Substitute.For<IEventTracker>();
 
         // Return the key as-is so tests can assert on the original key value
         _storageService.GeneratePresignedUrl(Arg.Any<string>(), Arg.Any<int>())
@@ -58,7 +60,7 @@ public class CartHandlerTests
         _cartRepo.AddCartItem(Arg.Any<CartItem>()).Returns(true);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
-        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo);
+        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo, _events);
         var result = await handler.Handle(new ToggleCartItemQuery(UserId, ProductId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}");
@@ -80,7 +82,7 @@ public class CartHandlerTests
         _cartRepo.RemoveCartItem(Arg.Any<CartItem>()).Returns(Task.FromResult(true));
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
-        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo);
+        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo, _events);
         var result = await handler.Handle(new ToggleCartItemQuery(UserId, ProductId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}");
@@ -97,7 +99,7 @@ public class CartHandlerTests
         _cartRepo.GetCartItemByUserAndProduct(UserId, ProductId)
             .Throws(new Exception("DB connection failed"));
 
-        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo);
+        var handler = new ToggleCartItemHandler(_cartRepo, _unitOfWork, _productRepo, _events);
         var result = await handler.Handle(new ToggleCartItemQuery(UserId, ProductId), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");

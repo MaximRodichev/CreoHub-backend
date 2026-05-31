@@ -19,9 +19,11 @@ public class MediaProductConfiguration : IEntityTypeConfiguration<MediaProduct>
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(x => x.Product).WithMany(x=>x.MediaProducts).HasForeignKey(x => x.ProductId);
+        // OnDelete.Restrict: запрещает удаление StorageObject пока к нему привязан MediaProduct.
+        // Сама связь (One-to-One) полностью настроена в StorageObjectConfiguration.
         builder.HasOne(x => x.StorageObject)
-            .WithMany()
-            .HasForeignKey(x => x.StorageObjectId)
+            .WithOne(x => x.MediaProduct)
+            .HasForeignKey<MediaProduct>(x => x.StorageObjectId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

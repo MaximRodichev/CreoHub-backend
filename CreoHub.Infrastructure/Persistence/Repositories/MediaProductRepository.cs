@@ -111,4 +111,14 @@ public class MediaProductRepository : IMediaProductRepository
                 mp.ProductId == productId &&
                 mp.StorageObjectId == storageObjectId);
     }
+
+    public async Task<List<MediaProduct>> GetAllVideosWithoutThumbnailAsync()
+    {
+        return await _db.MediaProducts
+            .Include(mp => mp.StorageObject)
+            .Where(mp =>
+                mp.ThumbnailId == null &&
+                mp.StorageObject.MimeType.StartsWith("video/"))
+            .ToListAsync();
+    }
 }

@@ -15,4 +15,8 @@ public class UserProfileDTO
     public string Role { get; set; }
     public decimal LifetimeSpent { get; set; }
     public decimal LifetimeDiscountPercent { get; set; }
+
+    // Notification preferences (seller-only, ignored for buyers)
+    public bool NotifyOnPurchase   { get; set; } = true;
+    public bool NotifyOnModeration { get; set; } = true;
 }

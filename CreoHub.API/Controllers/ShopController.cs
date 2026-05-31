@@ -2,6 +2,7 @@ using CreoHub.API.Configuration;
 using CreoHub.Application.Commands.ShopCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.ShopDTOs;
+using CreoHub.Application.Queries.AnalyticsQueries;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Queries.Shop;
 using CreoHub.Application.Queries.Tag;
@@ -164,6 +165,44 @@ public class ShopController : ShopOwnerControllerBase
         var response = await _mediator.Send(new GetShopPublicQuery(name));
         if (response.Status != ResponseStatus.Success)
             return NotFound(response);
+        return Ok(response);
+    }
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+
+    /// <summary>Overall shop event metrics (views, cart-adds, purchases per product).</summary>
+    [Authorize]
+    [HttpGet("analytics")]
+    public async Task<IActionResult> GetAnalytics([FromQuery] int days = 30)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new GetShopAnalyticsQuery(shopId, days));
+        return Ok(response);
+    }
+
+    /// <summary>Revenue and order count for all products (from real orders, not event tracking).</summary>
+    [Authorize]
+    [HttpGet("product-stats")]
+    public async Task<IActionResult> GetProductStats([FromQuery] int days = 30)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new GetAllProductStatsQuery(shopId, days));
+        return Ok(response);
+    }
+
+    /// <summary>Funnel metrics for a single product.</summary>
+    [Authorize]
+    [HttpGet("product/{productId:int}/funnel")]
+    public async Task<IActionResult> GetProductFunnel(int productId, [FromQuery] int days = 30)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(new GetProductFunnelQuery(productId, shopId, days));
         return Ok(response);
     }
 

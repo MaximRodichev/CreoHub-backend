@@ -22,6 +22,7 @@
     <ItemGroup>
       <ProjectReference Include="..\CreoHub.Application\CreoHub.Application.csproj" />
       <ProjectReference Include="..\CreoHub.Domain\CreoHub.Domain.csproj" />
+      <ProjectReference Include="..\CreoHub.Infrastructure\CreoHub.Infrastructure.csproj" />
     </ItemGroup>
 
 </Project>

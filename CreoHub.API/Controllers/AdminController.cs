@@ -5,6 +5,7 @@ using CreoHub.Application.Commands.OrderCommands;
 using CreoHub.Application.DTO.AdminDTOs;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Queries.Admin;
+using CreoHub.Application.Queries.AnalyticsQueries;
 using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Queries.Shop;
@@ -19,6 +20,9 @@ public record AdminBanProductDto(string Reason);
 public record AdminRejectProductDto(string? Reason = null);
 public record AdminHideProductDto(string? Reason = null);
 public record AdminSendToModerationDto(string? Reason = null);
+
+// DTOs for broadcast
+public record CreateBroadcastDto(string Message);
 
 /// <summary>
 /// Все эндпоинты доступны только для аккаунта icreoaffilate@gmail.com.
@@ -253,5 +257,40 @@ public class AdminController : ControllerBase
         return result.Status == Application.DTO.ResponseStatus.Success
             ? Ok(result)
             : BadRequest(result);
+    }
+
+    // ══════════════════════════════════════════
+    // АНАЛИТИКА
+    // ══════════════════════════════════════════
+
+    /// <summary>Platform-wide event metrics: search queries, views, purchases, etc.</summary>
+    [HttpGet("analytics")]
+    public async Task<IActionResult> GetAnalytics([FromQuery] int days = 30)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetAdminAnalyticsQuery(days));
+        return Ok(result);
+    }
+
+    // ══════════════════════════════════════════
+    // РАССЫЛКИ
+    // ══════════════════════════════════════════
+
+    /// <summary>Создать задание на рассылку всем пользователям (message через HTML разметку).</summary>
+    [HttpPost("broadcast")]
+    public async Task<IActionResult> CreateBroadcast([FromBody] CreateBroadcastDto dto)
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new CreateBroadcastJobCommand(dto.Message, GetAdminUserId()));
+        return result.Status == Application.DTO.ResponseStatus.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>Список всех заданий рассылки (история + текущий статус).</summary>
+    [HttpGet("broadcasts")]
+    public async Task<IActionResult> GetBroadcasts()
+    {
+        if (!IsAdmin()) return Forbidden();
+        var result = await _mediator.Send(new GetBroadcastJobsQuery());
+        return Ok(result);
     }
 }

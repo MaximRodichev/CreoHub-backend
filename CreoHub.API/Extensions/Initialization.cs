@@ -6,9 +6,9 @@ using CreoHub.Application.Commands.AccountCommands;
 using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
+using CreoHub.Domain.Entities;
 using CreoHub.Infrastructure.Persistence;
 using CreoHub.Infrastructure.Persistence.Repositories;
-using CreoHub.Application.Services;
 using CreoHub.Infrastructure.Persistence.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +44,19 @@ public static class Initialization
         });
         services.AddSingleton<Channel<Guid>>(Channel.CreateUnbounded<Guid>());
         services.AddSingleton<IVideoOptimizationQueueService, VideoOptimizationQueueService>();
+        services.AddSingleton<IOptimizationProgressService, OptimizationProgressService>();
+
+        // ── Event tracking ──────────────────────────────────────────────────
+        services.AddSingleton<Channel<UserEvent>>(
+            Channel.CreateUnbounded<UserEvent>(
+                new UnboundedChannelOptions { SingleReader = true }));
+        services.AddSingleton<IEventTracker, EventTrackerService>();
+
+        // ── Notification services ───────────────────────────────────────────
+        // TelegramNotificationService is Transient (HttpClient lifecycle managed by AddHttpClient)
+        services.AddHttpClient<TelegramNotificationService>();
+        services.AddScoped<SmtpNotificationService>();
+        services.AddScoped<INotificationService, CompositeNotificationService>();
         
         
         services.AddScoped<IStorageService, R2StorageService>();
@@ -69,6 +82,8 @@ public static class Initialization
         services.AddScoped<IAdminRepository, AdminRepository>();
         services.AddScoped<IProductStatusLogRepository, ProductStatusLogRepository>();
         services.AddScoped<IProductEditHistoryRepository, ProductEditHistoryRepository>();
+        services.AddScoped<IUserEventRepository, UserEventRepository>();
+        services.AddScoped<IBroadcastJobRepository, BroadcastJobRepository>();
 
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
@@ -81,8 +96,12 @@ public static class Initialization
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         
         services.AddHostedService<VideoOptimizationBackgroundService>();
+        services.AddHostedService<EventTrackerBackgroundService>();
         services.AddHostedService<ExpiredTransactionCleanupService>();
         services.AddHostedService<OrderCleanupService>();
+        services.AddHostedService<BroadcastBackgroundService>();
+        services.AddHostedService<OrphanedStorageCleanupService>();
+        services.AddHostedService<ThumbnailBackfillBackgroundService>();
         
         // MediatR
         services.AddMediatR(cfg =>

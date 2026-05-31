@@ -117,4 +117,27 @@ public class R2StorageService : IStorageService
             return false;
         }
     }
+
+    public async IAsyncEnumerable<(string Key, DateTime LastModified)> ListAllObjectsAsync()
+    {
+        string? continuationToken = null;
+
+        do
+        {
+            var request = new ListObjectsV2Request
+            {
+                BucketName        = BucketMainName,
+                MaxKeys           = 1000,
+                ContinuationToken = continuationToken,
+            };
+
+            var response = await _s3Client.ListObjectsV2Async(request);
+
+            foreach (var obj in response.S3Objects)
+                yield return (obj.Key, obj.LastModified ?? DateTime.MinValue);
+
+            continuationToken = response.IsTruncated == true ? response.NextContinuationToken : null;
+        }
+        while (continuationToken != null);
+    }
 }

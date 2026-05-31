@@ -59,9 +59,11 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
         {
             var response = await _productRepository.GetProductById(request.dto.Id);
             if (response == null)
-            {
                 return BaseResponse<bool>.Fail($"Product with id {request.dto.Id} not found.");
-            }
+
+            // ── Проверка прав доступа ──────────────────────────────────────────────
+            if (response.OwnerId != request.shopId)
+                return BaseResponse<bool>.Fail("Access denied: product does not belong to this shop.");
 
             // ── Снимок состояния ДО изменений ──────────────────────────────────────
             var preEditSnapshot = new ProductSnapshot(
@@ -137,6 +139,12 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                 {
                     var storageObject = await _storageObjectRepository.GetByIdAsync(storageObjectId);
                     if (storageObject == null) continue;
+
+                    // Запрещаем прикреплять чужие файлы
+                    if (storageObject.OwnerId != request.shopId)
+                        return BaseResponse<bool>.Fail(
+                            $"Access denied: storage object {storageObjectId} does not belong to this shop.");
+
                     storageObject.ChangeFileType(FileType.Media);
                     _storageObjectRepository.Update(storageObject); // AsNoTracking → explicit Update required
 

@@ -77,6 +77,8 @@ public class AccountRepository : IAccountRepository
             Role                    = user.Role.ToString(),
             LifetimeSpent           = user.LifetimeSpent,
             LifetimeDiscountPercent = user.GetLifetimeDiscount() * 100m,
+            NotifyOnPurchase        = user.NotifyOnPurchase,
+            NotifyOnModeration      = user.NotifyOnModeration,
         };
     }
 
@@ -121,5 +123,22 @@ public class AccountRepository : IAccountRepository
     public Task<User?> GetFullInfoByIdAsync(Guid userId)
     {
         return _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
+    public Task<User?> GetUserByShopIdAsync(Guid shopId, CancellationToken ct = default) =>
+        _db.Users.FirstOrDefaultAsync(u => u.ShopId == shopId, ct);
+
+    public async Task<List<(long? TelegramId, string? Email, bool NotifyOnPurchase, bool NotifyOnModeration)>>
+        GetUsersWithContactInfoAsync(CancellationToken ct = default)
+    {
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u => u.TelegramId != null || u.EmailAddress != null)
+            .Select(u => new ValueTuple<long?, string?, bool, bool>(
+                u.TelegramId,
+                u.EmailAddress,
+                u.NotifyOnPurchase,
+                u.NotifyOnModeration))
+            .ToListAsync(ct);
     }
 }

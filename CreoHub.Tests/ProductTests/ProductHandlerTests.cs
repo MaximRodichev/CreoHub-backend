@@ -24,6 +24,7 @@ public class ProductHandlerTests
     private readonly IPriceRepository _priceRepo;
     private readonly IStorageObjectRepository _storageRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IEventTracker _events;
 
     private static readonly Guid ShopId = Guid.Parse("11111111-2222-3333-4444-555555555555");
     private static readonly Guid UserId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
@@ -39,6 +40,7 @@ public class ProductHandlerTests
         _priceRepo = Substitute.For<IPriceRepository>();
         _storageRepo = Substitute.For<IStorageObjectRepository>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+        _events     = Substitute.For<IEventTracker>();
     }
 
     // ── CreateProduct ─────────────────────────────────────────────────────────
@@ -236,7 +238,7 @@ public class ProductHandlerTests
         _productRepo.GetProductsByFilters(Arg.Any<FiltersDto>())
             .Returns(Task.FromResult<(List<ProductViewDTO>, int)>((products, 2)));
 
-        var handler = new GetProductsByFilterHandler(_productRepo, null!);
+        var handler = new GetProductsByFilterHandler(_productRepo, null!, _events);
         var result = await handler.Handle(
             new GetProductsByFilterQuery(new FiltersDto { Page = 1, PageSize = 10 }),
             CancellationToken.None);
@@ -253,7 +255,7 @@ public class ProductHandlerTests
     {
         _productRepo.GetProductsByFilters(Arg.Any<FiltersDto>()).Throws(new Exception("Query error"));
 
-        var handler = new GetProductsByFilterHandler(_productRepo, null!);
+        var handler = new GetProductsByFilterHandler(_productRepo, null!, _events);
         var result = await handler.Handle(
             new GetProductsByFilterQuery(new FiltersDto()),
             CancellationToken.None);
@@ -269,7 +271,7 @@ public class ProductHandlerTests
         var dto = new ProductInfoDTO { Id = 1, Name = "ChickenRoad", Price = 25m, MediaViews = new List<StorageObjectViewDTO>() };
         _productRepo.GetProductByName("ChickenRoad").Returns(Task.FromResult(dto));
 
-        var handler = new GetProductInfoByNameHandler(_productRepo, null!);
+        var handler = new GetProductInfoByNameHandler(_productRepo, null!, _events);
         var result = await handler.Handle(new GetProductInfoByNameQuery("ChickenRoad"), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, Name: {result.Data?.Name}");
@@ -283,7 +285,7 @@ public class ProductHandlerTests
     {
         _productRepo.GetProductByName("Unknown").Throws(new Exception("Product not found"));
 
-        var handler = new GetProductInfoByNameHandler(_productRepo, null!);
+        var handler = new GetProductInfoByNameHandler(_productRepo, null!, _events);
         var result = await handler.Handle(new GetProductInfoByNameQuery("Unknown"), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);

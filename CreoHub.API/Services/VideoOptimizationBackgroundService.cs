@@ -1,5 +1,6 @@
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
+using CreoHub.Domain.Types;
 using Microsoft.Extensions.Logging;
 
 namespace CreoHub.API.Services;
@@ -9,6 +10,7 @@ public class VideoOptimizationBackgroundService : BackgroundService
     private readonly IVideoOptimizationQueueService _queue;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<VideoOptimizationBackgroundService> _logger;
+    private readonly IOptimizationProgressService _progressService;
 
     // Гарантирует что FFmpeg запускается строго по одному процессу.
     // Очередь уже последовательная, но SemaphoreSlim — защита на случай будущих изменений.
@@ -17,15 +19,22 @@ public class VideoOptimizationBackgroundService : BackgroundService
     public VideoOptimizationBackgroundService(
         IVideoOptimizationQueueService queue,
         IServiceScopeFactory scopeFactory,
-        ILogger<VideoOptimizationBackgroundService> logger)
+        ILogger<VideoOptimizationBackgroundService> logger,
+        IOptimizationProgressService progressService)
     {
         _queue = queue;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _progressService = progressService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // ── Восстановление после рестарта ────────────────────────────────────
+        // In-memory очередь теряется при перезапуске сервера. Файлы, у которых
+        // в БД остался статус Queued или Processing, ставим заново в очередь.
+        await RecoverStuckJobsAsync(stoppingToken);
+
         await foreach (var storageObjectId in _queue.DequeueAllAsync(stoppingToken))
         {
             await _semaphore.WaitAsync(stoppingToken);
@@ -41,42 +50,95 @@ public class VideoOptimizationBackgroundService : BackgroundService
         }
     }
 
+    private async Task RecoverStuckJobsAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IStorageObjectRepository>();
+            var uow  = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+            var stuck = await repo.GetStuckOptimizationJobsAsync(stoppingToken);
+            if (stuck.Count == 0) return;
+
+            _logger.LogWarning(
+                "VideoOptimization: found {Count} stuck job(s) on startup (Queued/Processing), re-queuing",
+                stuck.Count);
+
+            // Processing → Queued: сбрасываем промежуточный статус до чистого Queued
+            foreach (var obj in stuck)
+            {
+                if (obj.VideoOptimizationStatus == VideoOptimizationStatus.Processing)
+                    obj.MarkQueued();
+            }
+            await uow.SaveChangesAsync(stoppingToken);
+
+            foreach (var obj in stuck)
+                _queue.TryEnqueue(obj.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "VideoOptimization: error during startup recovery");
+        }
+    }
+
     private async Task ProcessOneAsync(Guid storageObjectId, CancellationToken stoppingToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<IStorageObjectRepository>();
-        var uow  = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        // Каждая фаза использует отдельный скоп (→ свой DbContext).
+        // Причина: GetByIdAsync использует AsNoTracking(), поэтому Update() каждый раз
+        // пытается прикрепить новый экземпляр. Если старый экземпляр из предыдущей фазы
+        // ещё tracked в том же DbContext — EF бросает InvalidOperationException (identity conflict).
 
         try
         {
-            // Статус → Processing
-            var obj = await repo.GetByIdAsync(storageObjectId);
-            if (obj == null)
+            // ── Фаза 1: Статус → Processing ─────────────────────────────
+            using (var phase1 = _scopeFactory.CreateScope())
             {
-                _logger.LogWarning("VideoOptimization: StorageObject {Id} not found, skipping", storageObjectId);
-                return;
-            }
-            obj.MarkProcessing();
-            repo.Update(obj);
-            await uow.SaveChangesAsync(stoppingToken);
+                var repo = phase1.ServiceProvider.GetRequiredService<IStorageObjectRepository>();
+                var uow  = phase1.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            // 1. H.264 конвертация
-            var conversionService = scope.ServiceProvider.GetRequiredService<IVideoConversionService>();
-            await conversionService.ConvertAsync(storageObjectId, stoppingToken);
-
-            // 2. Thumbnail (кадр на 1-й секунде → jpg)
-            var thumbnailService = scope.ServiceProvider.GetRequiredService<IThumbnailGenerationService>();
-            await thumbnailService.GenerateAsync(storageObjectId, stoppingToken);
-
-            // Статус → Done
-            obj = await repo.GetByIdAsync(storageObjectId);
-            if (obj != null)
-            {
-                obj.MarkOptimizationDone();
+                var obj = await repo.GetByIdAsync(storageObjectId);
+                if (obj == null)
+                {
+                    _logger.LogWarning("VideoOptimization: StorageObject {Id} not found, skipping", storageObjectId);
+                    return;
+                }
+                obj.MarkProcessing();
                 repo.Update(obj);
                 await uow.SaveChangesAsync(stoppingToken);
             }
 
+            // ── Фаза 2: H.264 конвертация ────────────────────────────────
+            using (var phase2 = _scopeFactory.CreateScope())
+            {
+                var conversionService = phase2.ServiceProvider.GetRequiredService<IVideoConversionService>();
+                await conversionService.ConvertAsync(storageObjectId, stoppingToken);
+            }
+
+            // ── Фаза 3: Thumbnail (кадр на 1-й секунде → jpg) ───────────
+            using (var phase3 = _scopeFactory.CreateScope())
+            {
+                _progressService.SetProgress(storageObjectId, 96);
+                var thumbnailService = phase3.ServiceProvider.GetRequiredService<IThumbnailGenerationService>();
+                await thumbnailService.GenerateAsync(storageObjectId, stoppingToken);
+            }
+
+            // ── Фаза 4: Статус → Done ────────────────────────────────────
+            using (var phase4 = _scopeFactory.CreateScope())
+            {
+                var repo = phase4.ServiceProvider.GetRequiredService<IStorageObjectRepository>();
+                var uow  = phase4.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+                var obj = await repo.GetByIdAsync(storageObjectId);
+                if (obj != null)
+                {
+                    obj.MarkOptimizationDone();
+                    repo.Update(obj);
+                    await uow.SaveChangesAsync(stoppingToken);
+                }
+            }
+
+            _progressService.SetProgress(storageObjectId, 100);
             _logger.LogInformation("VideoOptimization: done for {Id}", storageObjectId);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -98,6 +160,8 @@ public class VideoOptimizationBackgroundService : BackgroundService
                 _logger.LogError(ex, "VideoOptimization: failed for {Id}. Error: {Error}", storageObjectId, ex.Message);
 
             // Статус → Failed (best-effort, создаём новый scope на случай если старый уже испорчен)
+            _progressService.SetProgress(storageObjectId, -1);
+
             try
             {
                 using var errScope = _scopeFactory.CreateScope();

@@ -53,48 +53,123 @@ public class StorageObjectRepository : IStorageObjectRepository
         throw new NotImplementedException();
     }
 
-    public async Task<List<StorageObjectResponseDTO>> GetAllByShopId(Guid shopId)
+    public async Task<StorageObjectsPagedResponseDTO> GetPagedByShopIdAsync(
+        Guid    shopId,
+        int     page,
+        int     pageSize,
+        string? search,
+        string? type,
+        string  sort,
+        string  order)
     {
-        var rawData = await _db.StorageObjects
+        // ── Агрегаты (один запрос, не зависят от фильтра) ────────────────────
+        var allVisible = _db.StorageObjects
             .AsNoTracking()
-            .Where(x => x.OwnerId == shopId)
-            .Select(x => new 
+            .Where(x => x.OwnerId    == shopId
+                     && x.FileType   != FileType.Thumbnail
+                     && x.FileType   != FileType.Decoration);
+
+        var countAll      = await allVisible.CountAsync();
+        var countContent  = await allVisible.CountAsync(x => x.FileType == FileType.Content);
+        var countMedia    = await allVisible.CountAsync(x => x.FileType == FileType.Media);
+        var countUploaded = await allVisible.CountAsync(x => x.FileType == FileType.Unregistred);
+        var countLocked   = await allVisible.CountAsync(x => x.IsSystemLocked);
+        var totalSize     = await allVisible.SumAsync(x => (long?)x.FileSize) ?? 0L;
+
+        // ── Основной запрос с фильтром ────────────────────────────────────────
+        var query = allVisible;
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => EF.Functions.ILike(x.FileName, $"%{search}%"));
+
+        if (type == "image")         query = query.Where(x => x.MimeType.StartsWith("image/"));
+        else if (type == "video")    query = query.Where(x => x.MimeType.StartsWith("video/"));
+        else if (type == "other")    query = query.Where(x => !x.MimeType.StartsWith("image/") && !x.MimeType.StartsWith("video/"));
+        else if (type == "content")  query = query.Where(x => x.FileType == FileType.Content);
+        else if (type == "media")    query = query.Where(x => x.FileType == FileType.Media);
+        else if (type == "uploaded") query = query.Where(x => x.FileType == FileType.Unregistred);
+        else if (type == "archived") query = query.Where(x => x.IsSystemLocked);
+
+        var total = await query.CountAsync();
+
+        // Сортировка
+        query = (sort, order) switch
+        {
+            ("name",  "asc")  => query.OrderBy(x => x.FileName),
+            ("name",  "desc") => query.OrderByDescending(x => x.FileName),
+            ("size",  "asc")  => query.OrderBy(x => x.FileSize),
+            ("size",  "desc") => query.OrderByDescending(x => x.FileSize),
+            ("date",  "asc")  => query.OrderBy(x => x.UploadedAt),
+            _                 => query.OrderByDescending(x => x.UploadedAt),   // date desc (default)
+        };
+
+        var rawData = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new
             {
-                Storage = x,
-                // Получаем данные из файлов
-                Files = x.ContentFiles.Select(cf => new LinkedProductInfo
-                { 
-                    ProductId = cf.ProductId.ToString(), 
-                    ProductName = cf.Product.Name 
+                Storage  = x,
+                Files    = x.ContentFiles.Select(cf => new LinkedProductInfo
+                {
+                    ProductId   = cf.ProductId.ToString(),
+                    ProductName = cf.Product.Name,
                 }).ToList(),
-        
-                // Получаем данные из MediaProduct
-                HasMedia = x.MediaProduct != null,
-                MediaId = x.MediaProduct != null ? x.MediaProduct.ProductId.ToString() : null,
-                MediaName = x.MediaProduct != null ? x.MediaProduct.Product.Name : null
+                HasMedia  = x.MediaProduct != null,
+                MediaId   = x.MediaProduct != null ? x.MediaProduct.ProductId.ToString() : null,
+                MediaName = x.MediaProduct != null ? x.MediaProduct.Product.Name : null,
             })
             .ToListAsync();
 
-        var response = rawData.Select(x => new StorageObjectResponseDTO
+        var items = rawData.Select(x => new StorageObjectResponseDTO
         {
-            Id = x.Storage.Id,
-            Key = x.Storage.Key,
-            MimeType = x.Storage.MimeType,
-            FileSize = x.Storage.FileSize,
-            FileName = x.Storage.FileName,
-            FileType = x.Storage.FileType,
-            UploadedAt = x.Storage.UploadedAt,
+            Id             = x.Storage.Id,
+            Key            = x.Storage.Key,
+            MimeType       = x.Storage.MimeType,
+            FileSize       = x.Storage.FileSize,
+            FileName       = x.Storage.FileName,
+            FileType       = x.Storage.FileType,
+            UploadedAt     = x.Storage.UploadedAt,
             IsSystemLocked = x.Storage.IsSystemLocked,
-
             LinkedProducts = x.Files
-                .Concat(x.HasMedia 
-                    ? new[] { new LinkedProductInfo { ProductId = x.MediaId, ProductName = x.MediaName } } 
+                .Concat(x.HasMedia
+                    ? new[] { new LinkedProductInfo { ProductId = x.MediaId, ProductName = x.MediaName } }
                     : Enumerable.Empty<LinkedProductInfo>())
-                .GroupBy(p => p.ProductId) // Убираем дубликаты по Id
+                .GroupBy(p => p.ProductId)
                 .Select(g => g.First())
-                .ToList()
+                .ToList(),
         }).ToList();
-        
-        return response;
+
+        return new StorageObjectsPagedResponseDTO
+        {
+            Items          = items,
+            Total          = total,
+            Page           = page,
+            PageSize       = pageSize,
+            TotalPages     = (int)Math.Ceiling(total / (double)pageSize),
+            TotalSizeBytes = totalSize,
+            CountAll       = countAll,
+            CountContent   = countContent,
+            CountMedia     = countMedia,
+            CountUploaded  = countUploaded,
+            CountLocked    = countLocked,
+        };
+    }
+
+    public async Task<List<StorageObject>> GetStuckOptimizationJobsAsync(CancellationToken ct = default)
+    {
+        return await _db.StorageObjects
+            .Where(x => x.VideoOptimizationStatus == VideoOptimizationStatus.Queued
+                     || x.VideoOptimizationStatus == VideoOptimizationStatus.Processing)
+            .ToListAsync(ct);
+    }
+
+    public async Task<HashSet<string>> GetAllKeysSetAsync(CancellationToken ct = default)
+    {
+        var keys = await _db.StorageObjects
+            .AsNoTracking()
+            .Select(x => x.Key)
+            .ToListAsync(ct);
+
+        return keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 }

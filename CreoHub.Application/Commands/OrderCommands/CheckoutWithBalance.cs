@@ -2,6 +2,7 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Pricing;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
@@ -14,8 +15,11 @@ namespace CreoHub.Application.Commands.OrderCommands;
 /// <summary>
 /// Checkout Path B — мгновенная оплата с баланса пользователя без OxaPay.
 /// </summary>
-public record CheckoutWithBalanceCommand(Guid UserId, List<CheckoutItemDTO> Items)
-    : IRequest<BaseResponse<CheckoutResultDTO>>;
+public record CheckoutWithBalanceCommand(
+    Guid                  UserId,
+    List<CheckoutItemDTO> Items,
+    string?               SessionId = null
+) : IRequest<BaseResponse<CheckoutResultDTO>>;
 
 public class CheckoutWithBalanceHandler
     : IRequestHandler<CheckoutWithBalanceCommand, BaseResponse<CheckoutResultDTO>>
@@ -31,6 +35,7 @@ public class CheckoutWithBalanceHandler
     private readonly IShopTransactionRepository _shopTransactionRepository;
     private readonly IShopBalanceRepository _shopBalanceRepository;
     private readonly IAccountRepository _accountRepository;
+    private readonly IEventTracker _events;
 
     private readonly PricingConfig _pricing;
 
@@ -46,7 +51,8 @@ public class CheckoutWithBalanceHandler
         IShopTransactionRepository shopTransactionRepository,
         IShopBalanceRepository shopBalanceRepository,
         IAccountRepository accountRepository,
-        IOptions<PricingConfig> pricing)
+        IOptions<PricingConfig> pricing,
+        IEventTracker events)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -60,6 +66,7 @@ public class CheckoutWithBalanceHandler
         _shopBalanceRepository = shopBalanceRepository;
         _accountRepository = accountRepository;
         _pricing = pricing.Value;
+        _events  = events;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -70,8 +77,9 @@ public class CheckoutWithBalanceHandler
             if (request.Items == null || request.Items.Count == 0)
                 return BaseResponse<CheckoutResultDTO>.Fail("Items list cannot be empty.");
 
-            var balance = await _balanceRepository.GetByUserIdAsync(request.UserId);
-            if (balance is null)
+            // Ранняя проверка существования баланса (без блокировки)
+            var balanceExists = await _balanceRepository.GetByUserIdAsync(request.UserId);
+            if (balanceExists is null)
                 return BaseResponse<CheckoutResultDTO>.Fail("Insufficient balance.");
 
             var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
@@ -79,6 +87,18 @@ public class CheckoutWithBalanceHandler
 
             if (products.Count != productIds.Count)
                 return BaseResponse<CheckoutResultDTO>.Fail("Some products were not found.");
+
+            // ── Проверяем что все товары доступны для покупки ──────────
+            var unavailable = products
+                .Where(p => p.ProductStatus != ProductStatus.Active)
+                .ToList();
+            if (unavailable.Any())
+            {
+                var names = string.Join(", ", unavailable.Select(p => $"«{p.Name}»"));
+                return BaseResponse<CheckoutResultDTO>.Fail(
+                    $"Следующие товары недоступны для покупки: {names}. " +
+                    "Возможно, они были сняты с продажи или заблокированы.");
+            }
 
             var productMap = products.ToDictionary(p => p.Id);
 
@@ -237,13 +257,20 @@ public class CheckoutWithBalanceHandler
 
             var buyerPays = order.Price; // уже пересчитан после ApplyDiscounts
 
-            // ── Проверяем и списываем баланс ─────────────────────────
-            if (balance.AvailableAmount < buyerPays)
-                return BaseResponse<CheckoutResultDTO>.Fail(
-                    $"Insufficient balance. Required: {buyerPays:F2}, available: {balance.AvailableAmount:F2}.");
+            // ── Пессимистичная блокировка + списание баланса ─────────
+            // BEGIN TRANSACTION → SELECT ... FOR UPDATE блокирует строку.
+            // Конкурентный запрос будет ждать пока мы не закоммитим/откатим.
+            await _unitOfWork.BeginTransactionAsync();
+            bool txCommitted = false;
+            try
+            {
+                var balance = await _balanceRepository.GetByUserIdForUpdateAsync(request.UserId);
+                if (balance is null || balance.AvailableAmount < buyerPays)
+                    return BaseResponse<CheckoutResultDTO>.Fail(
+                        $"Insufficient balance. Required: {buyerPays:F2}, available: {balance?.AvailableAmount ?? 0:F2}.");
 
-            balance.Spend(buyerPays);
-            _balanceRepository.Update(balance);
+                balance.Spend(buyerPays);
+                _balanceRepository.Update(balance);
 
             // Order.Id — это GUID, генерируется на стороне клиента в конструкторе Order.
             // Поэтому промежуточный SaveChanges не нужен: собираем всё в контексте,
@@ -343,8 +370,17 @@ public class CheckoutWithBalanceHandler
                 }
             }
 
-            // Единый атомарный коммит: баланс + ордер + транзакции + доступы
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+                // Единый атомарный коммит: баланс + ордер + транзакции + доступы
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.CommitTransactionAsync();
+                txCommitted = true;
+            }
+            finally
+            {
+                // Если выход через исключение или ранний return — откатываем
+                if (!txCommitted)
+                    await _unitOfWork.RollbackTransactionAsync();
+            }
 
             // ── Обновляем LifetimeSpent пользователя (F1) ───────────
             if (user != null)
@@ -373,6 +409,17 @@ public class CheckoutWithBalanceHandler
             }
 
             try { await _unitOfWork.SaveChangesAsync(cancellationToken); } catch { /* игнорируем */ }
+
+            // ── Analytics events ──────────────────────────────────────────
+            _events.Track(EventTypes.CheckoutCompleted,
+                userId:    request.UserId,
+                sessionId: request.SessionId);
+
+            foreach (var productId in productIds)
+                _events.Track(EventTypes.ProductPurchased,
+                    productId: productId,
+                    userId:    request.UserId,
+                    sessionId: request.SessionId);
 
             return BaseResponse<CheckoutResultDTO>.Success(new CheckoutResultDTO
             {

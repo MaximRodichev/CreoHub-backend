@@ -59,10 +59,39 @@ public class ProductRepository : IProductRepository
         if (filters.ShopId.HasValue)
             query = query.Where(x => x.OwnerId == filters.ShopId);
 
-        if (!string.IsNullOrWhiteSpace(filters.Search))
+        var normalized = filters.Search?.Trim().ToLowerInvariant() ?? "";
+        var hasSearch  = !string.IsNullOrWhiteSpace(normalized);
+
+        if (hasSearch)
         {
-            var search = filters.Search.ToLower();
-            query = query.Where(x => x.Name.ToLower().Contains(search));
+            var pattern = $"%{normalized}%";
+
+            if (normalized.Length >= 3)
+            {
+                // Collect product IDs that match by trigram similarity (handles typos / partial matches)
+                var fuzzyIds = await _db.Database
+                    .SqlQueryRaw<int>(@"
+                        SELECT DISTINCT p.""Id""
+                        FROM ""Products"" p
+                        LEFT JOIN ""ProductTag"" pt ON pt.""ProductsId"" = p.""Id""
+                        LEFT JOIN ""Tags"" t ON t.""Id"" = pt.""TagsId""
+                        WHERE similarity(lower(p.""Name""), {0}) > 0.2
+                           OR similarity(lower(t.""Name""), {0}) > 0.2",
+                        normalized)
+                    .ToListAsync();
+
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.Name, pattern) ||
+                    x.Tags.Any(t => EF.Functions.ILike(t.Name, pattern)) ||
+                    fuzzyIds.Contains(x.Id));
+            }
+            else
+            {
+                // Short queries (1-2 chars): substring match on name and tags only, no fuzzy noise
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.Name, pattern) ||
+                    x.Tags.Any(t => EF.Functions.ILike(t.Name, pattern)));
+            }
         }
 
         if (filters.Tags != null && filters.Tags.Any())
@@ -97,35 +126,38 @@ public class ProductRepository : IProductRepository
             }
         }
 
-        // 3. Сортировка: купленные ВСЕГДА в конец (первичный ключ),
-        //    выбранный критерий — внутри каждой группы (вторичный ключ).
+        // 3. Сортировка
+        //    Порядок ключей:
+        //      1. Купленные полностью — всегда в конец (если UserId передан)
+        //      2. Релевантность поиска  — только когда есть Search-запрос
+        //         0 = точное совпадение имени, 1 = начинается с, 2 = содержит, 3 = fuzzy
+        //      3. Пользовательский критерий (цена / популярность / дата)
         IOrderedQueryable<Product> sortedQuery;
 
-        if (fullyOwnedIds.Count > 0)
+        // Ключ 1: ownership
+        IOrderedQueryable<Product> step1 = fullyOwnedIds.Count > 0
+            ? query.OrderBy(p => fullyOwnedIds.Contains(p.Id) ? 1 : 0)
+            : query.OrderBy(p => 0);   // нейтральный ключ, нужен для цепочки ThenBy
+
+        // Ключ 2: релевантность (только при поиске)
+        IOrderedQueryable<Product> step2 = hasSearch
+            ? step1.ThenBy(p =>
+                EF.Functions.ILike(p.Name, normalized)             ? 0 :   // exact
+                EF.Functions.ILike(p.Name, normalized + "%")       ? 1 :   // starts with
+                EF.Functions.ILike(p.Name, "%" + normalized + "%") ? 2 : 3 // contains / fuzzy
+              )
+            : step1;
+
+        // Ключ 3: пользовательский критерий
+        sortedQuery = filters.SortOrder switch
         {
-            var byOwnership = query.OrderBy(p => fullyOwnedIds.Contains(p.Id) ? 1 : 0);
-            sortedQuery = filters.SortOrder switch
-            {
-                SortOrder.AscendingPrice  => byOwnership.ThenBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-                SortOrder.DescendingPrice => byOwnership.ThenByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-                SortOrder.Popularity      => byOwnership.ThenByDescending(x => x.OrderItems.Count),
-                SortOrder.Latests         => byOwnership.ThenByDescending(x => x.CreatedAt),
-                SortOrder.Oldest          => byOwnership.ThenBy(x => x.CreatedAt),
-                _                         => byOwnership.ThenBy(x => x.Id)
-            };
-        }
-        else
-        {
-            sortedQuery = filters.SortOrder switch
-            {
-                SortOrder.AscendingPrice  => query.OrderBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-                SortOrder.DescendingPrice => query.OrderByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
-                SortOrder.Popularity      => query.OrderByDescending(x => x.OrderItems.Count),
-                SortOrder.Latests         => query.OrderByDescending(x => x.CreatedAt),
-                SortOrder.Oldest          => query.OrderBy(x => x.CreatedAt),
-                _                         => query.OrderBy(x => x.Id)
-            };
-        }
+            SortOrder.AscendingPrice  => step2.ThenBy(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+            SortOrder.DescendingPrice => step2.ThenByDescending(x => x.Prices.OrderByDescending(p => p.Date).Select(p => p.Value).FirstOrDefault()),
+            SortOrder.Popularity      => step2.ThenByDescending(x => x.OrderItems.Count),
+            SortOrder.Latests         => step2.ThenByDescending(x => x.CreatedAt),
+            SortOrder.Oldest          => step2.ThenBy(x => x.CreatedAt),
+            _                         => step2.ThenBy(x => x.Id)
+        };
 
         // 4. Пагинация и финальная проекция
         var items = await sortedQuery
@@ -252,6 +284,7 @@ public class ProductRepository : IProductRepository
             .Include(x=>x.Prices)
             .Include(x=>x.MediaProducts)
             .Include(x=>x.Tags)
+            .Include(x=>x.ContentFiles)
             .FirstOrDefaultAsync(x => x.Id == id));
     }
 
@@ -527,9 +560,10 @@ public class ProductRepository : IProductRepository
             {
                 Id = p.Id,
                 Name = p.Name,
-                // Calculate the Revenue metric
+                // Calculate the Revenue metric — only Completed orders
                 Revenue = p.OrderItems
-                    .Where(oi => (!from.HasValue || oi.Order.OrderDate >= from) && 
+                    .Where(oi => oi.Order.Status == OrderStatus.Completed &&
+                                 (!from.HasValue || oi.Order.OrderDate >= from) &&
                                  (!to.HasValue || oi.Order.OrderDate <= to))
                     .Sum(oi => (decimal?)oi.PriceAtPurchase) ?? 0m,
                 // Calculate Current Price
@@ -537,9 +571,10 @@ public class ProductRepository : IProductRepository
                     .OrderByDescending(pr => pr.Date)
                     .Select(pr => pr.Value)
                     .FirstOrDefault(),
-                // Calculate Order Count
+                // Calculate Order Count — only Completed orders
                 OrderCount = p.OrderItems
-                    .Count(oi => (!from.HasValue || oi.Order.OrderDate >= from) && 
+                    .Count(oi => oi.Order.Status == OrderStatus.Completed &&
+                                 (!from.HasValue || oi.Order.OrderDate >= from) &&
                                  (!to.HasValue || oi.Order.OrderDate <= to))
             })
             // 1. Sort using the anonymous property (EF knows how to translate this)

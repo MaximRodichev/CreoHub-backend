@@ -1,6 +1,7 @@
 using Creohub.Domain.Entities;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
@@ -23,6 +24,8 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
     private readonly IAccountRepository _accountRepository;
     private readonly ISubscriptionPromoCodeRepository _promoCodeRepository;
     private readonly ICartRepository _cartRepository;
+    private readonly IEventTracker _events;
+    private readonly INotificationService _notifications;
 
     // Пороги LifetimeSpent → промо-коды AutoSlot
     private static readonly (decimal Threshold, int Days, string Tag)[] Milestones =
@@ -43,7 +46,9 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         IShopBalanceRepository shopBalanceRepository,
         IAccountRepository accountRepository,
         ISubscriptionPromoCodeRepository promoCodeRepository,
-        ICartRepository cartRepository)
+        ICartRepository cartRepository,
+        IEventTracker events,
+        INotificationService notifications)
     {
         _unitOfWork = unitOfWork;
         _transactionRepository = transactionRepository;
@@ -56,6 +61,8 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         _accountRepository = accountRepository;
         _promoCodeRepository = promoCodeRepository;
         _cartRepository = cartRepository;
+        _events = events;
+        _notifications = notifications;
     }
 
     public async Task<BaseResponse<bool>> Handle(
@@ -138,9 +145,21 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // ── Очистка корзины: удаляем только купленные позиции ─────────
-            var purchasedProductIds = order.Items.Select(i => i.ProductId).Distinct();
+            var purchasedProductIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
             await _cartRepository.RemoveCartItemsByProductIdsAsync(order.CustomerId, purchasedProductIds);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // ── Analytics events ──────────────────────────────────────────
+            _events.Track(EventTypes.CheckoutCompleted,
+                userId: order.CustomerId);
+
+            foreach (var productId in purchasedProductIds)
+                _events.Track(EventTypes.ProductPurchased,
+                    productId: productId,
+                    userId:    order.CustomerId);
+
+            // ── Purchase notifications to sellers (fire-and-forget) ────────
+            _ = NotifySellersAsync(productMap, order, cancellationToken);
 
             return BaseResponse<bool>.Success(true);
         }
@@ -148,6 +167,33 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         {
             return BaseResponse<bool>.Fail(ex.Message);
         }
+    }
+
+    private async Task NotifySellersAsync(
+        Dictionary<int, Domain.Entities.Product> productMap,
+        Order order,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Group by shop and notify each seller once
+            var shopIds = productMap.Values.Select(p => p.OwnerId).Distinct();
+            foreach (var shopId in shopIds)
+            {
+                var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
+                if (seller is null || !seller.NotifyOnPurchase) continue;
+
+                var productNames = productMap.Values
+                    .Where(p => p.OwnerId == shopId)
+                    .Select(p => p.Name);
+
+                var msg = $"🛒 Новая продажа! Купили: {string.Join(", ", productNames)}. " +
+                          $"Сумма: {order.Items.Where(i => productMap.ContainsKey(i.ProductId) && productMap[i.ProductId].OwnerId == shopId).Sum(i => i.PriceAtPurchase):F2} USDT";
+
+                await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+            }
+        }
+        catch { /* notifications must never affect the main flow */ }
     }
 
     private async Task CheckMilestonesAsync(Domain.Entities.User user)
@@ -167,8 +213,11 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
 
             await _promoCodeRepository.AddAsync(promo);
 
-            // TODO: уведомить пользователя (email/Telegram) с кодом promo.Code
-            // await _notificationService.SendPromoCodeAsync(user, promo.Code, days);
+            // Notify user about their promo code (fire-and-forget)
+            _ = _notifications.SendAsync(
+                user.TelegramId, user.EmailAddress,
+                $"🎁 Вы получили промо-код на {days} дней AutoSlot: <b>{promo.Code}</b>",
+                default);
         }
     }
 }

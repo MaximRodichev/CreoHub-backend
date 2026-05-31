@@ -43,35 +43,29 @@ public class ShopHandlerTests
     // ── CreateShop ────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task CreateShop_UserExists_CreatesShopAndReturnsId()
+    public async Task CreateShop_IsCurrentlyLocked_ReturnsError()
     {
+        // Handler is intentionally locked for controlled onboarding — returns error for all callers
         var user = User.Create("MaxG", "max@gmail.com");
         var dto = new CreateShopDTO { Name = "GamblElements", Description = "Slot assets shop" };
-
-        _shopRepo.AddAsync(Arg.Any<Shop>()).Returns(ci => Task.FromResult(ci.Arg<Shop>()));
-        _accountRepo.GetByIdAsync(user.Id).Returns(Task.FromResult<User?>(user));
-        _accountRepo.Update(Arg.Any<User>()).Returns(user);
-        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
         var handler = new CreateShopHandler(_mapper, _unitOfWork, _shopRepo, _accountRepo);
         var result = await handler.Handle(new CreateShopCommand(user.Id, dto), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}, ShopId: {result.Data}");
 
-        Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.NotEqual(Guid.Empty, result.Data);
-        await _shopRepo.Received(1).AddAsync(Arg.Any<Shop>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(ResponseStatus.Error, result.Status);
+        Assert.Contains("временно недоступно", result.ErrorMessage);
+        await _shopRepo.DidNotReceive().AddAsync(Arg.Any<Shop>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task CreateShop_UserNotFound_ReturnsError()
+    public async Task CreateShop_WhenLocked_ReturnsLockedError()
     {
+        // Even if the user doesn't exist, the locked guard fires first
         var dto = new CreateShopDTO { Name = "Ghost Shop", Description = "N/A" };
-
-        _shopRepo.AddAsync(Arg.Any<Shop>()).Returns(ci => Task.FromResult(ci.Arg<Shop>()));
         _accountRepo.GetByIdAsync(UserId).ReturnsNull();
-        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
         var handler = new CreateShopHandler(_mapper, _unitOfWork, _shopRepo, _accountRepo);
         var result = await handler.Handle(new CreateShopCommand(UserId, dto), CancellationToken.None);
@@ -79,7 +73,7 @@ public class ShopHandlerTests
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("User not found", result.ErrorMessage);
+        Assert.Contains("временно недоступно", result.ErrorMessage);
     }
 
     [Fact]

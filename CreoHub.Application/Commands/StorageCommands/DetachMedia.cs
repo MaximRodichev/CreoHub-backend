@@ -37,9 +37,14 @@ public class DetachMediaHandler : IRequestHandler<DetachMedia, BaseResponse<bool
             {
                 return BaseResponse<bool>.Fail("Этот продукт не принадлежит вам, ошибка прав доступа.");
             }
-            _mediaProductRepository.Remove(storageObject.MediaProduct);
+            // Важен порядок:
+            // 1. Update() первым — EF обходит граф и трекает storageObject + MediaProduct как Modified.
+            // 2. Remove() вторым — EF меняет уже-трекнутый MediaProduct с Modified на Deleted.
+            // Если Remove() первым, Update() потом обходит граф и переводит MediaProduct
+            // обратно из Deleted в Modified → удаление не происходит.
             storageObject.ChangeFileType(FileType.Unregistred);
             _storageObjectRepository.Update(storageObject);
+            _mediaProductRepository.Remove(storageObject.MediaProduct);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<bool>.Success(true);
         }

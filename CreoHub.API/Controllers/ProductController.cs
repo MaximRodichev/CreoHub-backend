@@ -32,11 +32,10 @@ public class ProductController : ShopOwnerControllerBase
     [HttpGet("get-products")]
     public async Task<IActionResult> GetProducts([FromQuery] FiltersDto filters)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (Guid.TryParse(userIdClaim, out var uid) && uid != Guid.Empty)
-            filters = filters with { UserId = uid };
+        var (uid, sid) = GetTrackingContext();
+        if (uid.HasValue) filters = filters with { UserId = uid };
 
-        var response = await _mediator.Send(new GetProductsByFilterQuery(filters));
+        var response = await _mediator.Send(new GetProductsByFilterQuery(filters, uid, sid));
         return Ok(response);
     }
 
@@ -50,15 +49,29 @@ public class ProductController : ShopOwnerControllerBase
     [HttpGet("get-product-info")]
     public async Task<IActionResult> GetProductInfo([FromQuery] string name)
     {
-        var response = await _mediator.Send(new GetProductInfoByNameQuery(name));
+        var (uid, sid) = GetTrackingContext();
+        var response = await _mediator.Send(new GetProductInfoByNameQuery(name, uid, sid));
         return Ok(response);
     }
 
     [HttpGet("{id:int}/info")]
     public async Task<IActionResult> GetProductInfoById([FromRoute] int id)
     {
-        var response = await _mediator.Send(new GetProductInfoByIdQuery(id));
+        var (uid, sid) = GetTrackingContext();
+        var response = await _mediator.Send(new GetProductInfoByIdQuery(id, uid, sid));
         return Ok(response);
+    }
+
+    /// <summary>Extracts optional UserId (from JWT) and X-Session-Id header for analytics tracking.</summary>
+    private (Guid? UserId, string? SessionId) GetTrackingContext()
+    {
+        Guid? uid = null;
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdClaim, out var parsedUid) && parsedUid != Guid.Empty)
+            uid = parsedUid;
+
+        var sid = Request.Headers.TryGetValue("X-Session-Id", out var sv) ? sv.ToString() : null;
+        return (uid, sid);
     }
 
     [HttpGet("{id}/content-files")]

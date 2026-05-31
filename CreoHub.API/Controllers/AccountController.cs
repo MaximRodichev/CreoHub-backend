@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CreoHub.API.Controllers;
 
@@ -37,6 +38,7 @@ public class AccountController : ControllerBase
         _configuration=configuration;
     }
     
+    [EnableRateLimiting("auth")]
     [HttpGet("auth/google-signin")]
     public IActionResult LoginGoogle()
     {
@@ -152,6 +154,7 @@ public class AccountController : ControllerBase
     /// Авторизация / регистрация через Telegram Login Widget.
     /// Возвращает JWT токен.
     /// </summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("auth/telegram")]
     public async Task<IActionResult> TelegramAuth([FromBody] TelegramAuthData data)
     {
@@ -231,4 +234,19 @@ public class AccountController : ControllerBase
         var response = await _mediator.Send(new GetUserTransactionsQuery(UserId, page, pageSize));
         return Ok(response);
     }
+
+    /// <summary>
+    /// Обновить настройки уведомлений текущего пользователя.
+    /// </summary>
+    [Authorize]
+    [HttpPut("notification-settings")]
+    public async Task<IActionResult> UpdateNotificationSettings(
+        [FromBody] UpdateNotificationSettingsDto dto)
+    {
+        var response = await _mediator.Send(
+            new UpdateNotificationSettingsCommand(UserId, dto.NotifyOnPurchase, dto.NotifyOnModeration));
+        return Ok(response);
+    }
 }
+
+public record UpdateNotificationSettingsDto(bool NotifyOnPurchase, bool NotifyOnModeration);

@@ -35,7 +35,8 @@ public class CartController : ControllerBase
     [HttpPost("toggle-item")]
     public async Task<IActionResult> ToggleCartItem([FromQuery] int productId)
     {
-        var response = await _mediator.Send(new ToggleCartItemQuery(UserId, productId));
+        var sid = Request.Headers.TryGetValue("X-Session-Id", out var sv) ? sv.ToString() : null;
+        var response = await _mediator.Send(new ToggleCartItemQuery(UserId, productId, sid));
         return Ok(response);
     }
 

@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Creohub.AutoSlot;
 using CreoHub.API.Configuration;
 using CreoHub.API.DI;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -99,6 +101,24 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Защита auth эндпоинтов от брутфорса: 10 запросов в минуту с одного IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit          = 10,
+                Window               = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit           = 0,
+            }));
+});
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
     options.Limits.MaxRequestBodySize = FileLimits.MaxUpload;
@@ -159,6 +179,7 @@ app.MapPost("/api/grab", async (AssetGrabRequest request, HacksawGrabber grabber
     })
     .WithName("GrabAssets");
     //.WithOpenApi();*/
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAutoSlot();

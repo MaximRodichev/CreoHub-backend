@@ -18,6 +18,12 @@ public class User
 
     public UserRole Role { get; private set; } = UserRole.User;
 
+    // ── Notification preferences ──────────────────────────────────────────────
+    /// <summary>Seller wants a message when someone buys their product.</summary>
+    public bool NotifyOnPurchase   { get; private set; } = true;
+    /// <summary>Seller wants a message on moderation approved / rejected.</summary>
+    public bool NotifyOnModeration { get; private set; } = true;
+
     // FK
     public IReadOnlyCollection<Order> Orders { get; private set; } = new List<Order>();
     public Shop? Shop { get; private set; }
@@ -53,6 +59,13 @@ public class User
         user.BalanceId = user.Balance.Id;
 
         return user;
+    }
+
+    /// <summary>Update seller notification preferences.</summary>
+    public void UpdateNotificationSettings(bool notifyOnPurchase, bool notifyOnModeration)
+    {
+        NotifyOnPurchase   = notifyOnPurchase;
+        NotifyOnModeration = notifyOnModeration;
     }
 
     /// <summary>

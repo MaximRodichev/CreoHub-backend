@@ -1,5 +1,6 @@
 using CreoHub.Application.Commands.OrderCommands;
 using CreoHub.Application.DTO;
+using CreoHub.Application.Services;
 using CreoHub.Application.DTO.OrderDTOs;
 using CreoHub.Application.Pricing;
 using CreoHub.Application.Queries.Product;
@@ -51,7 +52,8 @@ public class CheckoutWithBalanceHandlerTests
             Substitute.For<IShopTransactionRepository>(),
             Substitute.For<IShopBalanceRepository>(),
             Substitute.For<IAccountRepository>(),
-            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }));
+            Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }),
+            Substitute.For<IEventTracker>());
 
     /// <summary>Создаёт Product с ценой (через рефлексию не нужно — используем публичный API).</summary>
     private static Product MakeProductWithPrice(decimal price)

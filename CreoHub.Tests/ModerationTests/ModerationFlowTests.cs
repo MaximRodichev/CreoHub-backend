@@ -425,7 +425,8 @@ public class ModerationFlowTests
         var product = MakeProduct(ProductStatus.OnModerating);
         productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -450,7 +451,8 @@ public class ModerationFlowTests
         var product = MakeProduct(wrongStatus);
         productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -465,7 +467,8 @@ public class ModerationFlowTests
         var (productRepo, statusLogRepo, unitOfWork) = MakeModerationDeps();
         productRepo.GetProductById(ProductId).ReturnsNull();
 
-        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -480,7 +483,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         const string reason = "Плагиат чужого контента";
-        var handler = new RejectModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new RejectModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new RejectModerationCommand(ProductId, AdminId, reason), CancellationToken.None);
 
@@ -499,7 +503,8 @@ public class ModerationFlowTests
         var product = MakeProduct(ProductStatus.OnModerating);
         productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new RejectModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new RejectModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new RejectModerationCommand(ProductId, AdminId, null), CancellationToken.None);
 
@@ -516,7 +521,8 @@ public class ModerationFlowTests
         var product = MakeProduct(ProductStatus.Active);
         productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new RejectModerationHandler(productRepo, statusLogRepo, unitOfWork);
+        var handler = new RejectModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new RejectModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -694,7 +700,8 @@ public class ModerationFlowTests
         return new CreateCheckoutHandler(
             unitOfWork, orderRepo, productRepo,
             transactionRepo, paymentSvc, accountRepo,
-            contentFileRepo, accessRepo, pricingOpts);
+            contentFileRepo, accessRepo, pricingOpts,
+            Substitute.For<IEventTracker>());
     }
 
     [Fact]

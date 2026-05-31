@@ -52,7 +52,8 @@ public class BalanceController : ControllerBase
     [HttpPost("checkout")]
     public async Task<IActionResult> CheckoutWithBalance([FromBody] List<CheckoutItemDTO> items)
     {
-        var response = await _mediator.Send(new CheckoutWithBalanceCommand(UserId, items));
+        var sid = Request.Headers.TryGetValue("X-Session-Id", out var sv) ? sv.ToString() : null;
+        var response = await _mediator.Send(new CheckoutWithBalanceCommand(UserId, items, sid));
         return Ok(response);
     }
 }
