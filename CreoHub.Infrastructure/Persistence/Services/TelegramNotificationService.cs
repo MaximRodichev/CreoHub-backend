@@ -36,6 +36,12 @@ public class TelegramNotificationService
             var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
             var response = await _http.PostAsync(url, content, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("Telegram send failed for chat_id={ChatId}: {Status} {Body}",
+                    chatId, (int)response.StatusCode, body);
+            }
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
