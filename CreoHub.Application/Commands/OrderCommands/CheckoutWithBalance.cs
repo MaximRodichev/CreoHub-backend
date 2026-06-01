@@ -36,6 +36,7 @@ public class CheckoutWithBalanceHandler
     private readonly IShopBalanceRepository _shopBalanceRepository;
     private readonly IAccountRepository _accountRepository;
     private readonly IEventTracker _events;
+    private readonly INotificationService _notifications;
 
     private readonly PricingConfig _pricing;
 
@@ -52,7 +53,8 @@ public class CheckoutWithBalanceHandler
         IShopBalanceRepository shopBalanceRepository,
         IAccountRepository accountRepository,
         IOptions<PricingConfig> pricing,
-        IEventTracker events)
+        IEventTracker events,
+        INotificationService notifications)
     {
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
@@ -67,6 +69,7 @@ public class CheckoutWithBalanceHandler
         _accountRepository = accountRepository;
         _pricing = pricing.Value;
         _events  = events;
+        _notifications = notifications;
     }
 
     public async Task<BaseResponse<CheckoutResultDTO>> Handle(
@@ -421,6 +424,9 @@ public class CheckoutWithBalanceHandler
                     userId:    request.UserId,
                     sessionId: request.SessionId);
 
+            // ── Уведомляем продавцов о покупке (fire-and-forget) ─────────────
+            _ = NotifySellersAsync(productMap, order, cancellationToken);
+
             return BaseResponse<CheckoutResultDTO>.Success(new CheckoutResultDTO
             {
                 OrderId    = order.Id,
@@ -432,5 +438,33 @@ public class CheckoutWithBalanceHandler
         {
             return BaseResponse<CheckoutResultDTO>.Fail(ex.Message);
         }
+    }
+
+    private async Task NotifySellersAsync(
+        Dictionary<int, Domain.Entities.Product> productMap,
+        Order order,
+        CancellationToken ct)
+    {
+        try
+        {
+            var shopIds = productMap.Values.Select(p => p.OwnerId).Distinct();
+            foreach (var shopId in shopIds)
+            {
+                var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
+                if (seller is null || !seller.NotifyOnPurchase) continue;
+
+                var productNames = productMap.Values
+                    .Where(p => p.OwnerId == shopId)
+                    .Select(p => p.Name);
+
+                var amount = order.Items
+                    .Where(i => productMap.ContainsKey(i.ProductId) && productMap[i.ProductId].OwnerId == shopId)
+                    .Sum(i => i.PriceAtPurchase);
+
+                var msg = $"🛒 Новая продажа! Купили: {string.Join(", ", productNames)}. Сумма: {amount:F2} USDT";
+                await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+            }
+        }
+        catch { /* уведомления никогда не должны прерывать основной поток */ }
     }
 }
