@@ -201,6 +201,21 @@ public class OrderRepository : IOrderRepository
             .ToListAsync();
     }
 
+    public async Task<List<string>?> GetOrderProductNamesAsync(Guid orderId, Guid userId)
+    {
+        var names = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == orderId &&
+                        o.CustomerId == userId &&
+                        o.Status == OrderStatus.Completed)
+            .SelectMany(o => o.Items)
+            .Select(i => i.Product.Name)
+            .ToListAsync();
+
+        // null = заказ не найден / не оплачен / не наш
+        return names.Count == 0 ? null : names;
+    }
+
     public async Task<List<(string Key, string FileName)>?> GetOrderDownloadFilesAsync(Guid orderId, Guid userId)
     {
         // Verify order belongs to user and is paid
@@ -211,17 +226,50 @@ public class OrderRepository : IOrderRepository
 
         if (!exists) return null;
 
+        // Primary source: OrderItemFiles (used for orders placed after the OrderItemFiles migration)
         var files = await _db.Orders
             .Where(o => o.Id == orderId)
             .SelectMany(o => o.Items)
             .SelectMany(i => i.Files)
             .Select(f => new
             {
-                Key      = f.ContentFile.StorageObject.Key,
-                FileName = f.ContentFile.PreviewName,
+                Key         = f.ContentFile.StorageObject.Key,
+                PreviewName = f.ContentFile.PreviewName,
+                StorageName = f.ContentFile.StorageObject.FileName,
             })
             .ToListAsync();
 
-        return files.Select(f => (f.Key, f.FileName)).ToList();
+        if (files.Count > 0)
+            return files.Select(f => (f.Key, WithExtension(f.PreviewName, f.StorageName))).ToList();
+
+        // Fallback: ContentAccesses (for legacy orders placed before OrderItemFiles existed)
+        var fallback = await _db.ContentAccesses
+            .Where(ca => ca.OrderId == orderId)
+            .Select(ca => new
+            {
+                Key         = ca.ContentFile.StorageObject.Key,
+                PreviewName = ca.ContentFile.PreviewName,
+                StorageName = ca.ContentFile.StorageObject.FileName,
+            })
+            .ToListAsync();
+
+        return fallback.Select(f => (f.Key, WithExtension(f.PreviewName, f.StorageName))).ToList();
+    }
+
+    /// <summary>
+    /// Если у PreviewName уже есть расширение — оставляем как есть.
+    /// Иначе берём расширение из StorageObject.FileName и дописываем.
+    /// </summary>
+    private static string WithExtension(string previewName, string storageName)
+    {
+        var ext = Path.GetExtension(storageName); // ".7z", ".zip", ".mp4", …
+        if (string.IsNullOrEmpty(ext))
+            return previewName;
+
+        // Проверяем что расширение ещё не присутствует (case-insensitive)
+        if (previewName.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+            return previewName;
+
+        return previewName + ext;
     }
 }

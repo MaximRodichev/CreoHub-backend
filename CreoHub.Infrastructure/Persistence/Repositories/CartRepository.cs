@@ -55,6 +55,8 @@ public class CartRepository : ICartRepository
             .Carts
             .AsNoTracking()
             .Include(x => x.Items)
+                .ThenInclude(x => x.SelectedFiles)   // ← выбранные файлы по позиции корзины
+            .Include(x => x.Items)
                 .ThenInclude(x => x.Product)
                     .ThenInclude(p => p.BundleItems)
                         .ThenInclude(bi => bi.Product)

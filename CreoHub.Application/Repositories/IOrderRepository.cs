@@ -19,4 +19,10 @@ public interface IOrderRepository : IRepository<Order, Guid>
     /// Null — заказ не найден или не принадлежит пользователю или не оплачен.
     /// </summary>
     Task<List<(string Key, string FileName)>?> GetOrderDownloadFilesAsync(Guid orderId, Guid userId);
+
+    /// <summary>
+    /// Возвращает названия товаров в оплаченном заказе (для формирования имени ZIP-архива).
+    /// Null — заказ не найден / не оплачен / не принадлежит пользователю.
+    /// </summary>
+    Task<List<string>?> GetOrderProductNamesAsync(Guid orderId, Guid userId);
 }

@@ -7,9 +7,10 @@ using MediatR;
 namespace CreoHub.Application.Commands.CartCommands;
 
 public record ToggleCartItemQuery(
-    Guid    UserId,
-    int     ProductId,
-    string? SessionId = null
+    Guid         UserId,
+    int          ProductId,
+    List<Guid>?  SelectedFileIds = null,
+    string?      SessionId = null
 ) : IRequest<BaseResponse<Guid?>>;
 
 public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseResponse<Guid?>>
@@ -40,10 +41,16 @@ public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseRe
              Guid? cartItemId = null;
              if (cartItem == null)
              {
-                 // Add all available files by default; frontend may follow up with PUT /cart/item/{id}/files to narrow selection
-                 var cart = await _cartRepository.GetByUserIdAsync(request.UserId);
+                 var cart         = await _cartRepository.GetByUserIdAsync(request.UserId);
                  var contentFiles = await _productRepository.GetContentFilesOfProduct(request.ProductId);
-                 cartItem = CartItem.Create(cart.Id, request.ProductId, contentFiles.Select(x=>x.Id).ToArray());
+
+                 // Если фронтенд передал конкретный список файлов — используем его,
+                 // иначе добавляем все доступные файлы продукта
+                 var fileIds = request.SelectedFileIds is { Count: > 0 }
+                     ? request.SelectedFileIds
+                     : contentFiles.Select(x => x.Id).ToList();
+
+                 cartItem = CartItem.Create(cart.Id, request.ProductId, fileIds);
                  await _cartRepository.AddCartItem(cartItem);
                  cartItemId = cartItem.Id;
                  adding = true;

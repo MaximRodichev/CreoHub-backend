@@ -248,11 +248,23 @@ public class AccountController : ControllerBase
         if (files.Count == 0)
             return NotFound("No files in this order.");
 
-        var safeOrderId = orderId.ToString()[..8].ToUpper();
+        var safeOrderId   = orderId.ToString()[..8].ToUpper();
+        var productNames  = await _orderRepository.GetOrderProductNamesAsync(orderId, UserId) ?? [];
+        var zipName       = ZipFileNameHelper.BuildZipFileName(productNames, safeOrderId);
+
+        // ZipArchive.Dispose() пишет центральный каталог синхронно.
+        // Kestrel запрещает синхронные записи по умолчанию — разрешаем только для этого запроса.
+        var syncIo = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpBodyControlFeature>();
+        if (syncIo != null) syncIo.AllowSynchronousIO = true;
 
         Response.StatusCode  = 200;
         Response.ContentType = "application/zip";
-        Response.Headers.Append("Content-Disposition", $"attachment; filename=\"order-{safeOrderId}.zip\"");
+        // RFC 5987: filename= (ASCII-заглушка) + filename*= (UTF-8, percent-encoded)
+        // Это единственный корректный способ передать не-ASCII имена в HTTP-заголовке.
+        var asciiName   = System.Text.RegularExpressions.Regex.Replace(zipName, @"[^\x20-\x7E]", "_");
+        var encodedName = Uri.EscapeDataString(zipName);   // "Full%20Pack%20%D0%9C%D0%B0%D0%BA%D1%81.zip"
+        Response.Headers.Append("Content-Disposition",
+            $"attachment; filename=\"{asciiName}\"; filename*=UTF-8''{encodedName}");
 
         // Отключаем буферизацию — стримим байты напрямую клиенту
         Response.Headers.Append("X-Accel-Buffering", "no");
@@ -307,3 +319,46 @@ public class AccountController : ControllerBase
 }
 
 public record UpdateNotificationSettingsDto(bool NotifyOnPurchase, bool NotifyOnModeration);
+
+file static class ZipFileNameHelper
+{
+    private static readonly char[] InvalidChars =
+        Path.GetInvalidFileNameChars().Concat(['/', '\\', ':', '*', '?', '"', '<', '>', '|', '#']).Distinct().ToArray();
+
+    /// <summary>
+    /// Формирует безопасное имя ZIP-файла вида:
+    ///   1 товар:  "ProductName-order-ABC12345.zip"
+    ///   2 товара: "Product1+Product2-order-ABC12345.zip"
+    ///   3+:       "Product1+2more-order-ABC12345.zip"
+    /// Общая длина ограничена 120 символами (без .zip).
+    /// </summary>
+    public static string BuildZipFileName(IReadOnlyList<string> productNames, string shortId)
+    {
+        if (productNames.Count == 0)
+            return $"order-{shortId}.zip";
+
+        var label = productNames.Count switch
+        {
+            1 => Sanitize(productNames[0]),
+            2 => $"{Sanitize(productNames[0])}+{Sanitize(productNames[1])}",
+            _ => $"{Sanitize(productNames[0])}+{productNames.Count - 1}more"
+        };
+
+        // Общая длина: label + "-order-" + shortId = label + 15 символов
+        const int maxLabel = 120 - 15;
+        if (label.Length > maxLabel)
+            label = label[..maxLabel].TrimEnd('-', '_', '+');
+
+        return $"{label}-order-{shortId}.zip";
+    }
+
+    private static string Sanitize(string name)
+    {
+        // Заменяем пробелы на подчёркивания, убираем запрещённые символы
+        var clean = string.Concat(
+            name.Replace(' ', '_')
+                .Where(c => Array.IndexOf(InvalidChars, c) < 0));
+
+        return string.IsNullOrWhiteSpace(clean) ? "Product" : clean;
+    }
+}
