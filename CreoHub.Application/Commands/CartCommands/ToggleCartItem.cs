@@ -10,9 +10,9 @@ public record ToggleCartItemQuery(
     Guid    UserId,
     int     ProductId,
     string? SessionId = null
-) : IRequest<BaseResponse<bool>>;
+) : IRequest<BaseResponse<Guid?>>;
 
-public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseResponse<bool>>
+public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseResponse<Guid?>>
 {
     private readonly ICartRepository    _cartRepository;
     private readonly IProductRepository _productRepository;
@@ -31,19 +31,21 @@ public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseRe
         _events            = events;
     }
 
-    public async Task<BaseResponse<bool>> Handle(ToggleCartItemQuery request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<Guid?>> Handle(ToggleCartItemQuery request, CancellationToken cancellationToken)
     {
         try
         {
              CartItem? cartItem = await _cartRepository.GetCartItemByUserAndProduct(request.UserId, request.ProductId);
              bool adding;
+             Guid? cartItemId = null;
              if (cartItem == null)
              {
-                 //TODO: ALL FILES
+                 // Add all available files by default; frontend may follow up with PUT /cart/item/{id}/files to narrow selection
                  var cart = await _cartRepository.GetByUserIdAsync(request.UserId);
                  var contentFiles = await _productRepository.GetContentFilesOfProduct(request.ProductId);
                  cartItem = CartItem.Create(cart.Id, request.ProductId, contentFiles.Select(x=>x.Id).ToArray());
                  await _cartRepository.AddCartItem(cartItem);
+                 cartItemId = cartItem.Id;
                  adding = true;
              }
              else
@@ -59,11 +61,11 @@ public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseRe
                  userId:    request.UserId,
                  sessionId: request.SessionId);
 
-             return BaseResponse<bool>.Success(true);
+             return BaseResponse<Guid?>.Success(cartItemId);
         }
         catch (Exception ex)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<Guid?>.Fail(ex.Message);
         }
     }
 }

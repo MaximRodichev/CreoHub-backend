@@ -11,6 +11,12 @@ public interface IStorageService
     Task<bool> FileExistsAsync(string key);
 
     /// <summary>
+    /// Открывает стрим для чтения файла из R2 (без загрузки в память).
+    /// Caller обязан dispose стрим после использования.
+    /// </summary>
+    Task<Stream> OpenReadStreamAsync(string key);
+
+    /// <summary>
     /// Листинг всех объектов в основном бакете с пагинацией.
     /// Используется для поиска orphan-файлов (есть в R2, нет в БД).
     /// </summary>

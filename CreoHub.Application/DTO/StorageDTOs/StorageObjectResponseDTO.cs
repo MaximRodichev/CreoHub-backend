@@ -13,6 +13,9 @@ public class StorageObjectResponseDTO
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public FileType FileType { get; set; }
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public VideoOptimizationStatus VideoOptimizationStatus { get; set; }
+
     public DateTime UploadedAt { get; set; }
 
     /// <summary>True — файл заблокирован системой (есть покупатели, нельзя удалить).</summary>

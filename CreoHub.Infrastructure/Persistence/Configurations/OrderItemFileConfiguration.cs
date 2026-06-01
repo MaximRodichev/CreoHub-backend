@@ -11,7 +11,7 @@ public class OrderItemFileConfiguration : IEntityTypeConfiguration<OrderItemFile
         // Составной ключ: OrderItemId (shadow) + ContentFileId
         builder.HasKey("OrderItemId", nameof(OrderItemFile.ContentFileId));
 
-        builder.HasOne<ContentFile>()
+        builder.HasOne(x => x.ContentFile)
             .WithMany()
             .HasForeignKey(nameof(OrderItemFile.ContentFileId))
             .OnDelete(DeleteBehavior.Restrict);

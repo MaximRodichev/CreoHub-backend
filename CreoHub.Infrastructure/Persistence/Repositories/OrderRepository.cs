@@ -200,4 +200,28 @@ public class OrderRepository : IOrderRepository
             .Where(o => o.Status == OrderStatus.Created && o.OrderDate < olderThan)
             .ToListAsync();
     }
+
+    public async Task<List<(string Key, string FileName)>?> GetOrderDownloadFilesAsync(Guid orderId, Guid userId)
+    {
+        // Verify order belongs to user and is paid
+        var exists = await _db.Orders.AnyAsync(o =>
+            o.Id == orderId &&
+            o.CustomerId == userId &&
+            o.Status == OrderStatus.Completed);
+
+        if (!exists) return null;
+
+        var files = await _db.Orders
+            .Where(o => o.Id == orderId)
+            .SelectMany(o => o.Items)
+            .SelectMany(i => i.Files)
+            .Select(f => new
+            {
+                Key      = f.ContentFile.StorageObject.Key,
+                FileName = f.ContentFile.PreviewName,
+            })
+            .ToListAsync();
+
+        return files.Select(f => (f.Key, f.FileName)).ToList();
+    }
 }

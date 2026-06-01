@@ -490,6 +490,7 @@ public class ProductRepository : IProductRepository
                 Id = x.Id,
                 Name = x.Name,
                 Slug = x.Slug,
+                ProductType = x.ProductType,
                 Price = x.Prices.OrderBy(x=>x.Date).LastOrDefault().Value,
                 isHotProduct = x.OrderItems.Count > 6,
                 SellsCount = x.OrderItems.Count,

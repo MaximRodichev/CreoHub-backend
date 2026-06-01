@@ -13,4 +13,10 @@ public interface IOrderRepository : IRepository<Order, Guid>
     Task<Order?> GetByTransactionIdWithItemsAsync(Guid transactionId);
     /// <summary>Заказы в статусе Created, созданные раньше указанного времени.</summary>
     Task<List<Order>> GetStaleCreatedOrdersAsync(DateTime olderThan);
+
+    /// <summary>
+    /// Возвращает список (R2Key, DisplayName) файлов для скачивания.
+    /// Null — заказ не найден или не принадлежит пользователю или не оплачен.
+    /// </summary>
+    Task<List<(string Key, string FileName)>?> GetOrderDownloadFilesAsync(Guid orderId, Guid userId);
 }

@@ -77,7 +77,8 @@ public class VideoConversionService : IVideoConversionService
             if (!string.Equals(newKey, video.Key, StringComparison.OrdinalIgnoreCase))
                 await _storageService.DeleteFileAsync(video.Key);
 
-            video.ReplaceFile(newKey, video.FileName, new FileInfo(outputPath).Length, "video/mp4");
+            var newFileName = Path.ChangeExtension(video.FileName, ".mp4");
+            video.ReplaceFile(newKey, newFileName, new FileInfo(outputPath).Length, "video/mp4");
 
             _storageObjectRepository.Update(video);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

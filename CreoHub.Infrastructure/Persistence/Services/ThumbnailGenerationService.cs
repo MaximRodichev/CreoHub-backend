@@ -54,14 +54,30 @@ public class ThumbnailGenerationService : IThumbnailGenerationService
 
             await _storageService.DownloadFileAsync(video.Key, inputPath);
 
-            // Берём кадр на 3-й секунде; если видео короче — FFmpeg возьмёт первый доступный
-            await FFmpeg.Conversions.New()
-                .AddParameter($"-i \"{inputPath}\"")
-                .AddParameter("-ss 00:00:03")
-                .AddParameter("-vframes 1")
-                .AddParameter("-q:v 2")
-                .SetOutput(thumbPath)
-                .Start(cancellationToken);
+            // Берём кадр на 3-й секунде; если видео короче — берём первый кадр
+            async Task ExtractFrame(string seek) =>
+                await FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{inputPath}\"")
+                    .AddParameter($"-ss {seek}")
+                    .AddParameter("-vframes 1")
+                    .AddParameter("-q:v 2")
+                    .SetOutput(thumbPath)
+                    .Start(cancellationToken);
+
+            await ExtractFrame("00:00:03");
+
+            // FFmpeg не создаёт файл если seek вышел за конец видео → fallback на первый кадр
+            if (!File.Exists(thumbPath))
+            {
+                _logger.LogWarning("Thumbnail at 3s not produced for {Key}, retrying at 0s", video.Key);
+                await ExtractFrame("00:00:00");
+            }
+
+            if (!File.Exists(thumbPath))
+            {
+                _logger.LogWarning("Thumbnail generation produced no output for {Key}, skipping", video.Key);
+                return;
+            }
 
             // Ключ thumbnail рядом с оригиналом: videos/abc.webm → videos/abc_thumb.jpg
             var thumbKey = Path.ChangeExtension(video.Key, null) + "_thumb.jpg";

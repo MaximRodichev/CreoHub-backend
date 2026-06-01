@@ -105,6 +105,13 @@ public class R2StorageService : IStorageService
         return Task.FromResult(_s3Client.GetPreSignedURL(request));
     }
 
+    public async Task<Stream> OpenReadStreamAsync(string key)
+    {
+        var request  = new GetObjectRequest { BucketName = BucketMainName, Key = key };
+        var response = await _s3Client.GetObjectAsync(request);
+        return response.ResponseStream;
+    }
+
     public async Task<bool> FileExistsAsync(string key)
     {
         try

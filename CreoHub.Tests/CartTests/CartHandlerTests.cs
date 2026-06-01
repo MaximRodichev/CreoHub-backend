@@ -66,7 +66,7 @@ public class CartHandlerTests
         _output.WriteLine($"Status: {result.Status}");
 
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.True(result.Data);
+        Assert.NotNull(result.Data); // returns cartItemId (Guid) when adding
         await _cartRepo.Received(1).AddCartItem(Arg.Is<CartItem>(ci => ci.ProductId == ProductId));
         await _cartRepo.DidNotReceive().RemoveCartItem(Arg.Any<CartItem>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -88,7 +88,7 @@ public class CartHandlerTests
         _output.WriteLine($"Status: {result.Status}");
 
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.True(result.Data);
+        Assert.Null(result.Data); // returns null when removing
         await _cartRepo.Received(1).RemoveCartItem(existingItem);
         await _cartRepo.DidNotReceive().AddCartItem(Arg.Any<CartItem>());
     }

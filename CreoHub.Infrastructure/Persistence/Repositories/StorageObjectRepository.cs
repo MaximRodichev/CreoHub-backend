@@ -127,8 +127,9 @@ public class StorageObjectRepository : IStorageObjectRepository
             MimeType       = x.Storage.MimeType,
             FileSize       = x.Storage.FileSize,
             FileName       = x.Storage.FileName,
-            FileType       = x.Storage.FileType,
-            UploadedAt     = x.Storage.UploadedAt,
+            FileType                  = x.Storage.FileType,
+            VideoOptimizationStatus   = x.Storage.VideoOptimizationStatus,
+            UploadedAt                = x.Storage.UploadedAt,
             IsSystemLocked = x.Storage.IsSystemLocked,
             LinkedProducts = x.Files
                 .Concat(x.HasMedia

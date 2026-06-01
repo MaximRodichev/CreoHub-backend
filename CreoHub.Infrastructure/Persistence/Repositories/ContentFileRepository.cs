@@ -80,10 +80,13 @@ public class ContentFileRepository : IContentFileRepository
             .FirstOrDefaultAsync(cf => cf.Id == id);
     }
 
-    public Task<bool> HasPurchasesAsync(Guid contentFileId)
+    public async Task<bool> HasPurchasesAsync(Guid contentFileId)
     {
-        return _db.ContentAccesses
-            .AnyAsync(ca => ca.ContentFileId == contentFileId);
+        // OrderItemFiles is the FK source of truth; ContentAccesses is the denormalized projection.
+        // Both must be checked: OrderItemFiles blocks DELETE at the DB level via FK constraint.
+        if (await _db.OrderItemFiles.AnyAsync(oif => oif.ContentFileId == contentFileId))
+            return true;
+        return await _db.ContentAccesses.AnyAsync(ca => ca.ContentFileId == contentFileId);
     }
 
     public Task<int> GetAccessCountAsync(Guid contentFileId)

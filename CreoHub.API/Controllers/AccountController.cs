@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Security.Claims;
 using CreoHub.API.Models;
@@ -9,6 +10,8 @@ using CreoHub.Application.Queries.Orders;
 using CreoHub.Application.Queries.Content;
 using CreoHub.Application.Queries.Account;
 using CreoHub.Application.Queries.Product;
+using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using Google.Apis.Auth;
 using MediatR;
@@ -28,14 +31,23 @@ public class AccountController : ControllerBase
     private readonly IMediator _mediator;
     private readonly JwtService _jwtService;
     private readonly IConfiguration _configuration;
-    
+    private readonly IOrderRepository _orderRepository;
+    private readonly IStorageService _storageService;
+
     protected Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
-    
-    public AccountController(IMediator mediator,  JwtService jwtService, IConfiguration configuration)
+
+    public AccountController(
+        IMediator mediator,
+        JwtService jwtService,
+        IConfiguration configuration,
+        IOrderRepository orderRepository,
+        IStorageService storageService)
     {
-        _mediator=mediator;
-        _jwtService=jwtService;
-        _configuration=configuration;
+        _mediator         = mediator;
+        _jwtService       = jwtService;
+        _configuration    = configuration;
+        _orderRepository  = orderRepository;
+        _storageService   = storageService;
     }
     
     [EnableRateLimiting("auth")]
@@ -220,6 +232,51 @@ public class AccountController : ControllerBase
     {
         var response = await _mediator.Send(new GetDownloadLinkQuery(UserId, contentFileId));
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Стримит все файлы заказа в ZIP-архив. Файлы записываются без повторного сжатия
+    /// (большинство уже сжаты: .7z, .mp4 и т.д.), что ускоряет генерацию.
+    /// </summary>
+    [Authorize]
+    [HttpGet("order/{orderId}/download-all")]
+    public async Task<IActionResult> DownloadOrderAll([FromRoute] Guid orderId, CancellationToken ct)
+    {
+        var files = await _orderRepository.GetOrderDownloadFilesAsync(orderId, UserId);
+        if (files is null)
+            return NotFound("Order not found or not paid.");
+        if (files.Count == 0)
+            return NotFound("No files in this order.");
+
+        var safeOrderId = orderId.ToString()[..8].ToUpper();
+
+        Response.StatusCode  = 200;
+        Response.ContentType = "application/zip";
+        Response.Headers.Append("Content-Disposition", $"attachment; filename=\"order-{safeOrderId}.zip\"");
+
+        // Отключаем буферизацию — стримим байты напрямую клиенту
+        Response.Headers.Append("X-Accel-Buffering", "no");
+
+        using var archive = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true);
+
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, fileName) in files)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            // Гарантируем уникальность имён внутри архива
+            var entryName = fileName;
+            var counter   = 1;
+            while (!usedNames.Add(entryName))
+                entryName = $"{Path.GetFileNameWithoutExtension(fileName)}_{counter++}{Path.GetExtension(fileName)}";
+
+            var entry = archive.CreateEntry(entryName, CompressionLevel.NoCompression);
+            await using var entryStream = entry.Open();
+            await using var r2Stream    = await _storageService.OpenReadStreamAsync(key);
+            await r2Stream.CopyToAsync(entryStream, ct);
+        }
+
+        return new EmptyResult();
     }
 
     /// <summary>

@@ -37,11 +37,8 @@ public class OptimizeStorageObjectHandler : IRequestHandler<OptimizeStorageObjec
             if (storageObject.OwnerId != request.shopId)
                 return BaseResponse<bool>.Fail("Файл не принадлежит вам");
 
-            if (storageObject.MimeType != "video/mp4")
-                return BaseResponse<bool>.Fail("Файл не является mp4");
-
-            if (storageObject.FileSize <= 5 * 1024 * 1024)
-                return BaseResponse<bool>.Fail("Файл меньше 5MB, оптимизация не нужна");
+            if (!storageObject.MimeType.StartsWith("video/"))
+                return BaseResponse<bool>.Fail("Файл не является видео");
 
             if (storageObject.FileType == FileType.Content)
                 return BaseResponse<bool>.Fail("Файл контента запрещено понижать в качестве, отвяжите от продукта перед сжатием");
