@@ -10,8 +10,18 @@ public class UserTransactionConfiguration : IEntityTypeConfiguration<UserTransac
     {
         builder.HasKey(x => x.Id);
 
+        // Optimistic concurrency через системную колонку xmin (PostgreSQL).
+        // Эквивалент UseXminAsConcurrencyToken(): два параллельных UPDATE одной строки →
+        // у проигравшего DbUpdateConcurrencyException. DDL не создаётся (xmin системная).
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         builder.HasIndex(t => t.UserId);
-        builder.HasIndex(t => t.TrackId);
+        // TrackId уникален по схеме (OxaPay invoice / "balance-{guid}") — unique-индекс
+        // дополнительно защищает от дублей и гонок webhook'ов.
+        builder.HasIndex(t => t.TrackId).IsUnique();
 
         builder.Property(x => x.TrackId)
             .IsRequired();

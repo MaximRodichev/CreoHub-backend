@@ -44,6 +44,14 @@ public class ToggleCartItemHandler : IRequestHandler<ToggleCartItemQuery, BaseRe
                  var cart         = await _cartRepository.GetByUserIdAsync(request.UserId);
                  var contentFiles = await _productRepository.GetContentFilesOfProduct(request.ProductId);
 
+                 // Проверяем что переданные файлы реально принадлежат этому товару
+                 if (request.SelectedFileIds is { Count: > 0 })
+                 {
+                     var validIds = contentFiles.Select(x => x.Id).ToHashSet();
+                     if (request.SelectedFileIds.Any(id => !validIds.Contains(id)))
+                         return BaseResponse<Guid?>.Fail("Один или несколько файлов не принадлежат данному товару.");
+                 }
+
                  // Если фронтенд передал конкретный список файлов — используем его,
                  // иначе добавляем все доступные файлы продукта
                  var fileIds = request.SelectedFileIds is { Count: > 0 }

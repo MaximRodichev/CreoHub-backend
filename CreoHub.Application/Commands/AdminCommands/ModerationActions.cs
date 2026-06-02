@@ -71,10 +71,14 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
         try
         {
             var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
-            if (seller is null || !seller.NotifyOnModeration) return;
+            var ns = seller?.NotificationSettings;
+            if (seller is null || ns is null || !ns.NotifyOnModeration) return;
 
-            var msg = $"✅ Ваш продукт <b>{productName}</b> прошёл модерацию и теперь доступен покупателям.";
-            await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+            var msg = $"Продукт «{productName}» прошёл модерацию и теперь доступен покупателям.";
+            var tg  = ns.TelegramEnabled ? seller.TelegramId   : null;
+            var em  = ns.EmailEnabled    ? seller.EmailAddress : null;
+            await _notifications.NotifyAsync(seller.Id, Domain.Types.NotificationType.Moderation,
+                msg, actionUrl: null, tg, em, CancellationToken.None);
         }
         catch { /* notifications must never affect the main flow */ }
     }
@@ -142,10 +146,14 @@ public class RejectModerationHandler : IRequestHandler<RejectModerationCommand, 
         try
         {
             var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
-            if (seller is null || !seller.NotifyOnModeration) return;
+            var ns = seller?.NotificationSettings;
+            if (seller is null || ns is null || !ns.NotifyOnModeration) return;
 
-            var msg = $"❌ Ваш продукт <b>{productName}</b> не прошёл модерацию.\nПричина: {reason}";
-            await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+            var msg = $"Продукт «{productName}» не прошёл модерацию. Причина: {reason}";
+            var tg  = ns.TelegramEnabled ? seller.TelegramId   : null;
+            var em  = ns.EmailEnabled    ? seller.EmailAddress : null;
+            await _notifications.NotifyAsync(seller.Id, Domain.Types.NotificationType.Moderation,
+                msg, actionUrl: null, tg, em, CancellationToken.None);
         }
         catch { /* notifications must never affect the main flow */ }
     }

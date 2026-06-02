@@ -10,6 +10,7 @@ public class UserClaimsModel
     public string? EmailAddress { get; set; }
     public long? TelegramId { get; set; }
     public Guid? ShopId { get; set; }
+    public string Role { get; set; } = "User";
 
     public UserClaimsModel() { }
 
@@ -20,5 +21,6 @@ public class UserClaimsModel
         this.EmailAddress = user.EmailAddress;
         this.TelegramId = user.TelegramId;
         this.ShopId = user.ShopId;
+        this.Role = user.Role;
     }
 }

@@ -11,6 +11,12 @@ public interface IStorageService
     Task<bool> FileExistsAsync(string key);
 
     /// <summary>
+    /// HEAD объекта в R2: реальные размер и content-type (источник правды, не клиент).
+    /// Exists=false если объект не найден.
+    /// </summary>
+    Task<(bool Exists, long ContentLength, string? ContentType)> GetObjectMetadataAsync(string key);
+
+    /// <summary>
     /// Открывает стрим для чтения файла из R2 (без загрузки в память).
     /// Caller обязан dispose стрим после использования.
     /// </summary>

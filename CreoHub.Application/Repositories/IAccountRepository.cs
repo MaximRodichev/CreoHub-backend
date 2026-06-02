@@ -13,8 +13,11 @@ public interface IAccountRepository : IRepository<User, Guid>
     public Task<List<ClientShortInfoDTO>> GetClientsShortInfoAsync(Guid shopId);
     public Task<User?> GetFullInfoByIdAsync(Guid userId);
 
-    /// <summary>Find the user who owns the given shop (for sending notifications to sellers).</summary>
+    /// <summary>Find the user who owns the given shop. Includes NotificationSettings.</summary>
     public Task<User?> GetUserByShopIdAsync(Guid shopId, CancellationToken ct = default);
+
+    /// <summary>Load user with their NotificationSettings (for updating preferences).</summary>
+    public Task<User?> GetByIdWithSettingsAsync(Guid userId, CancellationToken ct = default);
 
     /// <summary>Get all users who have a Telegram or email address (for broadcasts).</summary>
     public Task<List<(long? TelegramId, string? Email, bool NotifyOnPurchase, bool NotifyOnModeration)>>

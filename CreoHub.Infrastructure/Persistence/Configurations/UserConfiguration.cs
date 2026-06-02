@@ -54,5 +54,11 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
             .WithOne()
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // 1:1 notification settings
+        builder.HasOne(x => x.NotificationSettings)
+            .WithOne()
+            .HasForeignKey<UserNotificationSettings>(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -49,7 +49,7 @@ public class S3Controller : ShopOwnerControllerBase
         if (dto.FileSize > limit)
             return Ok(BaseResponse<bool>.Fail($"Файл слишком большой. Максимум для {dto.MimeType}: {FileLimits.Format(limit)}"));
 
-        var command  = new RequestStorageUploadCommand(dto.FileName, dto.MimeType, dto.FileSize, shopId);
+        var command  = new RequestStorageUploadCommand(dto.FileName, dto.MimeType, dto.FileSize, shopId, limit);
         var response = await _mediator.Send(command);
         return Ok(response);
     }

@@ -10,8 +10,16 @@ public class ShopTransactionConfiguration : IEntityTypeConfiguration<ShopTransac
     {
         builder.HasKey(x => x.Id);
 
+        // Optimistic concurrency через системную колонку xmin (см. UserTransactionConfiguration).
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         builder.HasIndex(t => t.ShopId);
-        builder.HasIndex(t => t.TrackId);
+        // TrackId магазинной продажи уникален ("sale-{orderId}-{shopId}") — unique-индекс
+        // ловит повторную вставку при дублирующем webhook'е.
+        builder.HasIndex(t => t.TrackId).IsUnique();
 
         builder.Property(x => x.TrackId)
             .IsRequired();

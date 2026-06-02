@@ -5,6 +5,7 @@ using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
@@ -73,6 +74,10 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
             var transaction = await _transactionRepository.GetByTrackIdAsync(request.TrackId)
                 ?? throw new InvalidOperationException(
                     $"Transaction with trackId '{request.TrackId}' not found.");
+
+            // Idempotency: webhook может прийти дважды — уже обработанный trackId игнорируем
+            if (transaction.TransactionStatus == TransactionStatus.Completed)
+                return BaseResponse<bool>.Success(true);
 
             var order = await _orderRepository.GetByTransactionIdWithItemsAsync(transaction.Id)
                 ?? throw new InvalidOperationException(
@@ -159,8 +164,14 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
                     userId:    order.CustomerId);
 
             // ── Purchase notifications to sellers (fire-and-forget) ────────
-            _ = NotifySellersAsync(productMap, order, cancellationToken);
+            var notifTargets = await BuildSellerNotificationsAsync(productMap, order, cancellationToken);
+            _ = SendSellerNotificationsAsync(notifTargets);
 
+            return BaseResponse<bool>.Success(true);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Гонка webhook'ов: другой запрос уже завершил этот заказ — идемпотентный успех.
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)
@@ -169,31 +180,49 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
         }
     }
 
-    private async Task NotifySellersAsync(
+    private async Task<List<(Guid UserId, long? TelegramId, string? Email, string Message)>> BuildSellerNotificationsAsync(
         Dictionary<int, Domain.Entities.Product> productMap,
         Order order,
         CancellationToken ct)
     {
+        var result = new List<(Guid, long?, string?, string)>();
         try
         {
-            // Group by shop and notify each seller once
             var shopIds = productMap.Values.Select(p => p.OwnerId).Distinct();
             foreach (var shopId in shopIds)
             {
                 var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
-                if (seller is null || !seller.NotifyOnPurchase) continue;
+                var ns = seller?.NotificationSettings;
+                if (seller is null || ns is null || !ns.NotifyOnPurchase) continue;
 
                 var productNames = productMap.Values
                     .Where(p => p.OwnerId == shopId)
                     .Select(p => p.Name);
 
-                var msg = $"🛒 Новая продажа! Купили: {string.Join(", ", productNames)}. " +
-                          $"Сумма: {order.Items.Where(i => productMap.ContainsKey(i.ProductId) && productMap[i.ProductId].OwnerId == shopId).Sum(i => i.PriceAtPurchase):F2} USDT";
+                var amount = order.Items
+                    .Where(i => productMap.ContainsKey(i.ProductId) && productMap[i.ProductId].OwnerId == shopId)
+                    .Sum(i => i.PriceAtPurchase);
 
-                await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+                result.Add((seller.Id,
+                    ns.TelegramEnabled ? seller.TelegramId   : null,
+                    ns.EmailEnabled    ? seller.EmailAddress : null,
+                    $"Новая продажа: {string.Join(", ", productNames)}. Сумма: {amount:F2} USDT"));
             }
         }
-        catch { /* notifications must never affect the main flow */ }
+        catch { /* не критично */ }
+        return result;
+    }
+
+    private async Task SendSellerNotificationsAsync(
+        List<(Guid UserId, long? TelegramId, string? Email, string Message)> targets)
+    {
+        try
+        {
+            foreach (var (userId, tg, email, msg) in targets)
+                await _notifications.NotifyAsync(userId, Domain.Types.NotificationType.Purchase,
+                    msg, actionUrl: null, tg, email, CancellationToken.None);
+        }
+        catch { }
     }
 
     private async Task CheckMilestonesAsync(Domain.Entities.User user)
@@ -216,7 +245,7 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
             // Notify user about their promo code (fire-and-forget)
             _ = _notifications.SendAsync(
                 user.TelegramId, user.EmailAddress,
-                $"🎁 Вы получили промо-код на {days} дней AutoSlot: <b>{promo.Code}</b>",
+                $"Вы получили промо-код на {days} дней AutoSlot: {promo.Code}",
                 default);
         }
     }

@@ -1,15 +1,32 @@
+using CreoHub.Domain.Types;
+
 namespace CreoHub.Application.Services;
 
 /// <summary>
-/// Sends a notification to a user via their preferred channel (Telegram → Email fallback).
-/// Implementations should be fire-and-forget-safe; all exceptions must be swallowed internally.
+/// Единая точка входа для всех уведомлений.
 /// </summary>
 public interface INotificationService
 {
     /// <summary>
-    /// Attempt to notify a user.
-    /// Tries Telegram first (if telegramId is set), then falls back to email.
-    /// Returns true if at least one channel succeeded.
+    /// Постоянное уведомление о системном событии:
+    ///   1. Всегда сохраняет в InAppNotifications (гарантированная доставка).
+    ///   2. Если telegramChatId != null — шлёт в Telegram.
+    ///   3. Если email != null — шлёт на Email.
+    /// Caller сам передаёт channel-параметры на основе загруженных настроек юзера.
+    /// </summary>
+    Task NotifyAsync(
+        Guid             userId,
+        NotificationType type,
+        string           message,
+        string?          actionUrl      = null,
+        long?            telegramChatId = null,
+        string?          email          = null,
+        CancellationToken ct            = default);
+
+    /// <summary>
+    /// Транзиентное уведомление (только каналы, без сохранения в БД).
+    /// Используется для подтверждений, пингов и т.п.
+    /// Telegram → Email fallback. Возвращает true если хоть один канал сработал.
     /// </summary>
     Task<bool> SendAsync(
         long?   telegramId,

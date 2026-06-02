@@ -13,12 +13,14 @@ using CreoHub.Application.Queries.Product;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
+using CreoHub.Domain.Types;
 using Google.Apis.Auth;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -48,6 +50,35 @@ public class AccountController : ControllerBase
         _configuration    = configuration;
         _orderRepository  = orderRepository;
         _storageService   = storageService;
+    }
+
+    /// <summary>
+    /// Завершает OAuth-редирект на фронт. Если задан CookieDomain (общий для api.creohub.xyz
+    /// и creohub.xyz) — ставит JWT в HttpOnly cookie и НЕ кладёт токен в URL (не светится в
+    /// логах/истории/referer). Если домен не задан (dev / single-host) — прежний fallback ?token=,
+    /// чтобы логин не сломался без настройки env.
+    /// </summary>
+    private IActionResult AuthCallbackRedirect(string jwt, string path)
+    {
+        var frontend = _configuration["Frontend"];
+        var domain   = _configuration["CookieDomain"];
+
+        if (!string.IsNullOrWhiteSpace(domain))
+        {
+            Response.Cookies.Append("jwt_token", jwt, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure   = true,
+                SameSite = SameSiteMode.Lax,
+                Path     = "/",
+                MaxAge   = TimeSpan.FromDays(7),
+                Domain   = domain,
+            });
+            return Redirect($"{frontend}{path}");
+        }
+
+        var sep = path.Contains('?') ? "&" : "?";
+        return Redirect($"{frontend}{path}{sep}token={jwt}");
     }
     
     [EnableRateLimiting("auth")]
@@ -113,9 +144,9 @@ public class AccountController : ControllerBase
             if (linkResponse.Status != ResponseStatus.Success)
                 return Redirect($"{_configuration["Frontend"]}/me/profile?link_error={Uri.EscapeDataString(linkResponse.ErrorMessage ?? "Ошибка привязки")}");
 
-            // Обновляем JWT с новыми данными (email теперь есть)
+            // Обновляем JWT с новыми данными (email теперь есть) — в cookie, не в URL
             var token = _jwtService.GenerateToken(new UserClaimsModel(linkResponse.Data));
-            return Redirect($"{_configuration["Frontend"]}/me/profile?linked=google&token={token}");
+            return AuthCallbackRedirect(token, "/me/profile?linked=google");
         }
 
         // Обычный вход / регистрация через Google
@@ -131,7 +162,7 @@ public class AccountController : ControllerBase
             return Redirect($"{_configuration["Frontend"]}/signin?error={Uri.EscapeDataString(response.ErrorMessage ?? "auth_failed")}");
 
         var jwtToken = _jwtService.GenerateToken(new UserClaimsModel(response.Data));
-        return Redirect($"{_configuration["Frontend"]}/auth-callback?token={jwtToken}");
+        return AuthCallbackRedirect(jwtToken, "/auth-callback");
     }
 
     /// <summary>
@@ -312,13 +343,101 @@ public class AccountController : ControllerBase
     public async Task<IActionResult> UpdateNotificationSettings(
         [FromBody] UpdateNotificationSettingsDto dto)
     {
-        var response = await _mediator.Send(
-            new UpdateNotificationSettingsCommand(UserId, dto.NotifyOnPurchase, dto.NotifyOnModeration));
+        var response = await _mediator.Send(new UpdateNotificationSettingsCommand(
+            UserId,
+            dto.TelegramEnabled,
+            dto.EmailEnabled,
+            dto.NotifyOnPurchase,
+            dto.NotifyOnModeration,
+            dto.NotifyOnBalance,
+            dto.NotifyOnBroadcast));
         return Ok(response);
+    }
+
+    // ── In-app notifications ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Список непрочитанных in-app уведомлений (max 20).
+    /// </summary>
+    [Authorize]
+    [HttpGet("in-app-notifications")]
+    public async Task<IActionResult> GetInAppNotifications(
+        [FromServices] IInAppNotificationRepository repo)
+    {
+        var items = await repo.GetPendingAsync(UserId);
+        return Ok(BaseResponse<object>.Success(items.Select(n => new
+        {
+            id        = n.Id,
+            type      = n.Type.ToString(),
+            message   = n.Message,
+            actionUrl = n.ActionUrl,
+            createdAt = n.CreatedAt,
+        })));
+    }
+
+    /// <summary>
+    /// Полная история уведомлений (прочитанные + непрочитанные), опц. фильтр по типу.
+    /// </summary>
+    [Authorize]
+    [HttpGet("in-app-notifications/history")]
+    public async Task<IActionResult> GetNotificationHistory(
+        [FromServices] IInAppNotificationRepository repo,
+        [FromQuery] string? type,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        NotificationType? parsed =
+            Enum.TryParse<NotificationType>(type, ignoreCase: true, out var t) ? t : null;
+
+        var p  = page < 1 ? 1 : page;
+        var ps = pageSize is < 1 or > 100 ? 50 : pageSize;
+
+        var items = await repo.GetHistoryAsync(UserId, parsed, p, ps);
+        return Ok(BaseResponse<object>.Success(items.Select(n => new
+        {
+            id        = n.Id,
+            type      = n.Type.ToString(),
+            message   = n.Message,
+            actionUrl = n.ActionUrl,
+            createdAt = n.CreatedAt,
+            isRead    = n.IsRead,
+            readAt    = n.ReadAt,
+        })));
+    }
+
+    /// <summary>
+    /// Отметить одно уведомление как прочитанное.
+    /// </summary>
+    [Authorize]
+    [HttpPost("in-app-notifications/{id:int}/ack")]
+    public async Task<IActionResult> AcknowledgeNotification(
+        [FromRoute] int id,
+        [FromServices] IInAppNotificationRepository repo)
+    {
+        var ok = await repo.AcknowledgeAsync(id, UserId);
+        return Ok(ok ? BaseResponse<bool>.Success(true) : BaseResponse<bool>.Fail("Not found"));
+    }
+
+    /// <summary>
+    /// Отметить все уведомления как прочитанные.
+    /// </summary>
+    [Authorize]
+    [HttpPost("in-app-notifications/ack-all")]
+    public async Task<IActionResult> AcknowledgeAllNotifications(
+        [FromServices] IInAppNotificationRepository repo)
+    {
+        await repo.AcknowledgeAllAsync(UserId);
+        return Ok(BaseResponse<bool>.Success(true));
     }
 }
 
-public record UpdateNotificationSettingsDto(bool NotifyOnPurchase, bool NotifyOnModeration);
+public record UpdateNotificationSettingsDto(
+    bool TelegramEnabled,
+    bool EmailEnabled,
+    bool NotifyOnPurchase,
+    bool NotifyOnModeration,
+    bool NotifyOnBalance,
+    bool NotifyOnBroadcast);
 
 file static class ZipFileNameHelper
 {

@@ -77,8 +77,14 @@ public class BulkOwnerDownloadHandler
         var objects = await _repo.GetByIdsAsync(request.FileIds);
 
         // Security: only files belonging to this shop
-        var results = objects
-            .Where(o => o.OwnerId == request.ShopId)
+        var owned = objects.Where(o => o.OwnerId == request.ShopId).ToList();
+
+        // Если часть ids не найдена или не принадлежит магазину — возвращаем ошибку
+        if (owned.Count < request.FileIds.Count)
+            return BaseResponse<List<OwnerDownloadResult>>.Fail(
+                "Часть файлов не найдена или не принадлежит вашему магазину.");
+
+        var results = owned
             .Select(o =>
             {
                 var cd  = OwnerDownloadHandler.BuildContentDisposition(o.FileName);

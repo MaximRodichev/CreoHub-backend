@@ -57,6 +57,9 @@ public static class Initialization
         services.AddHttpClient<TelegramNotificationService>();
         services.AddScoped<SmtpNotificationService>();
         services.AddScoped<INotificationService, CompositeNotificationService>();
+        services.AddScoped<IInAppNotificationRepository, InAppNotificationRepository>();
+        services.AddScoped<IPendingUploadRepository, PendingUploadRepository>();
+        services.AddScoped<IShopRequestRepository, ShopRequestRepository>();
         
         
         services.AddScoped<IStorageService, R2StorageService>();
@@ -148,7 +151,13 @@ public static class Initialization
                     }
                 };*/
             });
-        
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("Admin", policy =>
+                policy.RequireRole("Admin"));
+        });
+
         services.AddHttpClient<IPaymentGatewayService, OxaPayService>();
         
         return services;

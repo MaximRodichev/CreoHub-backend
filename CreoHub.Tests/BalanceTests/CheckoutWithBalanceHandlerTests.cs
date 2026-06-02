@@ -53,7 +53,8 @@ public class CheckoutWithBalanceHandlerTests
             Substitute.For<IShopBalanceRepository>(),
             Substitute.For<IAccountRepository>(),
             Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }),
-            Substitute.For<IEventTracker>());
+            Substitute.For<IEventTracker>(),
+            Substitute.For<INotificationService>());
 
     /// <summary>Создаёт Product с ценой (через рефлексию не нужно — используем публичный API).</summary>
     private static Product MakeProductWithPrice(decimal price)

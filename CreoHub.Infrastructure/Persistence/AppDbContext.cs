@@ -48,6 +48,16 @@ public class AppDbContext : DbContext
 
     // admin broadcast jobs
     public DbSet<BroadcastJob> BroadcastJobs { get; set; }
+
+    // notification system (Block 29)
+    public DbSet<UserNotificationSettings> UserNotificationSettings { get; set; }
+    public DbSet<InAppNotification>        InAppNotifications        { get; set; }
+
+    // pending uploads (security audit)
+    public DbSet<PendingUpload> PendingUploads { get; set; }
+
+    // shop requests («Оставить предложение»)
+    public DbSet<ShopRequest> ShopRequests { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

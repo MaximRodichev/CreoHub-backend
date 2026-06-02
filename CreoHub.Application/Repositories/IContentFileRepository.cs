@@ -13,4 +13,6 @@ public interface IContentFileRepository : IRepository<ContentFile, Guid>
     Task<int> GetAccessCountAsync(Guid contentFileId);
     /// <summary>Количество активных (не архивированных) контент-файлов у товара.</summary>
     Task<int> GetActiveCountByProductIdAsync(int productId);
+    /// <summary>Возвращает Id всех контент-файлов для данного товара (для валидации корзины).</summary>
+    Task<HashSet<Guid>> GetIdsByProductIdAsync(int productId, CancellationToken ct = default);
 }

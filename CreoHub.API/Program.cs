@@ -51,6 +51,13 @@ builder.Services.AddAuthentication(options =>
         options.ClientSecret = builder.Configuration.GetConnectionString("GoogleClientSecret");
         options.CallbackPath = "/signin-google"; // Должен совпадать с тем, что в Google Console
 
+        // Correlation cookie должен шариться между api.creohub.xyz (сюда приходит callback)
+        // и creohub.xyz (frontend-proxy ставит cookie браузеру). Без общего домена
+        // ASP.NET не находит cookie на callback → OAuth state не проходит, линковка ломается.
+        var corrDomain = builder.Configuration["CookieDomain"];
+        if (!string.IsNullOrWhiteSpace(corrDomain))
+            options.CorrelationCookie.Domain = corrDomain;
+
         // Если пользователь отменяет Google OAuth — редиректим тихо, без страницы ошибки
         options.Events.OnRemoteFailure = ctx =>
         {

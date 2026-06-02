@@ -13,6 +13,7 @@ public class CartUpdateTests
 {
     private readonly ITestOutputHelper _output;
     private readonly ICartRepository _cartRepo;
+    private readonly IContentFileRepository _contentFileRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     private static readonly Guid UserId     = Guid.Parse("dddd0001-0000-0000-0000-000000000000");
@@ -22,8 +23,9 @@ public class CartUpdateTests
     public CartUpdateTests(ITestOutputHelper output)
     {
         _output = output;
-        _cartRepo  = Substitute.For<ICartRepository>();
-        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _cartRepo        = Substitute.For<ICartRepository>();
+        _contentFileRepo = Substitute.For<IContentFileRepository>();
+        _unitOfWork      = Substitute.For<IUnitOfWork>();
     }
 
     // ── Domain: CartItem.UpdateFiles ──────────────────────────────────────────
@@ -86,8 +88,11 @@ public class CartUpdateTests
         _cartRepo.GetCartItemWithFilesAsync(CartItemId).Returns(cartItem);
         _cartRepo.GetByUserIdAsync(UserId).Returns(cart);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
+        // Мок: все запрошенные файлы принадлежат товару
+        _contentFileRepo.GetIdsByProductIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new HashSet<Guid>(newFiles));
 
-        var handler = new UpdateCartItemFilesHandler(_cartRepo, _unitOfWork);
+        var handler = new UpdateCartItemFilesHandler(_cartRepo, _contentFileRepo, _unitOfWork);
         var result  = await handler.Handle(
             new UpdateCartItemFilesCommand(UserId, CartItemId, newFiles), CancellationToken.None);
 
@@ -103,7 +108,7 @@ public class CartUpdateTests
     {
         _cartRepo.GetCartItemWithFilesAsync(CartItemId).ReturnsNull();
 
-        var handler = new UpdateCartItemFilesHandler(_cartRepo, _unitOfWork);
+        var handler = new UpdateCartItemFilesHandler(_cartRepo, _contentFileRepo, _unitOfWork);
         var result  = await handler.Handle(
             new UpdateCartItemFilesCommand(UserId, CartItemId, [Guid.NewGuid()]),
             CancellationToken.None);
@@ -127,7 +132,7 @@ public class CartUpdateTests
         _cartRepo.GetCartItemWithFilesAsync(CartItemId).Returns(cartItem);
         _cartRepo.GetByUserIdAsync(UserId).Returns(myCart);
 
-        var handler = new UpdateCartItemFilesHandler(_cartRepo, _unitOfWork);
+        var handler = new UpdateCartItemFilesHandler(_cartRepo, _contentFileRepo, _unitOfWork);
         var result  = await handler.Handle(
             new UpdateCartItemFilesCommand(UserId, CartItemId, [Guid.NewGuid()]),
             CancellationToken.None);
@@ -150,7 +155,7 @@ public class CartUpdateTests
         _cartRepo.GetByUserIdAsync(UserId).Returns(cart);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new UpdateCartItemFilesHandler(_cartRepo, _unitOfWork);
+        var handler = new UpdateCartItemFilesHandler(_cartRepo, _contentFileRepo, _unitOfWork);
         var result  = await handler.Handle(
             new UpdateCartItemFilesCommand(UserId, CartItemId, new List<Guid>()),
             CancellationToken.None);

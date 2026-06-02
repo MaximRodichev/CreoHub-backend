@@ -27,7 +27,11 @@ public class TelegramNotificationService
 
     public async Task<bool> TrySendAsync(long chatId, string message, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_botToken)) return false;
+        if (string.IsNullOrWhiteSpace(_botToken))
+        {
+            _logger.LogWarning("TelegramNotificationService: BotToken не задан — уведомление пропущено");
+            return false;
+        }
 
         try
         {

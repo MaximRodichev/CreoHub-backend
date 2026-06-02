@@ -124,12 +124,17 @@ public class PaymentController : ControllerBase
             // Определяем тип транзакции — UpBalance (пополнение) или Purchase (покупка)
             var transaction = await _transactionRepository.GetByTrackIdAsync(payload.TrackId);
 
+            // Защита от пустого массива Transactions (400 от провайдера → 500 без этой проверки)
+            var tx = payload.Transactions?.FirstOrDefault();
+            var txHash        = tx?.TxHash        ?? string.Empty;
+            var senderAddress = tx?.SenderAddress ?? string.Empty;
+
             if (transaction?.TransactionType == TransactionType.UpBalance)
             {
                 var result = await _mediator.Send(new ConfirmTopUpCommand(
                     TrackId:       payload.TrackId,
-                    TxHash:        payload.Transactions.First().TxHash ?? string.Empty,
-                    SenderAddress: payload.Transactions.First().SenderAddress ?? string.Empty));
+                    TxHash:        txHash,
+                    SenderAddress: senderAddress));
 
                 if (result.Status != Application.DTO.ResponseStatus.Success)
                     _logger.LogError("ConfirmTopUp failed for trackId={TrackId}: {Error}",
@@ -139,8 +144,8 @@ public class PaymentController : ControllerBase
             {
                 var result = await _mediator.Send(new CompletePaymentCommand(
                     TrackId:       payload.TrackId,
-                    TxHash:        payload.Transactions.First().TxHash ?? string.Empty,
-                    SenderAddress: payload.Transactions.First().SenderAddress ?? string.Empty));
+                    TxHash:        txHash,
+                    SenderAddress: senderAddress));
 
                 if (result.Status != Application.DTO.ResponseStatus.Success)
                     _logger.LogError("CompletePayment failed for trackId={TrackId}: {Error}",

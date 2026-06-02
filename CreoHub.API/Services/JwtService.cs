@@ -23,6 +23,7 @@ public class JwtService
         {
             new Claim(JwtRegisteredClaimNames.Sub, model.Id.ToString()),
             new Claim(ClaimTypes.Name, model.Name),
+            new Claim(ClaimTypes.Role, model.Role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim("telegram_id", model.TelegramId?.ToString() ?? ""),
         };

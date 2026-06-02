@@ -425,7 +425,10 @@ public class CheckoutWithBalanceHandler
                     sessionId: request.SessionId);
 
             // ── Уведомляем продавцов о покупке (fire-and-forget) ─────────────
-            _ = NotifySellersAsync(productMap, order, cancellationToken);
+            // Загружаем данные продавцов ДО fire-and-forget, пока DbContext жив.
+            // Фоновая задача получает готовые сообщения — без обращений к БД.
+            var notifTargets = await BuildSellerNotificationsAsync(productMap, order, cancellationToken);
+            _ = SendSellerNotificationsAsync(notifTargets);
 
             return BaseResponse<CheckoutResultDTO>.Success(new CheckoutResultDTO
             {
@@ -440,18 +443,23 @@ public class CheckoutWithBalanceHandler
         }
     }
 
-    private async Task NotifySellersAsync(
+    /// <summary>
+    /// Синхронно (в рамках живого DbContext) собирает получателей и тексты уведомлений.
+    /// </summary>
+    private async Task<List<(Guid UserId, long? TelegramId, string? Email, string Message)>> BuildSellerNotificationsAsync(
         Dictionary<int, Domain.Entities.Product> productMap,
         Order order,
         CancellationToken ct)
     {
+        var result = new List<(Guid, long?, string?, string)>();
         try
         {
             var shopIds = productMap.Values.Select(p => p.OwnerId).Distinct();
             foreach (var shopId in shopIds)
             {
                 var seller = await _accountRepository.GetUserByShopIdAsync(shopId, ct);
-                if (seller is null || !seller.NotifyOnPurchase) continue;
+                var ns = seller?.NotificationSettings;
+                if (seller is null || ns is null || !ns.NotifyOnPurchase) continue;
 
                 var productNames = productMap.Values
                     .Where(p => p.OwnerId == shopId)
@@ -461,10 +469,28 @@ public class CheckoutWithBalanceHandler
                     .Where(i => productMap.ContainsKey(i.ProductId) && productMap[i.ProductId].OwnerId == shopId)
                     .Sum(i => i.PriceAtPurchase);
 
-                var msg = $"🛒 Новая продажа! Купили: {string.Join(", ", productNames)}. Сумма: {amount:F2} USDT";
-                await _notifications.SendAsync(seller.TelegramId, seller.EmailAddress, msg, ct);
+                result.Add((seller.Id,
+                    ns.TelegramEnabled ? seller.TelegramId   : null,
+                    ns.EmailEnabled    ? seller.EmailAddress : null,
+                    $"Новая продажа: {string.Join(", ", productNames)}. Сумма: {amount:F2} USDT"));
             }
         }
-        catch { /* уведомления никогда не должны прерывать основной поток */ }
+        catch { /* не критично */ }
+        return result;
+    }
+
+    /// <summary>
+    /// Fire-and-forget: только HTTP-вызовы + in-app, без обращений к DbContext.
+    /// </summary>
+    private async Task SendSellerNotificationsAsync(
+        List<(Guid UserId, long? TelegramId, string? Email, string Message)> targets)
+    {
+        try
+        {
+            foreach (var (userId, tg, email, msg) in targets)
+                await _notifications.NotifyAsync(userId, Domain.Types.NotificationType.Purchase,
+                    msg, actionUrl: null, tg, email, CancellationToken.None);
+        }
+        catch { }
     }
 }

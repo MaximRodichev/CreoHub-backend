@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CreoHub.Application.Commands.AdminCommands;
 using CreoHub.Application.Commands.OrderCommands;
@@ -25,27 +24,17 @@ public record AdminSendToModerationDto(string? Reason = null);
 public record CreateBroadcastDto(string Message);
 
 /// <summary>
-/// Все эндпоинты доступны только для аккаунта icreoaffilate@gmail.com.
-/// Проверка — по email-клейму в JWT (claim "email").
+/// Все эндпоинты доступны только пользователям с ролью Admin.
+/// Авторизация через политику "Admin" (ClaimTypes.Role == "Admin").
 /// </summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize]
+[Authorize(Policy = "Admin")]
 public class AdminController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private const string AdminEmail = "icreoaffilate@gmail.com";
 
     public AdminController(IMediator mediator) => _mediator = mediator;
-
-    private IActionResult Forbidden() =>
-        StatusCode(403, new { error = "Доступ запрещён. Требуется аккаунт администратора." });
-
-    private bool IsAdmin()
-    {
-        var emailaddress = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
-        return emailaddress == AdminEmail;
-    }
 
     private Guid GetAdminUserId()
     {
@@ -61,8 +50,7 @@ public class AdminController : ControllerBase
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetAdminUsersQuery());
+var result = await _mediator.Send(new GetAdminUsersQuery());
         return Ok(result);
     }
 
@@ -70,8 +58,7 @@ public class AdminController : ControllerBase
     [HttpGet("user/{id:guid}")]
     public async Task<IActionResult> GetUser(Guid id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetAdminUserDetailQuery(id));
+var result = await _mediator.Send(new GetAdminUserDetailQuery(id));
         return Ok(result);
     }
 
@@ -79,8 +66,7 @@ public class AdminController : ControllerBase
     [HttpPost("user")]
     public async Task<IActionResult> CreateClient([FromBody] AdminCreateClientDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.TelegramId, dto.TelegramUsername, dto.Email));
+var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.TelegramId, dto.TelegramUsername, dto.Email));
         return result.Status == Application.DTO.ResponseStatus.Success
             ? Ok(result)
             : BadRequest(result);
@@ -94,8 +80,7 @@ public class AdminController : ControllerBase
     [HttpGet("shops")]
     public async Task<IActionResult> GetShops()
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetAdminShopsQuery());
+var result = await _mediator.Send(new GetAdminShopsQuery());
         return Ok(result);
     }
 
@@ -106,8 +91,7 @@ public class AdminController : ControllerBase
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetShopDashboardQuery(shopId, from, to));
+var result = await _mediator.Send(new GetShopDashboardQuery(shopId, from, to));
         return Ok(result);
     }
 
@@ -118,8 +102,7 @@ public class AdminController : ControllerBase
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetOrdersShortInfoByShopIdQuery(shopId, from, to));
+var result = await _mediator.Send(new GetOrdersShortInfoByShopIdQuery(shopId, from, to));
         return Ok(result);
     }
 
@@ -127,8 +110,7 @@ public class AdminController : ControllerBase
     [HttpGet("shop/{shopId:guid}/clients")]
     public async Task<IActionResult> GetShopClients(Guid shopId)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetClientsShortInfoQuery(shopId));
+var result = await _mediator.Send(new GetClientsShortInfoQuery(shopId));
         return Ok(result);
     }
 
@@ -140,8 +122,7 @@ public class AdminController : ControllerBase
     [HttpGet("products-list-names")]
     public async Task<IActionResult> GetProductsListNames()
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetAdminProductsListQuery());
+var result = await _mediator.Send(new GetAdminProductsListQuery());
         return Ok(result);
     }
 
@@ -153,8 +134,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/ban")]
     public async Task<IActionResult> BanProduct(int id, [FromBody] AdminBanProductDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var adminId = GetAdminUserId();
+var adminId = GetAdminUserId();
         var result  = await _mediator.Send(new BanProductCommand(id, dto.Reason, adminId));
         return Ok(result);
     }
@@ -163,8 +143,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/unban")]
     public async Task<IActionResult> UnbanProduct(int id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var adminId = GetAdminUserId();
+var adminId = GetAdminUserId();
         var result  = await _mediator.Send(new UnbanProductCommand(id, adminId));
         return Ok(result);
     }
@@ -173,8 +152,7 @@ public class AdminController : ControllerBase
     [HttpGet("product/{id:int}/status-log")]
     public async Task<IActionResult> GetProductStatusLog(int id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetProductStatusLogQuery(id));
+var result = await _mediator.Send(new GetProductStatusLogQuery(id));
         return Ok(result);
     }
 
@@ -182,8 +160,7 @@ public class AdminController : ControllerBase
     [HttpGet("moderation")]
     public async Task<IActionResult> GetModerationQueue([FromQuery] string status = "OnModerating")
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetProductsOnModerationQuery(status));
+var result = await _mediator.Send(new GetProductsOnModerationQuery(status));
         return Ok(result);
     }
 
@@ -191,8 +168,7 @@ public class AdminController : ControllerBase
     [HttpGet("product/{id:int}")]
     public async Task<IActionResult> GetProductDetail(int id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetProductInfoByIdQuery(id));
+var result = await _mediator.Send(new GetProductInfoByIdQuery(id));
         return Ok(result);
     }
 
@@ -200,8 +176,7 @@ public class AdminController : ControllerBase
     [HttpGet("product/{id:int}/edit-history")]
     public async Task<IActionResult> GetProductEditHistory(int id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetProductEditHistoryQuery(id));
+var result = await _mediator.Send(new GetProductEditHistoryQuery(id));
         return Ok(result);
     }
 
@@ -209,8 +184,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/hide")]
     public async Task<IActionResult> HideProduct(int id, [FromBody] AdminHideProductDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new AdminHideProductCommand(id, GetAdminUserId(), dto.Reason));
+var result = await _mediator.Send(new AdminHideProductCommand(id, GetAdminUserId(), dto.Reason));
         return Ok(result);
     }
 
@@ -218,8 +192,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/send-to-moderation")]
     public async Task<IActionResult> AdminSendToModeration(int id, [FromBody] AdminSendToModerationDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new AdminSendToModerationCommand(id, GetAdminUserId(), dto.Reason));
+var result = await _mediator.Send(new AdminSendToModerationCommand(id, GetAdminUserId(), dto.Reason));
         return Ok(result);
     }
 
@@ -227,8 +200,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/approve")]
     public async Task<IActionResult> ApproveProduct(int id)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new ApproveModerationCommand(id, GetAdminUserId()));
+var result = await _mediator.Send(new ApproveModerationCommand(id, GetAdminUserId()));
         return Ok(result);
     }
 
@@ -236,8 +208,7 @@ public class AdminController : ControllerBase
     [HttpPost("product/{id:int}/reject")]
     public async Task<IActionResult> RejectProduct(int id, [FromBody] AdminRejectProductDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new RejectModerationCommand(id, GetAdminUserId(), dto.Reason));
+var result = await _mediator.Send(new RejectModerationCommand(id, GetAdminUserId(), dto.Reason));
         return Ok(result);
     }
 
@@ -252,8 +223,7 @@ public class AdminController : ControllerBase
     [HttpPost("order")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDevDTO dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new CreateOrderDevCommand(dto));
+var result = await _mediator.Send(new CreateOrderDevCommand(dto));
         return result.Status == Application.DTO.ResponseStatus.Success
             ? Ok(result)
             : BadRequest(result);
@@ -267,8 +237,7 @@ public class AdminController : ControllerBase
     [HttpGet("analytics")]
     public async Task<IActionResult> GetAnalytics([FromQuery] int days = 30)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetAdminAnalyticsQuery(days));
+var result = await _mediator.Send(new GetAdminAnalyticsQuery(days));
         return Ok(result);
     }
 
@@ -280,8 +249,7 @@ public class AdminController : ControllerBase
     [HttpPost("broadcast")]
     public async Task<IActionResult> CreateBroadcast([FromBody] CreateBroadcastDto dto)
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new CreateBroadcastJobCommand(dto.Message, GetAdminUserId()));
+var result = await _mediator.Send(new CreateBroadcastJobCommand(dto.Message, GetAdminUserId()));
         return result.Status == Application.DTO.ResponseStatus.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -289,8 +257,7 @@ public class AdminController : ControllerBase
     [HttpGet("broadcasts")]
     public async Task<IActionResult> GetBroadcasts()
     {
-        if (!IsAdmin()) return Forbidden();
-        var result = await _mediator.Send(new GetBroadcastJobsQuery());
+var result = await _mediator.Send(new GetBroadcastJobsQuery());
         return Ok(result);
     }
 }

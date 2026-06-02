@@ -57,7 +57,8 @@ public class CheckoutWithBalanceDiscountTests
             _balanceRepo, _contentFileRepo, _accessRepo, _cartRepo,
             _shopTxRepo, _shopBalanceRepo, _accountRepo,
             Options.Create(new PricingConfig { CapN = 30, MinOvershoot = 1.2, MaxOvershoot = 2.0 }),
-            Substitute.For<IEventTracker>());
+            Substitute.For<IEventTracker>(),
+            Substitute.For<INotificationService>());
 
     /// <summary>Мокает общие зависимости, которые нужны для прохождения через handler.</summary>
     private void SetupDefaultMocks()

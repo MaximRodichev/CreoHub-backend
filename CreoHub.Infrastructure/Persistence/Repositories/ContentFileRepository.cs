@@ -100,4 +100,13 @@ public class ContentFileRepository : IContentFileRepository
         return _db.ContentFiles
             .CountAsync(cf => cf.ProductId == productId && cf.ArchivedAt == null);
     }
+
+    public async Task<HashSet<Guid>> GetIdsByProductIdAsync(int productId, CancellationToken ct = default)
+    {
+        var ids = await _db.ContentFiles
+            .Where(cf => cf.ProductId == productId && cf.ArchivedAt == null)
+            .Select(cf => cf.Id)
+            .ToListAsync(ct);
+        return [.. ids];
+    }
 }

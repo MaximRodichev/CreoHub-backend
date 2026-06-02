@@ -1,6 +1,8 @@
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
+using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.BalanceCommands;
 
@@ -35,6 +37,10 @@ public class ConfirmTopUpHandler : IRequestHandler<ConfirmTopUpCommand, BaseResp
                 ?? throw new InvalidOperationException(
                     $"Transaction with trackId '{request.TrackId}' not found.");
 
+            // Idempotency: webhook может прийти дважды — уже обработанный trackId игнорируем
+            if (transaction.TransactionStatus == TransactionStatus.Completed)
+                return BaseResponse<bool>.Success(true);
+
             transaction.Success(request.SenderAddress, request.TxHash);
 
             // Загрузить или создать баланс пользователя
@@ -52,6 +58,11 @@ public class ConfirmTopUpHandler : IRequestHandler<ConfirmTopUpCommand, BaseResp
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return BaseResponse<bool>.Success(true);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Гонка webhook'ов: другой запрос уже зачислил этот trackId — идемпотентный успех.
             return BaseResponse<bool>.Success(true);
         }
         catch (Exception ex)

@@ -7,6 +7,7 @@ public class IdentityDTO
     public string? EmailAddress { get; set; }
     public long? TelegramId { get; set; }
     public Guid? ShopId { get; set; }
+    public string Role { get; set; } = "User";
 
     public override string ToString()
     {

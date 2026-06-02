@@ -125,6 +125,19 @@ public class R2StorageService : IStorageService
         }
     }
 
+    public async Task<(bool Exists, long ContentLength, string? ContentType)> GetObjectMetadataAsync(string key)
+    {
+        try
+        {
+            var meta = await _s3Client.GetObjectMetadataAsync(BucketMainName, key);
+            return (true, meta.ContentLength, meta.Headers?.ContentType);
+        }
+        catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            return (false, 0, null);
+        }
+    }
+
     public async IAsyncEnumerable<(string Key, DateTime LastModified)> ListAllObjectsAsync()
     {
         string? continuationToken = null;

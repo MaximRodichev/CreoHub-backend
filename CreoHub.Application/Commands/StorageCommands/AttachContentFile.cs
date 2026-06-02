@@ -37,7 +37,9 @@ public class AttachContentFileHandler : IRequestHandler<AttachContentFileCommand
 
             StorageObject? storageObject = await _storageObjectRepository.GetByIdAsync(request.Dto.StorageObjectId);
             if (storageObject == null)
-                return BaseResponse<ContentFileInfo>.Fail("Not found StorageObject");
+                return BaseResponse<ContentFileInfo>.Fail("Файл не найден.");
+            if (storageObject.OwnerId != request.ShopId)
+                return BaseResponse<ContentFileInfo>.Fail("У вас нет доступа к этому файлу.");
 
             storageObject.ChangeFileType(FileType.Content);
 

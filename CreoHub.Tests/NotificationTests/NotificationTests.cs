@@ -242,18 +242,20 @@ public class NotificationTests
         var accountRepo = Substitute.For<IAccountRepository>();
         var unitOfWork  = Substitute.For<IUnitOfWork>();
         var user = User.Create("TestUser", "test@example.com");
-        accountRepo.GetByIdAsync(UserId).Returns(Task.FromResult<User?>(user));
+        accountRepo.GetByIdWithSettingsAsync(UserId, Arg.Any<CancellationToken>()).Returns(Task.FromResult<User?>(user));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new UpdateNotificationSettingsHandler(accountRepo, unitOfWork);
+        var handler = new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>());
         var result  = await handler.Handle(
-            new UpdateNotificationSettingsCommand(UserId, NotifyOnPurchase: false, NotifyOnModeration: true),
+            new UpdateNotificationSettingsCommand(UserId,
+                TelegramEnabled: true, EmailEnabled: true,
+                NotifyOnPurchase: false, NotifyOnModeration: true,
+                NotifyOnBalance: true, NotifyOnBroadcast: true),
             CancellationToken.None);
 
-        _output.WriteLine($"Status: {result.Status}, NotifyOnPurchase: {user.NotifyOnPurchase}, NotifyOnModeration: {user.NotifyOnModeration}");
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.False(user.NotifyOnPurchase);
-        Assert.True(user.NotifyOnModeration);
+        Assert.False(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.True(user.NotificationSettings!.NotifyOnModeration);
         accountRepo.Received(1).Update(user);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -264,15 +266,15 @@ public class NotificationTests
         var accountRepo = Substitute.For<IAccountRepository>();
         var unitOfWork  = Substitute.For<IUnitOfWork>();
         var user = User.Create("TestUser", "test@example.com");
-        accountRepo.GetByIdAsync(UserId).Returns(Task.FromResult<User?>(user));
+        accountRepo.GetByIdWithSettingsAsync(UserId, Arg.Any<CancellationToken>()).Returns(Task.FromResult<User?>(user));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork)
-            .Handle(new UpdateNotificationSettingsCommand(UserId, true, true), CancellationToken.None);
+        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
+            .Handle(new UpdateNotificationSettingsCommand(UserId, true, true, true, true, true, true), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.True(user.NotifyOnPurchase);
-        Assert.True(user.NotifyOnModeration);
+        Assert.True(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.True(user.NotificationSettings!.NotifyOnModeration);
     }
 
     [Fact]
@@ -281,15 +283,15 @@ public class NotificationTests
         var accountRepo = Substitute.For<IAccountRepository>();
         var unitOfWork  = Substitute.For<IUnitOfWork>();
         var user = User.Create("TestUser", "test@example.com");
-        accountRepo.GetByIdAsync(UserId).Returns(Task.FromResult<User?>(user));
+        accountRepo.GetByIdWithSettingsAsync(UserId, Arg.Any<CancellationToken>()).Returns(Task.FromResult<User?>(user));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork)
-            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false), CancellationToken.None);
+        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
+            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
-        Assert.False(user.NotifyOnPurchase);
-        Assert.False(user.NotifyOnModeration);
+        Assert.False(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.False(user.NotificationSettings!.NotifyOnModeration);
     }
 
     [Fact]
@@ -297,10 +299,10 @@ public class NotificationTests
     {
         var accountRepo = Substitute.For<IAccountRepository>();
         var unitOfWork  = Substitute.For<IUnitOfWork>();
-        accountRepo.GetByIdAsync(UserId).ReturnsNull();
+        accountRepo.GetByIdWithSettingsAsync(UserId, Arg.Any<CancellationToken>()).ReturnsNull();
 
-        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork)
-            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false), CancellationToken.None);
+        var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
+            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -399,17 +401,19 @@ public class NotificationTests
         typeof(Product).GetProperty("Id")!.SetValue(product, ProductId);
         productRepo.GetProductById(ProductId).Returns(product);
 
-        // Seller with notifications enabled
+        // Seller with notifications enabled (moderation=true)
         var seller = User.Create("SellerName", "seller@example.com");
-        seller.UpdateNotificationSettings(notifyOnPurchase: false, notifyOnModeration: true);
+        seller.NotificationSettings!.Update(true, true, false, true, true, true);
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
         statusLogRepo.AddAsync(Arg.Any<ProductStatusLog>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult(ci.Arg<ProductStatusLog>()));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
-        notifications.SendAsync(Arg.Any<long?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(true));
+        notifications.NotifyAsync(
+            Arg.Any<Guid>(), Arg.Any<CreoHub.Domain.Types.NotificationType>(),
+            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<long?>(), Arg.Any<string?>(),
+            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo, notifications, unitOfWork);
         var result  = await handler.Handle(new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
@@ -419,10 +423,12 @@ public class NotificationTests
 
         // Allow the fire-and-forget task a moment to complete
         await Task.Delay(50);
-        await notifications.Received(1).SendAsync(
-            Arg.Any<long?>(),
+        await notifications.Received(1).NotifyAsync(
+            seller.Id,
+            CreoHub.Domain.Types.NotificationType.Moderation,
+            Arg.Is<string>(m => m.Contains("Fire Pack")),
+            Arg.Any<string?>(), Arg.Any<long?>(),
             Arg.Is<string?>(e => e == "seller@example.com"),
-            Arg.Is<string>(m => m.Contains("Fire Pack") && m.Contains("✅")),
             Arg.Any<CancellationToken>());
     }
 
@@ -439,7 +445,7 @@ public class NotificationTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var seller = User.Create("SellerName", "seller@example.com");
-        seller.UpdateNotificationSettings(notifyOnPurchase: false, notifyOnModeration: false); // OFF
+        seller.NotificationSettings!.Update(true, true, false, false, true, true); // moderation=OFF
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
@@ -468,15 +474,17 @@ public class NotificationTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var seller = User.Create("BadSeller", "bad@example.com");
-        seller.UpdateNotificationSettings(notifyOnPurchase: true, notifyOnModeration: true);
+        seller.NotificationSettings!.Update(true, true, true, true, true, true);
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
         statusLogRepo.AddAsync(Arg.Any<ProductStatusLog>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult(ci.Arg<ProductStatusLog>()));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
-        notifications.SendAsync(Arg.Any<long?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(true));
+        notifications.NotifyAsync(
+            Arg.Any<Guid>(), Arg.Any<CreoHub.Domain.Types.NotificationType>(),
+            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<long?>(), Arg.Any<string?>(),
+            Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         const string reason = "Авторские права нарушены";
         var handler = new RejectModerationHandler(productRepo, statusLogRepo, accountRepo, notifications, unitOfWork);
@@ -486,15 +494,17 @@ public class NotificationTests
         Assert.Equal(ResponseStatus.Success, result.Status);
 
         await Task.Delay(50);
-        await notifications.Received(1).SendAsync(
-            Arg.Any<long?>(),
+        await notifications.Received(1).NotifyAsync(
+            seller.Id,
+            CreoHub.Domain.Types.NotificationType.Moderation,
+            Arg.Is<string>(m => m.Contains("Fraud Pack") && m.Contains(reason)),
+            Arg.Any<string?>(), Arg.Any<long?>(),
             Arg.Is<string?>(e => e == "bad@example.com"),
-            Arg.Is<string>(m => m.Contains("Fraud Pack") && m.Contains("❌") && m.Contains(reason)),
             Arg.Any<CancellationToken>());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 8. User domain — NotifyOnPurchase / NotifyOnModeration defaults and update
+    // 8. UserNotificationSettings — defaults and update
     // ═══════════════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -502,8 +512,9 @@ public class NotificationTests
     {
         var user = User.Create("Alice", "alice@example.com");
 
-        Assert.True(user.NotifyOnPurchase);
-        Assert.True(user.NotifyOnModeration);
+        Assert.NotNull(user.NotificationSettings);
+        Assert.True(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.True(user.NotificationSettings!.NotifyOnModeration);
     }
 
     [Fact]
@@ -511,10 +522,10 @@ public class NotificationTests
     {
         var user = User.Create("Bob", "bob@example.com");
 
-        user.UpdateNotificationSettings(notifyOnPurchase: false, notifyOnModeration: false);
+        user.NotificationSettings!.Update(true, true, false, false, true, true);
 
-        Assert.False(user.NotifyOnPurchase);
-        Assert.False(user.NotifyOnModeration);
+        Assert.False(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.False(user.NotificationSettings!.NotifyOnModeration);
     }
 
     [Fact]
@@ -522,10 +533,10 @@ public class NotificationTests
     {
         var user = User.Create("Carol", "carol@example.com");
 
-        user.UpdateNotificationSettings(false, false);
-        user.UpdateNotificationSettings(true, false);
+        user.NotificationSettings!.Update(true, true, false, false, true, true);
+        user.NotificationSettings!.Update(true, true, true, false, true, true);
 
-        Assert.True(user.NotifyOnPurchase);
-        Assert.False(user.NotifyOnModeration);
+        Assert.True(user.NotificationSettings!.NotifyOnPurchase);
+        Assert.False(user.NotificationSettings!.NotifyOnModeration);
     }
 }

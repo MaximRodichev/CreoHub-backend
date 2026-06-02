@@ -206,6 +206,47 @@ namespace CreoHub.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.InAppNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead");
+
+                    b.ToTable("InAppNotifications", (string)null);
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.MediaProduct", b =>
                 {
                     b.Property<int>("ProductId")
@@ -322,6 +363,46 @@ namespace CreoHub.Infrastructure.Migrations
                     b.HasIndex("ContentFileId");
 
                     b.ToTable("OrderItemFiles");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.PendingUpload", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long>("MaxBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Key", "ShopId")
+                        .IsUnique();
+
+                    b.ToTable("PendingUploads", (string)null);
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.Price", b =>
@@ -555,6 +636,59 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("ShopBalances");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.ShopRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BuyerEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("BuyerName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("BuyerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("RepliedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SellerReply")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerUserId");
+
+                    b.HasIndex("ShopId", "Status");
+
+                    b.ToTable("ShopRequests", (string)null);
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.ShopTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -607,13 +741,20 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Property<string>("TxHash")
                         .HasColumnType("text");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
 
                     b.HasIndex("ShopId");
 
-                    b.HasIndex("TrackId");
+                    b.HasIndex("TrackId")
+                        .IsUnique();
 
                     b.ToTable("ShopTransactions");
                 });
@@ -716,12 +857,6 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
-
-                    b.Property<bool>("NotifyOnModeration")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("NotifyOnPurchase")
-                        .HasColumnType("boolean");
 
                     b.Property<DateTime>("RegistrationDate")
                         .HasColumnType("timestamp with time zone");
@@ -831,6 +966,37 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("UserEvents");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.UserNotificationSettings", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("EmailEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnBalance")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnBroadcast")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnModeration")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnPurchase")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TelegramEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserNotificationSettings", (string)null);
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.UserTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -871,12 +1037,19 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId")
                         .IsUnique();
 
-                    b.HasIndex("TrackId");
+                    b.HasIndex("TrackId")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -1180,7 +1353,7 @@ namespace CreoHub.Infrastructure.Migrations
 
             modelBuilder.Entity("CreoHub.Domain.Entities.OrderItemFile", b =>
                 {
-                    b.HasOne("CreoHub.Domain.Entities.ContentFile", null)
+                    b.HasOne("CreoHub.Domain.Entities.ContentFile", "ContentFile")
                         .WithMany()
                         .HasForeignKey("ContentFileId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1191,6 +1364,8 @@ namespace CreoHub.Infrastructure.Migrations
                         .HasForeignKey("OrderItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ContentFile");
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.Price", b =>
@@ -1281,6 +1456,21 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Logo");
                 });
 
+            modelBuilder.Entity("CreoHub.Domain.Entities.ShopRequest", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("BuyerUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreoHub.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreoHub.Domain.Entities.ShopTransaction", b =>
                 {
                     b.HasOne("CreoHub.Domain.Entities.Order", "Order")
@@ -1323,6 +1513,15 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Balance");
 
                     b.Navigation("Shop");
+                });
+
+            modelBuilder.Entity("CreoHub.Domain.Entities.UserNotificationSettings", b =>
+                {
+                    b.HasOne("CreoHub.Domain.Entities.User", null)
+                        .WithOne("NotificationSettings")
+                        .HasForeignKey("CreoHub.Domain.Entities.UserNotificationSettings", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.UserTransaction", b =>
@@ -1434,6 +1633,8 @@ namespace CreoHub.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ContentAccesses");
+
+                    b.Navigation("NotificationSettings");
 
                     b.Navigation("Orders");
 

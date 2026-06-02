@@ -60,10 +60,12 @@ public class AccountRepository : IAccountRepository
     {
         var user = await _db.Users
             .Include(x => x.Shop)
+            .Include(x => x.NotificationSettings)
             .FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user == null) return null;
 
+        var ns = user.NotificationSettings;
         return new UserProfileDTO
         {
             Id                      = user.Id,
@@ -77,8 +79,12 @@ public class AccountRepository : IAccountRepository
             Role                    = user.Role.ToString(),
             LifetimeSpent           = user.LifetimeSpent,
             LifetimeDiscountPercent = user.GetLifetimeDiscount() * 100m,
-            NotifyOnPurchase        = user.NotifyOnPurchase,
-            NotifyOnModeration      = user.NotifyOnModeration,
+            TelegramEnabled         = ns?.TelegramEnabled   ?? true,
+            EmailEnabled            = ns?.EmailEnabled      ?? true,
+            NotifyOnPurchase        = ns?.NotifyOnPurchase  ?? true,
+            NotifyOnModeration      = ns?.NotifyOnModeration ?? true,
+            NotifyOnBalance         = ns?.NotifyOnBalance   ?? true,
+            NotifyOnBroadcast       = ns?.NotifyOnBroadcast ?? true,
         };
     }
 
@@ -125,20 +131,28 @@ public class AccountRepository : IAccountRepository
         return _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
     }
 
+    public Task<User?> GetByIdWithSettingsAsync(Guid userId, CancellationToken ct = default) =>
+        _db.Users
+           .Include(u => u.NotificationSettings)
+           .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
     public Task<User?> GetUserByShopIdAsync(Guid shopId, CancellationToken ct = default) =>
-        _db.Users.FirstOrDefaultAsync(u => u.ShopId == shopId, ct);
+        _db.Users
+           .Include(u => u.NotificationSettings)
+           .FirstOrDefaultAsync(u => u.ShopId == shopId, ct);
 
     public async Task<List<(long? TelegramId, string? Email, bool NotifyOnPurchase, bool NotifyOnModeration)>>
         GetUsersWithContactInfoAsync(CancellationToken ct = default)
     {
         return await _db.Users
             .AsNoTracking()
+            .Include(u => u.NotificationSettings)
             .Where(u => u.TelegramId != null || u.EmailAddress != null)
             .Select(u => new ValueTuple<long?, string?, bool, bool>(
                 u.TelegramId,
                 u.EmailAddress,
-                u.NotifyOnPurchase,
-                u.NotifyOnModeration))
+                u.NotificationSettings != null ? u.NotificationSettings.NotifyOnPurchase   : true,
+                u.NotificationSettings != null ? u.NotificationSettings.NotifyOnModeration : true))
             .ToListAsync(ct);
     }
 }
