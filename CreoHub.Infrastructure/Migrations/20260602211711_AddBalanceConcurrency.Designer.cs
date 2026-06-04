@@ -3,6 +3,7 @@ using System;
 using CreoHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CreoHub.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260602211711_AddBalanceConcurrency")]
+    partial class AddBalanceConcurrency
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -642,24 +645,6 @@ namespace CreoHub.Infrastructure.Migrations
                     b.ToTable("ShopBalances");
                 });
 
-            modelBuilder.Entity("CreoHub.Domain.Entities.ShopFollow", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ShopId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId", "ShopId");
-
-                    b.HasIndex("ShopId");
-
-                    b.ToTable("ShopFollows", (string)null);
-                });
-
             modelBuilder.Entity("CreoHub.Domain.Entities.ShopRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -1011,9 +996,6 @@ namespace CreoHub.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("NotifyOnModeration")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("NotifyOnNewProduct")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("NotifyOnPurchase")
@@ -1487,21 +1469,6 @@ namespace CreoHub.Infrastructure.Migrations
                     b.Navigation("Banner");
 
                     b.Navigation("Logo");
-                });
-
-            modelBuilder.Entity("CreoHub.Domain.Entities.ShopFollow", b =>
-                {
-                    b.HasOne("CreoHub.Domain.Entities.Shop", null)
-                        .WithMany()
-                        .HasForeignKey("ShopId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CreoHub.Domain.Entities.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("CreoHub.Domain.Entities.ShopRequest", b =>

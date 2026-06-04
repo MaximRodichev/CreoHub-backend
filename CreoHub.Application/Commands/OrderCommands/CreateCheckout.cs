@@ -216,9 +216,9 @@ public class CreateCheckoutHandler : IRequestHandler<CreateCheckoutCommand, Base
                 ExpiresAt = invoice.ExpiredAt
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BaseResponse<CheckoutResultDTO>.Fail(ex.Message);
+            return BaseResponse<CheckoutResultDTO>.Fail("Не удалось создать заказ. Попробуйте позже.");
         }
     }
 }

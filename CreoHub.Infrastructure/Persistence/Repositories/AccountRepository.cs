@@ -85,6 +85,7 @@ public class AccountRepository : IAccountRepository
             NotifyOnModeration      = ns?.NotifyOnModeration ?? true,
             NotifyOnBalance         = ns?.NotifyOnBalance   ?? true,
             NotifyOnBroadcast       = ns?.NotifyOnBroadcast ?? true,
+            NotifyOnNewProduct      = ns?.NotifyOnNewProduct ?? true,
         };
     }
 

@@ -7,6 +7,12 @@ var elementsWidth  = 250;
 var elementsHeight = 250;
 
 /**
+ * Кэш превью символов: name -> data:-URL.
+ * Приходит от CEP-шелла (window.cep.fs читает локальный файл юзера). Нет превью — нет ключа.
+ */
+var SYMBOL_THUMBS = {};
+
+/**
  * Builds the symbols grid in #symbolsScroll from MAINDATA.Elements.
  * Each item shows a canvas (static first GIF frame) + name label.
  * On hover, swaps to animated GIF and back.
@@ -88,15 +94,47 @@ function initializeSymbolsScroll() {
 }
 
 /**
- * Loads GIF previews via /autoslot/local-preview?path=...
- * Draws first frame into canvas, stores src in img for hover animation.
+ * Запрашивает превью локальных файлов у CEP-шелла (он читает их через window.cep.fs
+ * прямо на машине юзера) и складывает data:-URL в кэш SYMBOL_THUMBS.
+ * Если шелл не отдал превью — у символа просто не будет картинки (плейсхолдер). Фоллбэков нет.
  */
-function loadSymbolThumbnails() {
+async function preloadSymbolThumbnails() {
     if (!MAINDATA || !MAINDATA.Elements) return;
-    Object.keys(MAINDATA.Elements).forEach(function(name) {
+
+    var names      = Object.keys(MAINDATA.Elements);
+    var pathByName = {};
+    var paths      = [];
+    names.forEach(function(name) {
         var el = MAINDATA.Elements[name];
-        if (!el || !el.filePath) return;
-        var url = '/autoslot/local-preview?path=' + encodeURIComponent(el.filePath);
+        if (el && el.filePath) { pathByName[name] = el.filePath; paths.push(el.filePath); }
+    });
+    if (!paths.length) return;
+
+    // Мост к CEP-шеллу — читает локальный диск юзера через window.cep.fs
+    try {
+        if (typeof requestThumbnails === 'function') {
+            var thumbs = await requestThumbnails(paths); // { path: "data:...;base64,..." | null }
+            names.forEach(function(name) {
+                var p = pathByName[name];
+                if (p && thumbs && thumbs[p]) SYMBOL_THUMBS[name] = thumbs[p];
+            });
+        }
+    } catch (e) {
+        // шелл не ответил — оставляем без превью (плейсхолдер)
+    }
+}
+
+/**
+ * Заполняет превью символов из кэша: статичный кадр в canvas + анимированный GIF в img.
+ */
+async function loadSymbolThumbnails() {
+    if (!MAINDATA || !MAINDATA.Elements) return;
+
+    await preloadSymbolThumbnails();
+
+    Object.keys(MAINDATA.Elements).forEach(function(name) {
+        var url = SYMBOL_THUMBS[name];
+        if (!url) return;
 
         // Update animated img
         var im = document.querySelector('img.symbol-thumb[data-sym-name="' + name + '"]');

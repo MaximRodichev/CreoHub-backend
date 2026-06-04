@@ -96,7 +96,10 @@ public class PaymentController : ControllerBase
         using var hmac = new HMACSHA512(key);
         var calculated = Convert.ToHexString(hmac.ComputeHash(data)).ToLower();
 
-        if (calculated != hmacHeader.ToLower())
+        // Constant-time сравнение — защита от timing-атаки на подбор HMAC
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(calculated),
+                Encoding.UTF8.GetBytes(hmacHeader.ToLower())))
         {
             _logger.LogWarning("OxaPay webhook: invalid HMAC signature");
             return BadRequest("Invalid signature");

@@ -209,6 +209,31 @@ public class AccountController : ControllerBase
         return Ok(BaseResponse<string>.Success(token));
     }
 
+    /// <summary>
+    /// GET-версия Telegram авторизации — используется виджетом на мобиле (data-auth-url).
+    /// Telegram редиректит сюда с параметрами в query string после подтверждения в приложении.
+    /// Устанавливает cookie и редиректит на фронтенд.
+    /// </summary>
+    [EnableRateLimiting("auth")]
+    [HttpGet("auth/telegram/callback")]
+    public async Task<IActionResult> TelegramAuthCallback(
+        [FromQuery] long    id,
+        [FromQuery] string  first_name,
+        [FromQuery] long    auth_date,
+        [FromQuery] string  hash,
+        [FromQuery] string? last_name  = null,
+        [FromQuery] string? username   = null,
+        [FromQuery] string? photo_url  = null)
+    {
+        var data = new TelegramAuthData(id, first_name, auth_date, hash, last_name, username, photo_url);
+        var response = await _mediator.Send(new AuthTelegramAccountCommand(data));
+        if (response.Status != ResponseStatus.Success)
+            return Redirect($"{_configuration["Frontend"]}/signin?tg_error={Uri.EscapeDataString(response.ErrorMessage ?? "auth_failed")}");
+
+        var token = _jwtService.GenerateToken(new UserClaimsModel(response.Data));
+        return AuthCallbackRedirect(token, "/auth-callback");
+    }
+
     [HttpPost("auth/logout")]
     public IActionResult Logout()
     {
@@ -350,7 +375,8 @@ public class AccountController : ControllerBase
             dto.NotifyOnPurchase,
             dto.NotifyOnModeration,
             dto.NotifyOnBalance,
-            dto.NotifyOnBroadcast));
+            dto.NotifyOnBroadcast,
+            dto.NotifyOnNewProduct));
         return Ok(response);
     }
 
@@ -437,7 +463,8 @@ public record UpdateNotificationSettingsDto(
     bool NotifyOnPurchase,
     bool NotifyOnModeration,
     bool NotifyOnBalance,
-    bool NotifyOnBroadcast);
+    bool NotifyOnBroadcast,
+    bool NotifyOnNewProduct);
 
 file static class ZipFileNameHelper
 {

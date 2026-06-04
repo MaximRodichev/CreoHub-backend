@@ -13,7 +13,8 @@ public record UpdateNotificationSettingsCommand(
     bool NotifyOnPurchase,
     bool NotifyOnModeration,
     bool NotifyOnBalance,
-    bool NotifyOnBroadcast
+    bool NotifyOnBroadcast,
+    bool NotifyOnNewProduct
 ) : IRequest<BaseResponse<bool>>;
 
 public class UpdateNotificationSettingsHandler
@@ -51,7 +52,8 @@ public class UpdateNotificationSettingsHandler
                 request.NotifyOnPurchase,
                 request.NotifyOnModeration,
                 request.NotifyOnBalance,
-                request.NotifyOnBroadcast);
+                request.NotifyOnBroadcast,
+                request.NotifyOnNewProduct);
 
             _accountRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -63,11 +65,13 @@ public class UpdateNotificationSettingsHandler
             var moderation = request.NotifyOnModeration ? "вкл" : "выкл";
             var balance    = request.NotifyOnBalance    ? "вкл" : "выкл";
             var broadcast  = request.NotifyOnBroadcast  ? "вкл" : "выкл";
+            var newProduct = request.NotifyOnNewProduct ? "вкл" : "выкл";
             var msg = $"Настройки уведомлений обновлены: " +
                       $"продажи — {purchase}, " +
                       $"модерация — {moderation}, " +
                       $"баланс — {balance}, " +
-                      $"рассылки — {broadcast}.";
+                      $"рассылки — {broadcast}, " +
+                      $"новые товары — {newProduct}.";
             _ = _notifications.SendAsync(tg, em, msg, CancellationToken.None);
 
             return BaseResponse<bool>.Success(true);

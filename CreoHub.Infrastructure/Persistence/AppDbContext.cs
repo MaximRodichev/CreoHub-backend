@@ -58,6 +58,9 @@ public class AppDbContext : DbContext
 
     // shop requests («Оставить предложение»)
     public DbSet<ShopRequest> ShopRequests { get; set; }
+
+    // shop follows (подписка на магазин)
+    public DbSet<ShopFollow> ShopFollows { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

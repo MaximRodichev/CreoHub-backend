@@ -60,8 +60,9 @@ public static class Initialization
         services.AddScoped<IInAppNotificationRepository, InAppNotificationRepository>();
         services.AddScoped<IPendingUploadRepository, PendingUploadRepository>();
         services.AddScoped<IShopRequestRepository, ShopRequestRepository>();
-        
-        
+        services.AddScoped<IShopFollowRepository, ShopFollowRepository>();
+
+
         services.AddScoped<IStorageService, R2StorageService>();
         // Репозитории
         services.AddScoped<IAccountRepository, AccountRepository>();

@@ -7,6 +7,7 @@ using CreoHub.Domain.Entities;
 using CreoHub.Domain.Services;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using static CreoHub.Domain.Services.BundleCalculator;
 
@@ -437,9 +438,13 @@ public class CheckoutWithBalanceHandler
                 ExpiresAt  = DateTime.UtcNow
             });
         }
-        catch (Exception ex)
+        catch (DbUpdateConcurrencyException)
         {
-            return BaseResponse<CheckoutResultDTO>.Fail(ex.Message);
+            return BaseResponse<CheckoutResultDTO>.Fail("Баланс изменился во время оплаты. Попробуйте ещё раз.");
+        }
+        catch (Exception)
+        {
+            return BaseResponse<CheckoutResultDTO>.Fail("Не удалось завершить оплату. Попробуйте позже.");
         }
     }
 

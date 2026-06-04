@@ -41,10 +41,10 @@ function requestThumbnails(paths) {
         window.addEventListener("message", handleMessage);
         window.parent.postMessage({ type: "getThumbnail", paths: paths, requestId: requestId }, "*");
 
-        // Таймаут 15 секунд (GIF могут быть большими)
+        // Таймаут 60 секунд: для видео шелл прогоняет ffmpeg (1-й кадр) последовательно
         setTimeout(function() {
             window.removeEventListener("message", handleMessage);
             reject(new Error("Thumbnail request timeout"));
-        }, 15000);
+        }, 60000);
     });
 }

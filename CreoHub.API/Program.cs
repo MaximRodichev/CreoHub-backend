@@ -136,10 +136,17 @@ builder.Services.Configure<FormOptions>(options =>
 });
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
+    // За reverse-proxy (deploy-f) TLS терминируется до приложения. Читаем X-Forwarded-Proto,
+    // чтобы Request.IsHttps был корректным на проде — иначе autoslot_session cookie ставится
+    // с SameSite=Lax и не уходит в cross-site контексте CEF-панели (редирект-петля).
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
 var app = builder.Build();
+
+// Должно быть до всего, что зависит от scheme/IsHttps (cookie, логирование, редиректы).
+app.UseForwardedHeaders();
 /*
 app.Use((context, next) =>
 {

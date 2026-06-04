@@ -1,3 +1,4 @@
+using CreoHub.Application.Commands.ShopFollows;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
@@ -20,6 +21,8 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
     private readonly IProductRepository          _productRepository;
     private readonly IProductStatusLogRepository _statusLogRepository;
     private readonly IAccountRepository          _accountRepository;
+    private readonly IShopFollowRepository       _shopFollowRepository;
+    private readonly IShopRepository             _shopRepository;
     private readonly INotificationService        _notifications;
     private readonly IUnitOfWork                 _unitOfWork;
 
@@ -27,14 +30,18 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
         IProductRepository productRepository,
         IProductStatusLogRepository statusLogRepository,
         IAccountRepository accountRepository,
+        IShopFollowRepository shopFollowRepository,
+        IShopRepository shopRepository,
         INotificationService notifications,
         IUnitOfWork unitOfWork)
     {
-        _productRepository   = productRepository;
-        _statusLogRepository = statusLogRepository;
-        _accountRepository   = accountRepository;
-        _notifications       = notifications;
-        _unitOfWork          = unitOfWork;
+        _productRepository    = productRepository;
+        _statusLogRepository  = statusLogRepository;
+        _accountRepository    = accountRepository;
+        _shopFollowRepository = shopFollowRepository;
+        _shopRepository       = shopRepository;
+        _notifications        = notifications;
+        _unitOfWork           = unitOfWork;
     }
 
     public async Task<BaseResponse<bool>> Handle(ApproveModerationCommand request, CancellationToken ct)
@@ -55,8 +62,11 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
 
             await _unitOfWork.SaveChangesAsync(ct);
 
-            // Fire-and-forget notification to seller
+            // Fire-and-forget notifications
             _ = NotifySellerAsync(product.OwnerId, product.Name, approved: true, ct);
+            _ = ShopFollowerNotifier.NotifyNewProductAsync(
+                _shopFollowRepository, _shopRepository, _notifications,
+                product.OwnerId, product.Name, product.Slug);
 
             return BaseResponse<bool>.Success(true);
         }

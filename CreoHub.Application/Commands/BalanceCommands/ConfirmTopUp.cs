@@ -65,9 +65,9 @@ public class ConfirmTopUpHandler : IRequestHandler<ConfirmTopUpCommand, BaseResp
             // Гонка webhook'ов: другой запрос уже зачислил этот trackId — идемпотентный успех.
             return BaseResponse<bool>.Success(true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<bool>.Fail("Не удалось зачислить пополнение.");
         }
     }
 }

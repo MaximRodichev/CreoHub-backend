@@ -58,9 +58,9 @@ public class CancelPaymentHandler : IRequestHandler<CancelPaymentCommand, BaseRe
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<bool>.Success(true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<bool>.Fail("Не удалось отменить платёж.");
         }
     }
 }

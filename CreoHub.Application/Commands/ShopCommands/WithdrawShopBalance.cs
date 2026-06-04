@@ -5,6 +5,7 @@ using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.ShopCommands;
 
@@ -133,17 +134,17 @@ public class WithdrawShopBalanceHandler : IRequestHandler<WithdrawShopBalanceCom
                 //   Confirmed → CompleteWithdraw (Pending = 0)
                 //   Failed    → CancelWithdraw (Pending → Available)
             }
-            catch (Exception payEx)
+            catch (Exception)
             {
                 // ❌ OxaPay синхронно отклонил (невалидный адрес, лимиты, etc.)
-                // — откатываем резерв немедленно.
+                // — откатываем резерв немедленно. Детали шлюза наружу не отдаём.
                 shopTx.Fail();
                 balance.CancelWithdraw();
 
                 _shopBalanceRepository.Update(balance);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                return BaseResponse<bool>.Fail($"Ошибка платёжного шлюза: {payEx.Message}");
+                return BaseResponse<bool>.Fail("Платёжный шлюз отклонил вывод. Проверьте адрес и сеть.");
             }
 
             _shopBalanceRepository.Update(balance);
@@ -151,9 +152,14 @@ public class WithdrawShopBalanceHandler : IRequestHandler<WithdrawShopBalanceCom
 
             return BaseResponse<bool>.Success(true);
         }
-        catch (Exception ex)
+        catch (DbUpdateConcurrencyException)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            // Параллельная операция изменила баланс — безопасно просим повторить.
+            return BaseResponse<bool>.Fail("Баланс изменился во время операции. Обновите страницу и попробуйте снова.");
+        }
+        catch (Exception)
+        {
+            return BaseResponse<bool>.Fail("Не удалось выполнить вывод. Попробуйте позже.");
         }
     }
 

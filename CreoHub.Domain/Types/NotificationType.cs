@@ -8,4 +8,5 @@ public enum NotificationType
     Broadcast,
     System,
     ShopRequest,
+    NewProduct,
 }

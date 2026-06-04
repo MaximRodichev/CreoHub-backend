@@ -23,6 +23,8 @@ public class UserNotificationSettings
     public bool NotifyOnBalance     { get; private set; } = true;
     /// <summary>Получать рассылки от администрации платформы.</summary>
     public bool NotifyOnBroadcast   { get; private set; } = true;
+    /// <summary>Уведомлять о новых товарах в подписанных магазинах.</summary>
+    public bool NotifyOnNewProduct  { get; private set; } = true;
 
     public DateTime UpdatedAt { get; private set; } = DateTime.UtcNow;
 
@@ -37,7 +39,8 @@ public class UserNotificationSettings
         bool notifyOnPurchase,
         bool notifyOnModeration,
         bool notifyOnBalance,
-        bool notifyOnBroadcast)
+        bool notifyOnBroadcast,
+        bool notifyOnNewProduct)
     {
         TelegramEnabled    = telegramEnabled;
         EmailEnabled       = emailEnabled;
@@ -45,6 +48,7 @@ public class UserNotificationSettings
         NotifyOnModeration = notifyOnModeration;
         NotifyOnBalance    = notifyOnBalance;
         NotifyOnBroadcast  = notifyOnBroadcast;
+        NotifyOnNewProduct = notifyOnNewProduct;
         UpdatedAt          = DateTime.UtcNow;
     }
 }

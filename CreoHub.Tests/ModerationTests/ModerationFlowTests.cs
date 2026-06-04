@@ -426,7 +426,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
+            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -452,7 +453,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
+            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -468,7 +470,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).ReturnsNull();
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
+            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 

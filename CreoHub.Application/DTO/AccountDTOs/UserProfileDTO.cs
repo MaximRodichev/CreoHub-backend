@@ -23,4 +23,5 @@ public class UserProfileDTO
     public bool NotifyOnModeration { get; set; } = true;
     public bool NotifyOnBalance    { get; set; } = true;
     public bool NotifyOnBroadcast  { get; set; } = true;
+    public bool NotifyOnNewProduct { get; set; } = true;
 }

@@ -10,6 +10,12 @@ public class UserBalanceConfiguration : IEntityTypeConfiguration<UserBalance>
     {
         builder.HasKey(b => b.Id);
 
+        // Optimistic concurrency через системную колонку xmin (см. ShopBalanceConfiguration).
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         builder.Property(b => b.AvailableAmount)
             .HasPrecision(18, 2)
             .HasField("_availableAmount")

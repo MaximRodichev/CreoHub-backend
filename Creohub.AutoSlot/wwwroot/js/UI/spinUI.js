@@ -34,12 +34,9 @@ function getSpinCfg(name) {
 function getAllSpins() {
     return MAINDATA && MAINDATA.Spins ? MAINDATA.Spins : {};
 }
-/** GIF URL for a symbol name */
+/** GIF URL for a symbol name (data:-URL из кэша превью; пусто если нет) */
 function symUrl(name) {
-    if (!MAINDATA || !MAINDATA.Elements) return '';
-    var el = MAINDATA.Elements[name];
-    if (!el || !el.filePath) return '';
-    return '/autoslot/local-preview?path=' + encodeURIComponent(el.filePath);
+    return (typeof SYMBOL_THUMBS !== 'undefined' && SYMBOL_THUMBS[name]) ? SYMBOL_THUMBS[name] : '';
 }
 /** Symbol list as [{name, file}] */
 function getSymbolsList() {

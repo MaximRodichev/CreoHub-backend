@@ -2,6 +2,7 @@ using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.ShopCommands;
 
@@ -14,17 +15,20 @@ public class TransferShopToUserBalanceHandler
     private readonly IShopBalanceRepository     _shopBalanceRepository;
     private readonly IUserBalanceRepository     _userBalanceRepository;
     private readonly IShopTransactionRepository _shopTransactionRepository;
+    private readonly IUserTransactionRepository _userTransactionRepository;
     private readonly IUnitOfWork                _unitOfWork;
 
     public TransferShopToUserBalanceHandler(
         IShopBalanceRepository     shopBalanceRepository,
         IUserBalanceRepository     userBalanceRepository,
         IShopTransactionRepository shopTransactionRepository,
+        IUserTransactionRepository userTransactionRepository,
         IUnitOfWork                unitOfWork)
     {
         _shopBalanceRepository     = shopBalanceRepository;
         _userBalanceRepository     = userBalanceRepository;
         _shopTransactionRepository = shopTransactionRepository;
+        _userTransactionRepository = userTransactionRepository;
         _unitOfWork                = unitOfWork;
     }
 
@@ -54,19 +58,26 @@ public class TransferShopToUserBalanceHandler
             shopBalance.Spend(request.Amount);
             userBalance.AddFunds(request.Amount);
 
-            var trackId = $"transfer-{request.ShopId}-{Guid.NewGuid()}";
-            var tx = ShopTransaction.CreateTransfer(request.Amount, request.ShopId, trackId);
+            var trackId    = $"transfer-{request.ShopId}-{Guid.NewGuid()}";
+            var shopTx     = ShopTransaction.CreateTransfer(request.Amount, request.ShopId, trackId);
+            var userTrackId = $"transfer-user-{request.UserId}-{Guid.NewGuid()}";
+            var userTx     = UserTransaction.CreateTransfer(request.Amount, request.UserId, userTrackId);
 
-            await _shopTransactionRepository.AddAsync(tx);
+            await _shopTransactionRepository.AddAsync(shopTx);
+            await _userTransactionRepository.AddAsync(userTx);
             _shopBalanceRepository.Update(shopBalance);
             _userBalanceRepository.Update(userBalance);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return BaseResponse<bool>.Success(true);
         }
-        catch (Exception ex)
+        catch (DbUpdateConcurrencyException)
         {
-            return BaseResponse<bool>.Fail(ex.Message);
+            return BaseResponse<bool>.Fail("Баланс изменился во время операции. Обновите страницу и попробуйте снова.");
+        }
+        catch (Exception)
+        {
+            return BaseResponse<bool>.Fail("Не удалось выполнить перевод. Попробуйте позже.");
         }
     }
 }

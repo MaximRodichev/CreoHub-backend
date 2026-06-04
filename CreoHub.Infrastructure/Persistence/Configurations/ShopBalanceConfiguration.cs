@@ -10,6 +10,14 @@ public class ShopBalanceConfiguration : IEntityTypeConfiguration<ShopBalance>
     {
         builder.HasKey(b => b.Id);
 
+        // Optimistic concurrency через системную колонку xmin (PostgreSQL):
+        // два параллельных withdraw/transfer не обновят баланс одновременно —
+        // проигравший получит DbUpdateConcurrencyException. DDL не создаётся.
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         builder.Property(b => b.AvailableAmount)
             .HasPrecision(18, 2)
             .HasField("_availableAmount")

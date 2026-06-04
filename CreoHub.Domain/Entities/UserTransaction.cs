@@ -77,4 +77,26 @@ public class UserTransaction : BaseTransaction
             TrackId = trackId,
         };
     }
+
+    /// <summary>
+    /// Перевод с баланса магазина на личный баланс пользователя.
+    /// Завершается мгновенно (SuccessInternal).
+    /// </summary>
+    public static UserTransaction CreateTransfer(
+        decimal amount,
+        Guid userId,
+        string trackId)
+    {
+        if (trackId == null) throw new ArgumentNullException(nameof(trackId));
+
+        var tx = new UserTransaction
+        {
+            UserId = userId,
+            FullAmount = amount,
+            TransactionType = TransactionType.Transfer,
+            TrackId = trackId,
+        };
+        tx.SuccessInternal();
+        return tx;
+    }
 }

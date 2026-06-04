@@ -250,7 +250,7 @@ public class NotificationTests
             new UpdateNotificationSettingsCommand(UserId,
                 TelegramEnabled: true, EmailEnabled: true,
                 NotifyOnPurchase: false, NotifyOnModeration: true,
-                NotifyOnBalance: true, NotifyOnBroadcast: true),
+                NotifyOnBalance: true, NotifyOnBroadcast: true, NotifyOnNewProduct: true),
             CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
@@ -270,7 +270,7 @@ public class NotificationTests
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
         var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
-            .Handle(new UpdateNotificationSettingsCommand(UserId, true, true, true, true, true, true), CancellationToken.None);
+            .Handle(new UpdateNotificationSettingsCommand(UserId, true, true, true, true, true, true, true), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.True(user.NotificationSettings!.NotifyOnPurchase);
@@ -287,7 +287,7 @@ public class NotificationTests
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
         var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
-            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false), CancellationToken.None);
+            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false, false), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.False(user.NotificationSettings!.NotifyOnPurchase);
@@ -302,7 +302,7 @@ public class NotificationTests
         accountRepo.GetByIdWithSettingsAsync(UserId, Arg.Any<CancellationToken>()).ReturnsNull();
 
         var result = await new UpdateNotificationSettingsHandler(accountRepo, unitOfWork, Substitute.For<INotificationService>())
-            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false), CancellationToken.None);
+            .Handle(new UpdateNotificationSettingsCommand(UserId, false, false, false, false, false, false, false), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -403,7 +403,7 @@ public class NotificationTests
 
         // Seller with notifications enabled (moderation=true)
         var seller = User.Create("SellerName", "seller@example.com");
-        seller.NotificationSettings!.Update(true, true, false, true, true, true);
+        seller.NotificationSettings!.Update(true, true, false, true, true, true, true);
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
@@ -415,7 +415,8 @@ public class NotificationTests
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<long?>(), Arg.Any<string?>(),
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo, notifications, unitOfWork);
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo,
+            Substitute.For<IShopFollowRepository>(), Substitute.For<IShopRepository>(), notifications, unitOfWork);
         var result  = await handler.Handle(new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
         _output.WriteLine($"ApproveModeration result: {result.Status}");
@@ -445,7 +446,7 @@ public class NotificationTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var seller = User.Create("SellerName", "seller@example.com");
-        seller.NotificationSettings!.Update(true, true, false, false, true, true); // moderation=OFF
+        seller.NotificationSettings!.Update(true, true, false, false, true, true, true); // moderation=OFF
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
@@ -453,7 +454,8 @@ public class NotificationTests
             .Returns(ci => Task.FromResult(ci.Arg<ProductStatusLog>()));
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo, notifications, unitOfWork);
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo,
+            Substitute.For<IShopFollowRepository>(), Substitute.For<IShopRepository>(), notifications, unitOfWork);
         await handler.Handle(new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
         await Task.Delay(50);
@@ -474,7 +476,7 @@ public class NotificationTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var seller = User.Create("BadSeller", "bad@example.com");
-        seller.NotificationSettings!.Update(true, true, true, true, true, true);
+        seller.NotificationSettings!.Update(true, true, true, true, true, true, true);
         accountRepo.GetUserByShopIdAsync(ShopId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<User?>(seller));
 
@@ -522,7 +524,7 @@ public class NotificationTests
     {
         var user = User.Create("Bob", "bob@example.com");
 
-        user.NotificationSettings!.Update(true, true, false, false, true, true);
+        user.NotificationSettings!.Update(true, true, false, false, true, true, true);
 
         Assert.False(user.NotificationSettings!.NotifyOnPurchase);
         Assert.False(user.NotificationSettings!.NotifyOnModeration);
@@ -533,8 +535,8 @@ public class NotificationTests
     {
         var user = User.Create("Carol", "carol@example.com");
 
-        user.NotificationSettings!.Update(true, true, false, false, true, true);
-        user.NotificationSettings!.Update(true, true, true, false, true, true);
+        user.NotificationSettings!.Update(true, true, false, false, true, true, true);
+        user.NotificationSettings!.Update(true, true, true, false, true, true, true);
 
         Assert.True(user.NotificationSettings!.NotifyOnPurchase);
         Assert.False(user.NotificationSettings!.NotifyOnModeration);

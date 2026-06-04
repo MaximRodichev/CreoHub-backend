@@ -1,5 +1,7 @@
+using CreoHub.Application.Commands.ShopFollows;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
+using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
@@ -14,15 +16,24 @@ public class ChangeProductStatusHandler
 {
     private readonly IProductRepository _productRepository;
     private readonly IProductStatusLogRepository _statusLogRepository;
+    private readonly IShopFollowRepository _shopFollowRepository;
+    private readonly IShopRepository _shopRepository;
+    private readonly INotificationService _notifications;
     private readonly IUnitOfWork _unitOfWork;
 
     public ChangeProductStatusHandler(
         IProductRepository productRepository,
         IProductStatusLogRepository statusLogRepository,
+        IShopFollowRepository shopFollowRepository,
+        IShopRepository shopRepository,
+        INotificationService notifications,
         IUnitOfWork unitOfWork)
     {
         _productRepository    = productRepository;
         _statusLogRepository  = statusLogRepository;
+        _shopFollowRepository = shopFollowRepository;
+        _shopRepository       = shopRepository;
+        _notifications        = notifications;
         _unitOfWork           = unitOfWork;
     }
 
@@ -67,6 +78,13 @@ public class ChangeProductStatusHandler
                 changedById: null), cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Подписчики уведомляются только когда скрытый товар снова стал виден.
+            // Первая публикация идёт через модерацию (ApproveModeration), не здесь.
+            if (oldStatus == ProductStatus.Hidden && product.ProductStatus == ProductStatus.Active)
+                _ = ShopFollowerNotifier.NotifyNewProductAsync(
+                    _shopFollowRepository, _shopRepository, _notifications,
+                    product.OwnerId, product.Name, product.Slug);
 
             return BaseResponse<bool>.Success(true);
         }

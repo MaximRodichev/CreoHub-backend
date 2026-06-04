@@ -53,9 +53,9 @@ public class TopUpBalanceHandler : IRequestHandler<TopUpBalanceCommand, BaseResp
                 TrackId    = invoice.TrackId
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BaseResponse<TopUpResultDTO>.Fail(ex.Message);
+            return BaseResponse<TopUpResultDTO>.Fail("Не удалось создать платёж. Попробуйте позже.");
         }
     }
 }
