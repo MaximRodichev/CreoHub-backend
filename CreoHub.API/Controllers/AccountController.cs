@@ -237,7 +237,19 @@ public class AccountController : ControllerBase
     [HttpPost("auth/logout")]
     public IActionResult Logout()
     {
-        HttpContext.Response.Cookies.Delete("jwt_token");
+        // Удаляем с ТЕМИ ЖЕ атрибутами, что и ставили (включая Domain=CookieDomain на проде),
+        // иначе браузер не считает Set-Cookie совпадающим и куку не удаляет.
+        var opts = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = true,
+            SameSite = SameSiteMode.Lax,
+            Path     = "/",
+        };
+        var domain = _configuration["CookieDomain"];
+        if (!string.IsNullOrWhiteSpace(domain)) opts.Domain = domain;
+
+        HttpContext.Response.Cookies.Delete("jwt_token", opts);
         return Ok();
     }
     
@@ -455,7 +467,18 @@ public class AccountController : ControllerBase
         await repo.AcknowledgeAllAsync(UserId);
         return Ok(BaseResponse<bool>.Success(true));
     }
+
+    /// <summary>Сменить отображаемое имя текущего пользователя (имена не уникальны).</summary>
+    [Authorize]
+    [HttpPut("name")]
+    public async Task<IActionResult> ChangeName([FromBody] ChangeNameDto dto)
+    {
+        var response = await _mediator.Send(new RenameUserCommand(UserId, dto.Name ?? string.Empty));
+        return Ok(response);
+    }
 }
+
+public record ChangeNameDto(string? Name);
 
 public record UpdateNotificationSettingsDto(
     bool TelegramEnabled,

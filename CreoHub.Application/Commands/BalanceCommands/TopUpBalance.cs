@@ -34,6 +34,10 @@ public class TopUpBalanceHandler : IRequestHandler<TopUpBalanceCommand, BaseResp
             if (request.Amount <= 0)
                 return BaseResponse<TopUpResultDTO>.Fail("Amount must be greater than zero.");
 
+            // Минимум $5: при меньших суммах сетевая комиссия съедает большой процент.
+            if (request.Amount < 5m)
+                return BaseResponse<TopUpResultDTO>.Fail("Минимальная сумма пополнения — $5.");
+
             // Создаём OxaPay инвойс (trackId используется как идентификатор в webhook)
             var invoice = await _paymentService.CreateInvoiceAsync(
                 request.Amount,

@@ -316,7 +316,7 @@ public class StorageHandlerTests
             CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("Not found StorageObject", result.ErrorMessage);
+        Assert.Contains("Файл не найден", result.ErrorMessage);
     }
 
     // ─── DetachContentFile ────────────────────────────────────────────────────
@@ -460,31 +460,36 @@ public class StorageHandlerTests
     }
 
     [Fact]
-    public async Task OptimizeStorageObject_NotMp4_ReturnsFail()
+    public async Task OptimizeStorageObject_NotVideo_ReturnsFail()
     {
+        // Оптимизация принимает любое видео (mp4/webm/…); не-видео отклоняется.
+        // mp4-only и min-5MB проверки убраны в d3dd73a.
         var storageId = Guid.NewGuid();
-        var storage = MakeStorage(mime: "video/webm", size: 50_000_000);
+        var storage = MakeStorage(mime: "image/png", size: 50_000_000);
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
 
         var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("mp4", result.ErrorMessage);
+        Assert.Contains("не является видео", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task OptimizeStorageObject_TooSmall_ReturnsFail()
+    public async Task OptimizeStorageObject_ValidVideo_QueuesSuccessfully()
     {
+        // Любое видео в статусе None успешно ставится в очередь оптимизации.
         var storageId = Guid.NewGuid();
-        var storage = MakeStorage(mime: "video/mp4", size: 3 * 1024 * 1024);   // 3 MB < 5 MB
+        var storage = MakeStorage(mime: "video/mp4", size: 50_000_000);
         _storageRepo.GetByIdAsync(storageId).Returns(Task.FromResult<StorageObject?>(storage));
+        _queue.TryEnqueue(storageId).Returns(true);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
         var handler = new OptimizeStorageObjectHandler(_storageRepo, _queue, _unitOfWork);
         var result = await handler.Handle(new OptimizeStorageObjectCommand(storageId, ShopId), CancellationToken.None);
 
-        Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("5MB", result.ErrorMessage);
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        Assert.Equal(VideoOptimizationStatus.Queued, storage.VideoOptimizationStatus);
     }
 
     [Fact]

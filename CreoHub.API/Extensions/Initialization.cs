@@ -61,6 +61,7 @@ public static class Initialization
         services.AddScoped<IPendingUploadRepository, PendingUploadRepository>();
         services.AddScoped<IShopRequestRepository, ShopRequestRepository>();
         services.AddScoped<IShopFollowRepository, ShopFollowRepository>();
+        services.AddScoped<IPaymentWebhookLogRepository, PaymentWebhookLogRepository>();
 
 
         services.AddScoped<IStorageService, R2StorageService>();

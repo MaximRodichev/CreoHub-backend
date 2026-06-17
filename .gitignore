@@ -8,3 +8,4 @@ riderModule.iml
 CreoHub.API/ffmpeg/ffmpeg.exe
 CreoHub.API/ffmpeg/ffprobe.exe
 /publish/
+.github/workflows/db-backup.yml

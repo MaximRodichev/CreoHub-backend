@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CreoHub.Application.Commands.OrderCommands;
 
-public record CompletePaymentCommand(string TrackId, string TxHash, string SenderAddress)
+public record CompletePaymentCommand(string TrackId, string TxHash, string SenderAddress, decimal ReceivedAmount = 0m)
     : IRequest<BaseResponse<bool>>;
 
 public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, BaseResponse<bool>>
@@ -83,7 +83,8 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
                 ?? throw new InvalidOperationException(
                     $"Order for transaction '{request.TrackId}' not found.");
 
-            transaction.Success(request.SenderAddress, request.TxHash);
+            transaction.Success(request.SenderAddress, request.TxHash,
+                paidAmount: request.ReceivedAmount > 0 ? request.ReceivedAmount : null);
             order.Complete();
 
             // ── Выручка магазинов ─────────────────────────────────────────

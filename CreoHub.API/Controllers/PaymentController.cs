@@ -80,11 +80,23 @@ public class PaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Восстановить ссылку на оплату для незавершённого пополнения (Pending UpBalance).
+    /// </summary>
+    [Authorize]
+    [HttpGet("topup/{transactionId:guid}/payment-link")]
+    public async Task<IActionResult> GetTopUpPaymentLink(Guid transactionId)
+    {
+        var response = await _mediator.Send(
+            new CreoHub.Application.Queries.Account.GetTopUpPaymentLinkQuery(UserId, transactionId));
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Вебхук от OxaPay — вызывается при изменении статуса платежа.
     /// </summary>
     [AllowAnonymous]
     [HttpPost("webhook")]
-    public async Task<IActionResult> Webhook()
+    public async Task<IActionResult> Webhook([FromServices] IPaymentWebhookLogRepository webhookLog)
     {
         string rawBody;
         using (var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: false))
@@ -119,8 +131,19 @@ public class PaymentController : ControllerBase
         if (payload == null)
             return BadRequest("Empty payload");
 
-        _logger.LogInformation("OxaPay webhook: status={Status} trackId={TrackId}",
-            payload.Status, payload.TrackId);
+        // Forensic-лог: сохраняем сырой вебхук в БД (независимый коммит).
+        // Доступа извне нет — разбор спорных платежей запросом в pgAdmin.
+        try
+        {
+            await webhookLog.SaveAsync(payload.TrackId, payload.Status, rawBody);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PaymentWebhookLog save failed for trackId={TrackId}", payload.TrackId);
+        }
+
+        _logger.LogInformation("OxaPay webhook: status={Status} trackId={TrackId} amount={Amount} value={Value}",
+            payload.Status, payload.TrackId, payload.Amount, payload.Value);
 
         if (payload.Status == "Paid")
         {
@@ -135,9 +158,10 @@ public class PaymentController : ControllerBase
             if (transaction?.TransactionType == TransactionType.UpBalance)
             {
                 var result = await _mediator.Send(new ConfirmTopUpCommand(
-                    TrackId:       payload.TrackId,
-                    TxHash:        txHash,
-                    SenderAddress: senderAddress));
+                    TrackId:        payload.TrackId,
+                    TxHash:         txHash,
+                    SenderAddress:  senderAddress,
+                    ReceivedAmount: payload.Value));
 
                 if (result.Status != Application.DTO.ResponseStatus.Success)
                     _logger.LogError("ConfirmTopUp failed for trackId={TrackId}: {Error}",
@@ -146,9 +170,10 @@ public class PaymentController : ControllerBase
             else
             {
                 var result = await _mediator.Send(new CompletePaymentCommand(
-                    TrackId:       payload.TrackId,
-                    TxHash:        txHash,
-                    SenderAddress: senderAddress));
+                    TrackId:        payload.TrackId,
+                    TxHash:         txHash,
+                    SenderAddress:  senderAddress,
+                    ReceivedAmount: payload.Value));
 
                 if (result.Status != Application.DTO.ResponseStatus.Success)
                     _logger.LogError("CompletePayment failed for trackId={TrackId}: {Error}",

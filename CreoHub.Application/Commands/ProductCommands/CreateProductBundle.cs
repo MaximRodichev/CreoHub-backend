@@ -35,6 +35,9 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
 
             var productBundle = new Product(request.dto.Name, request.dto.Description, shopOwner.Id, null);
 
+            if (!string.IsNullOrWhiteSpace(request.dto.Slug))
+                productBundle.UpdateSlug(request.dto.Slug);
+
             productBundle.AddPrice(request.dto.Price);
             productBundle.AddBundleItems(responseProducts);
 
@@ -43,9 +46,31 @@ public class CreateProductBundleHandler : IRequestHandler<CreateProductBundleCom
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return BaseResponse<int>.Success(productBundle.Id);
         }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Name"))
+        {
+            return BaseResponse<int>.Fail("Товар с таким названием уже существует. Выберите другое название.");
+        }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Slug"))
+        {
+            return BaseResponse<int>.Fail("Товар с таким URL (slug) уже существует. Укажите другой URL.");
+        }
         catch (Exception ex)
         {
             return BaseResponse<int>.Fail(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Walks the full InnerException chain checking every message —
+    /// needed because the UoW may wrap DbUpdateException in a custom exception.
+    /// </summary>
+    private static bool ExceptionChainContains(Exception? ex, string text)
+    {
+        while (ex is not null)
+        {
+            if (ex.Message.Contains(text)) return true;
+            ex = ex.InnerException;
+        }
+        return false;
     }
 }

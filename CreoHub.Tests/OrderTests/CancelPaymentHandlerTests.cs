@@ -111,7 +111,7 @@ public class CancelPaymentHandlerTests
             new CancelPaymentCommand("NO-TRK", IsExpired: true), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("not found", result.ErrorMessage);
+        Assert.Contains("Не удалось отменить", result.ErrorMessage);
     }
 
     // ── Purchase без заказа ────────────────────────────────────────────────────
@@ -135,6 +135,6 @@ public class CancelPaymentHandlerTests
             new CancelPaymentCommand("TRK-PURCH-2", IsExpired: false), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("not found", result.ErrorMessage);
+        Assert.Contains("Не удалось отменить", result.ErrorMessage);
     }
 }

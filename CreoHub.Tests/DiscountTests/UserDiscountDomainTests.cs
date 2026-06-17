@@ -98,4 +98,58 @@ public class UserDiscountDomainTests
         var user = MakeUser();
         Assert.Equal(0m, user.GetLifetimeDiscount());
     }
+
+    // ── Welcome / первый заказ (лид-магнит −20%) ─────────────────────────────
+
+    [Fact]
+    public void IsFirstOrder_NewUser_IsTrue()
+    {
+        var user = MakeUser();
+        Assert.True(user.IsFirstOrder);
+    }
+
+    [Fact]
+    public void IsFirstOrder_AfterSpend_IsFalse()
+    {
+        var user = MakeUser();
+        user.AddSpend(0.01m);
+        Assert.False(user.IsFirstOrder);
+    }
+
+    [Fact]
+    public void GetWelcomeDiscount_FirstOrder_Returns20Percent()
+    {
+        var user = MakeUser();
+        Assert.Equal(0.20m, user.GetWelcomeDiscount());
+    }
+
+    [Fact]
+    public void GetWelcomeDiscount_AfterAnyPurchase_ReturnsZero()
+    {
+        var user = MakeUser();
+        user.AddSpend(5m);
+        Assert.Equal(0m, user.GetWelcomeDiscount());
+    }
+
+    [Fact]
+    public void GetPersonalDiscount_FirstOrder_WelcomeBeatsLifetime()
+    {
+        // На первом заказе lifetime = 0, welcome = 20% → персональная = 20%
+        var user = MakeUser();
+        Assert.Equal(0.20m, user.GetPersonalDiscount());
+    }
+
+    [Theory]
+    [InlineData(250,  0.02)]   // welcome уже погас, остаётся lifetime
+    [InlineData(5000, 0.09)]
+    public void GetPersonalDiscount_AfterSpend_FallsBackToLifetime(double spentD, double expectedD)
+    {
+        var user = MakeUser();
+        user.AddSpend((decimal)spentD);
+
+        var personal = user.GetPersonalDiscount();
+
+        _output.WriteLine($"Spent={spentD} → personal={personal} (expected={expectedD})");
+        Assert.Equal((decimal)expectedD, personal);
+    }
 }

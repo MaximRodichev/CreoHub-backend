@@ -11,23 +11,13 @@ public class UserConfiguration :  IEntityTypeConfiguration<User>
     {
         builder.HasKey(x => x.Id);
         
+        // Отображаемое имя НЕ уникально — «Максим» может повторяться у разных людей.
+        // Идентичность обеспечивают EmailAddress / TelegramId / Id.
         builder.Property(x => x.Name).HasMaxLength(50).IsRequired();
-        builder.HasIndex(x => x.Name).IsUnique();
         builder.HasIndex(x=>x.EmailAddress).IsUnique();
         builder.HasIndex(x => x.TelegramId).IsUnique();
-        builder.Property(x => x.Discount)
-            .HasPrecision(5,2)
-            .IsRequired();
         builder.HasIndex(x => x.TelegramUsername).IsUnique();
-           
-        builder.ToTable(t =>
-        {
-            t.HasCheckConstraint(
-                "CK_User_Discount",
-                "\"Discount\" >= 0 AND \"Discount\" <= 15"
-            );
-        });
-        
+
         builder.Property(x => x.RegistrationDate)
             .HasConversion(
                 v => v.ToUniversalTime(),

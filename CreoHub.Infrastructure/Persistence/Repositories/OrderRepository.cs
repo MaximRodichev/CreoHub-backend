@@ -76,6 +76,7 @@ public class OrderRepository : IOrderRepository
                     PriceAtPurchase = y.PriceAtPurchase,
                     ProductId = y.ProductId,
                     ProductName = y.Product.Name,
+                    ProductSlug = y.Product.Slug,
                     IsBundle = y.Product.ProductType == ProductType.Bundle,
                     // Для одиночных продуктов — прямые файлы
                     Files = _db.ContentAccesses
@@ -91,6 +92,7 @@ public class OrderRepository : IOrderRepository
                     {
                         ProductId = bi.ProductId,
                         ProductName = bi.Product.Name,
+                        ProductSlug = bi.Product.Slug,
                         Files = _db.ContentAccesses
                             .Where(ca => ca.OrderId == x.Id && ca.ContentFile.ProductId == bi.ProductId)
                             .Select(ca => new PurchasedFileDTO

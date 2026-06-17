@@ -34,6 +34,7 @@ public class GetUserTransactionsHandler
                 {
                     Id            = t.Id,
                     FullAmount    = t.FullAmount,
+                    PaidAmount    = t.PaidAmount,
                     Type          = t.TransactionType,
                     Status        = t.TransactionStatus,
                     CreatedAt     = t.CreatedAt,
@@ -57,6 +58,7 @@ public class UserTransactionDTO
     public Guid Id { get; set; }
     public decimal Amount { get; set; }
     public decimal FullAmount { get; set; }
+    public decimal? PaidAmount { get; set; }
 
     [JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
     public TransactionType Type { get; set; }

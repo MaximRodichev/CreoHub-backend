@@ -7,6 +7,7 @@ using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Infrastructure.Persistence.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -416,7 +417,7 @@ public class NotificationTests
             Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo,
-            Substitute.For<IShopFollowRepository>(), Substitute.For<IShopRepository>(), notifications, unitOfWork);
+            notifications, Substitute.For<IServiceScopeFactory>(), unitOfWork);
         var result  = await handler.Handle(new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
         _output.WriteLine($"ApproveModeration result: {result.Status}");
@@ -455,7 +456,7 @@ public class NotificationTests
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo, accountRepo,
-            Substitute.For<IShopFollowRepository>(), Substitute.For<IShopRepository>(), notifications, unitOfWork);
+            notifications, Substitute.For<IServiceScopeFactory>(), unitOfWork);
         await handler.Handle(new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
         await Task.Delay(50);

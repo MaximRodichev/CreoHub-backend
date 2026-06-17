@@ -1,6 +1,7 @@
 using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Domain.Types;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace CreoHub.Infrastructure.Persistence.Services;
@@ -18,17 +19,32 @@ public class CompositeNotificationService : INotificationService
     private readonly SmtpNotificationService          _smtp;
     private readonly IInAppNotificationRepository     _inApp;
     private readonly ILogger<CompositeNotificationService> _logger;
+    private readonly string?                          _frontendBase;
 
     public CompositeNotificationService(
         TelegramNotificationService          telegram,
         SmtpNotificationService              smtp,
         IInAppNotificationRepository         inApp,
+        IConfiguration                       configuration,
         ILogger<CompositeNotificationService> logger)
     {
-        _telegram = telegram;
-        _smtp     = smtp;
-        _inApp    = inApp;
-        _logger   = logger;
+        _telegram     = telegram;
+        _smtp         = smtp;
+        _inApp        = inApp;
+        _logger       = logger;
+        _frontendBase = configuration["Frontend"]?.TrimEnd('/');
+    }
+
+    /// <summary>
+    /// Превращает actionUrl ("/store/product/x" или абсолютный) в полный URL сайта.
+    /// null — если ссылки нет или не задан Frontend base.
+    /// </summary>
+    private string? BuildAbsoluteUrl(string? actionUrl)
+    {
+        if (string.IsNullOrWhiteSpace(actionUrl)) return null;
+        if (actionUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return actionUrl;
+        if (string.IsNullOrWhiteSpace(_frontendBase)) return null;
+        return $"{_frontendBase}/{actionUrl.TrimStart('/')}";
     }
 
     // ── Постоянное уведомление ────────────────────────────────────────────────
@@ -39,17 +55,21 @@ public class CompositeNotificationService : INotificationService
     {
         try
         {
-            // 1. In-app — всегда (гарантированная доставка)
+            // 1. In-app — всегда (гарантированная доставка). Хранит относительный actionUrl.
             await _inApp.AddAsync(userId, type, message, actionUrl, ct);
 
             _logger.LogInformation(
                 "CompositeNotification.NotifyAsync: userId={UserId} type={Type} tg={Tg} email={Email}",
                 userId, type, telegramChatId, email);
 
-            // 2. Telegram
+            // Внешним каналам нужна абсолютная ссылка (с доменом сайта)
+            var absUrl = BuildAbsoluteUrl(actionUrl);
+
+            // 2. Telegram — HTML-ссылка кликабельна (parse_mode=HTML)
             if (telegramChatId.HasValue)
             {
-                var sent = await _telegram.TrySendAsync(telegramChatId.Value, message, ct);
+                var tgText = absUrl is null ? message : $"{message}\n\n<a href=\"{absUrl}\">Перейти →</a>";
+                var sent = await _telegram.TrySendAsync(telegramChatId.Value, tgText, ct);
                 if (sent)
                 {
                     _logger.LogInformation("CompositeNotification: sent via Telegram to {ChatId}", telegramChatId);
@@ -57,11 +77,12 @@ public class CompositeNotificationService : INotificationService
                 }
             }
 
-            // 3. Email fallback
+            // 3. Email fallback — простая ссылка отдельной строкой
             if (!string.IsNullOrWhiteSpace(email))
             {
                 const string subject = "CreoHub — уведомление";
-                var sent = await _smtp.TrySendAsync(email, subject, message, ct);
+                var emailText = absUrl is null ? message : $"{message}\n\n{absUrl}";
+                var sent = await _smtp.TrySendAsync(email, subject, emailText, ct);
                 if (sent)
                     _logger.LogInformation("CompositeNotification: sent via Email to {Email}", email);
                 else

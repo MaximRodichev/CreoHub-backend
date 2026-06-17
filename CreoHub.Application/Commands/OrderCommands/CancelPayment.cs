@@ -36,6 +36,11 @@ public class CancelPaymentHandler : IRequestHandler<CancelPaymentCommand, BaseRe
                 ?? throw new InvalidOperationException(
                     $"Transaction with trackId '{request.TrackId}' not found.");
 
+            // Уже оплачено: Paid мог прийти раньше Expired/Failed (гонка вебхуков).
+            // Ничего не отменяем — деньги получены, заказ/баланс остаются.
+            if (transaction.TransactionStatus == TransactionStatus.Completed)
+                return BaseResponse<bool>.Success(true);
+
             // Транзакции UpBalance не имеют заказа — обрабатываем отдельно
             if (transaction.TransactionType == TransactionType.UpBalance)
             {

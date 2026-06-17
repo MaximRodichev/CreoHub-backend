@@ -61,6 +61,9 @@ public class AppDbContext : DbContext
 
     // shop follows (подписка на магазин)
     public DbSet<ShopFollow> ShopFollows { get; set; }
+
+    // forensic-лог входящих платёжных вебхуков (raw)
+    public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

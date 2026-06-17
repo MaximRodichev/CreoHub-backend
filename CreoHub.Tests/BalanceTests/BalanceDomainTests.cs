@@ -119,11 +119,14 @@ public class BalanceDomainTests
     }
 
     [Fact]
-    public void SuccessInternal_CalledTwice_ThrowsInvalidOperationException()
+    public void SuccessInternal_CalledTwice_IsIdempotent()
     {
+        // Повторный вызов на уже Completed — no-op (защита от дублей вебхука),
+        // а не исключение. Статус остаётся Completed.
         var transaction = UserTransaction.CreateUpBalance(50m, UserId, "balance-test-id-4");
         transaction.SuccessInternal();
+        transaction.SuccessInternal();
 
-        Assert.Throws<InvalidOperationException>(() => transaction.SuccessInternal());
+        Assert.Equal(TransactionStatus.Completed, transaction.TransactionStatus);
     }
 }

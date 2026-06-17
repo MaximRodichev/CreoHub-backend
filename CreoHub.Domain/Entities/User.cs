@@ -7,7 +7,6 @@ public class User
 {
     public Guid Id { get; private init; } = Guid.NewGuid();
     public string Name { get; private set; }
-    public decimal Discount { get; private set; } = 0;
 
     /// <summary>Накопленная сумма всех покупок пользователя (то, что он реально заплатил).</summary>
     public decimal LifetimeSpent { get; private set; } = 0m;
@@ -112,10 +111,11 @@ public class User
     }
 
     /// <summary>
-    /// Скидка на основе накопленного спенда (F1).
-    /// Возвращает долю [0, 0.12] — не процент, а множитель для вычитания из цены.
+    /// Скидка по накопленному спенду (F1) — ЕДИНСТВЕННЫЙ источник тиров.
+    /// Доля [0, 0.09]. Результат жёстко ограничен формулой: что ни впиши в spent
+    /// (хоть подделай БД) — выше 9% не станет. Скидка нигде не хранится, только считается.
     /// </summary>
-    public decimal GetLifetimeDiscount() => LifetimeSpent switch
+    public static decimal LifetimeDiscountFor(decimal spent) => spent switch
     {
         >= 5000m => 0.09m,
         >= 2500m => 0.07m,
@@ -125,17 +125,35 @@ public class User
         _        => 0m,
     };
 
-    public void RecalculateDiscount(decimal totalPurchases)
-    {
-        if (totalPurchases < 0)
-            throw new ArgumentException("Total purchases cannot be negative.");
+    /// <summary>Скидка текущего пользователя по его LifetimeSpent.</summary>
+    public decimal GetLifetimeDiscount() => LifetimeDiscountFor(LifetimeSpent);
 
-        Discount = totalPurchases switch
-        {
-            >= 1000 => 7,
-            >= 500 => 5,
-            >= 300 => 3,
-            _ => 0
-        };
+    /// <summary>Скидка лид-магнита на первый заказ (доля). Применяется один раз — пока нет ни одной покупки.</summary>
+    public const decimal FirstOrderDiscountRate = 0.20m;
+
+    /// <summary>true пока пользователь ничего не покупал (LifetimeSpent растёт только после оплаченного заказа).</summary>
+    public bool IsFirstOrder => LifetimeSpent == 0m;
+
+    /// <summary>Скидка новому покупателю на первый заказ (−20%), иначе 0.</summary>
+    public decimal GetWelcomeDiscount() => IsFirstOrder ? FirstOrderDiscountRate : 0m;
+
+    /// <summary>
+    /// Итоговая персональная скидка покупателя: лучшая из lifetime и welcome.
+    /// На первом заказе lifetime = 0, поэтому возвращается welcome (−20%);
+    /// на последующих welcome = 0, остаётся lifetime. Они взаимоисключающие.
+    /// </summary>
+    public decimal GetPersonalDiscount() => Math.Max(GetLifetimeDiscount(), GetWelcomeDiscount());
+
+    /// <summary>
+    /// Смена отображаемого имени пользователем (профиль). Имена НЕ уникальны.
+    /// </summary>
+    public void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Имя не может быть пустым.", nameof(name));
+        name = name.Trim();
+        if (name.Length > 50)
+            throw new ArgumentException("Имя не должно превышать 50 символов.", nameof(name));
+        Name = name;
     }
 }

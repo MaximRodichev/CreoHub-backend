@@ -219,7 +219,7 @@ public class CompletePaymentMilestoneTests
 
         _output.WriteLine($"Status: {result.Status}, Error: {result.ErrorMessage}");
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("track-missing", result.ErrorMessage);
+        Assert.Contains("Не удалось обработать", result.ErrorMessage);
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public class CompletePaymentMilestoneTests
             CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("track-orphan", result.ErrorMessage);
+        Assert.Contains("Не удалось обработать", result.ErrorMessage);
     }
 
     // ── GetOrdersShortInfoByShopIdQuery — date filter passthrough ─────────────

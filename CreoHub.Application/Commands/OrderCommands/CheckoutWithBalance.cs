@@ -255,9 +255,10 @@ public class CheckoutWithBalanceHandler
 
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);
-            var lifetimeDisc = user?.GetLifetimeDiscount() ?? 0m;
+            // Personal = лучшая из lifetime и welcome (−20% на первый заказ). См. User.GetPersonalDiscount.
+            var personalDisc = user?.GetPersonalDiscount() ?? 0m;
             var cartDisc     = DiscountCalculator.GetCartCountDiscount(orderItems.Count);
-            order.ApplyDiscounts(lifetimeDisc, cartDisc);
+            order.ApplyDiscounts(personalDisc, cartDisc);
 
             var buyerPays = order.Price; // уже пересчитан после ApplyDiscounts
 

@@ -25,20 +25,15 @@ public abstract class BaseTransaction
 
     public TransactionType TransactionType { get; protected init; }
 
-    public TransactionStatus TransactionStatus
-    {
-        get => _transactionStatus;
-        private set
-        {
-            if (_transactionStatus != TransactionStatus.Pending)
-                throw new InvalidOperationException("Only pending transactions can change status.");
-            _transactionStatus = value;
-        }
-    }
+    public TransactionStatus TransactionStatus => _transactionStatus;
 
     public string? TxHash { get; private set; }
     public string? SenderAddress { get; private set; }
     public string TrackId { get; protected init; }
+
+    /// <summary>Фактически полученная сумма (value из вебхука OxaPay, после сетевой комиссии).
+    /// Может отличаться от FullAmount (запрошенное). null — для внутренних/незавершённых.</summary>
+    public decimal? PaidAmount { get; private set; }
 
     public DateTime CreatedAt { get; private init; } = DateTime.UtcNow;
     public DateTime? PaidAt { get; private set; }
@@ -48,22 +43,33 @@ public abstract class BaseTransaction
 
     protected BaseTransaction() {}
 
-    public void Success(string senderAddress, string txHash)
+    /// <summary>
+    /// Оплата получена. Деньги имеют приоритет над статусом: разрешён переход
+    /// в Completed даже из Expired/Failed (юзер доплатил после истечения инвойса).
+    /// Idempotent: повторный вызов на уже Completed — no-op (защита от дублей вебхука).
+    /// </summary>
+    public void Success(string senderAddress, string txHash, decimal? paidAmount = null)
     {
-        TransactionStatus = TransactionStatus.Completed;
+        if (_transactionStatus == TransactionStatus.Completed) return;
+        _transactionStatus = TransactionStatus.Completed;
         SenderAddress = senderAddress ?? throw new ArgumentNullException(nameof(senderAddress));
         TxHash = txHash ?? throw new ArgumentNullException(nameof(txHash));
+        PaidAmount = paidAmount;
         PaidAt = DateTime.UtcNow;
     }
 
+    /// <summary>Помечает неудачу. НЕ перетирает Completed (если оплата уже пришла — гонка вебхуков).</summary>
     public void Fail()
     {
-        TransactionStatus = TransactionStatus.Failed;
+        if (_transactionStatus == TransactionStatus.Completed) return;
+        _transactionStatus = TransactionStatus.Failed;
     }
 
+    /// <summary>Помечает истечение. НЕ перетирает Completed (Paid мог прийти раньше Expired).</summary>
     public void Expire()
     {
-        TransactionStatus = TransactionStatus.Expired;
+        if (_transactionStatus == TransactionStatus.Completed) return;
+        _transactionStatus = TransactionStatus.Expired;
     }
 
     /// <summary>
@@ -71,7 +77,8 @@ public abstract class BaseTransaction
     /// </summary>
     public void SuccessInternal()
     {
-        TransactionStatus = TransactionStatus.Completed;
+        if (_transactionStatus == TransactionStatus.Completed) return;
+        _transactionStatus = TransactionStatus.Completed;
         PaidAt = DateTime.UtcNow;
     }
 }

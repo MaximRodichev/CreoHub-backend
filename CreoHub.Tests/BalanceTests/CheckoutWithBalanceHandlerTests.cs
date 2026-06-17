@@ -60,6 +60,7 @@ public class CheckoutWithBalanceHandlerTests
     private static Product MakeProductWithPrice(decimal price)
     {
         var product = new Product("Test Product", "Test Desc", Guid.NewGuid());
+        product.ApproveModeration();   // OnModerating → Active (checkout требует Active)
         product.AddPrice(price);
         return product;
     }
@@ -74,6 +75,7 @@ public class CheckoutWithBalanceHandlerTests
         balance.AddFunds(100m);
 
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accessRepo.GetByUserIdAsync(UserId).Returns(new List<ContentAccess>());
@@ -103,11 +105,16 @@ public class CheckoutWithBalanceHandlerTests
     [Fact]
     public async Task CheckoutWithBalance_InsufficientBalance_ReturnsError()
     {
+        // Аранж
         var product = MakeProductWithPrice(200m);
+        // НАПРИМЕР ТАК (активируй продукт в зависимости от твоих полей в сущности):
+        product.Activate();
+
         var balance = new UserBalance(UserId);
         balance.AddFunds(50m);
 
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _accessRepo.GetByUserIdAsync(UserId).Returns(new List<ContentAccess>());
 
@@ -117,11 +124,19 @@ public class CheckoutWithBalanceHandlerTests
         };
 
         var handler = MakeHandler();
+    
+        // Акт
         var result  = await handler.Handle(new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
 
         _output.WriteLine($"Error: {result.ErrorMessage}");
+    
+        // Ассерт
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("Insufficient balance", result.ErrorMessage);
+    
+        // И не забудь проверить язык возвращаемой ошибки. 
+        // Если хэндлер вернет "Недостаточно средств", то английский "Insufficient balance" снова упадет.
+        Assert.Contains("Insufficient balance", result.ErrorMessage); // или "Insufficient balance", если локализация английская
+    
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -178,6 +193,7 @@ public class CheckoutWithBalanceHandlerTests
         balance.AddFunds(100m);
 
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product>());
 
         var items = new List<CheckoutItemDTO>

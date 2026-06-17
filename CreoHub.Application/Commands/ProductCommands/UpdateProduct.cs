@@ -88,6 +88,13 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
                 response.UpdateName(request.dto.Name);
             }
 
+            // null — поле не передали, slug не трогаем (старые ссылки стабильны).
+            // Непустое значение — явная смена URL владельцем.
+            if (!string.IsNullOrWhiteSpace(request.dto.Slug) && request.dto.Slug != response.Slug)
+            {
+                response.UpdateSlug(request.dto.Slug);
+            }
+
             if (response.Description != request.dto.Description)
             {
                 response.UpdateDescription(request.dto.Description);
@@ -186,10 +193,32 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, BaseRe
 
             return BaseResponse<bool>.Success(true);
         }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Slug"))
+        {
+            return BaseResponse<bool>.Fail("Товар с таким URL (slug) уже существует. Укажите другой URL.");
+        }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Name"))
+        {
+            return BaseResponse<bool>.Fail("Товар с таким названием уже существует. Выберите другое название.");
+        }
         catch (Exception ex)
         {
             return BaseResponse<bool>.Fail(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Walks the full InnerException chain checking every message —
+    /// needed because the UoW may wrap DbUpdateException in a custom exception.
+    /// </summary>
+    private static bool ExceptionChainContains(Exception? ex, string text)
+    {
+        while (ex is not null)
+        {
+            if (ex.Message.Contains(text)) return true;
+            ex = ex.InnerException;
+        }
+        return false;
     }
 
 }

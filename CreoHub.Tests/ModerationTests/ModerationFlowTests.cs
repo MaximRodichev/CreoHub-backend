@@ -8,6 +8,7 @@ using CreoHub.Application.Repositories;
 using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -426,8 +427,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
-            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(),
+            Substitute.For<IServiceScopeFactory>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -453,8 +454,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).Returns(product);
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
-            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(),
+            Substitute.For<IServiceScopeFactory>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 
@@ -470,8 +471,8 @@ public class ModerationFlowTests
         productRepo.GetProductById(ProductId).ReturnsNull();
 
         var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
-            Substitute.For<IAccountRepository>(), Substitute.For<IShopFollowRepository>(),
-            Substitute.For<IShopRepository>(), Substitute.For<INotificationService>(), unitOfWork);
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(),
+            Substitute.For<IServiceScopeFactory>(), unitOfWork);
         var result  = await handler.Handle(
             new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
 

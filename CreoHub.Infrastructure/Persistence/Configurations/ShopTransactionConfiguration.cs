@@ -30,6 +30,9 @@ public class ShopTransactionConfiguration : IEntityTypeConfiguration<ShopTransac
             .UsePropertyAccessMode(PropertyAccessMode.Field)
             .IsRequired();
 
+        builder.Property(x => x.PaidAmount)
+            .HasPrecision(18, 2);
+
         builder.Property(x => x.PlatformFeeAmount)
             .HasPrecision(18, 2)
             .IsRequired();

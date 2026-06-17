@@ -38,6 +38,9 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
                 shop.Id,
                 tags);
 
+            if (!string.IsNullOrWhiteSpace(request.dto.Slug))
+                product.UpdateSlug(request.dto.Slug);
+
             product.AddPrice(request.dto.Price);
 
             await _productRepository.AddAsync(product);
@@ -48,6 +51,10 @@ public class CreateProductHandler :  IRequestHandler<CreateProductCommand, BaseR
         catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Name"))
         {
             return BaseResponse<int>.Fail("Товар с таким названием уже существует. Выберите другое название.");
+        }
+        catch (Exception ex) when (ExceptionChainContains(ex, "IX_Products_Slug"))
+        {
+            return BaseResponse<int>.Fail("Товар с таким URL (slug) уже существует. Укажите другой URL.");
         }
         catch (Exception ex)
         {

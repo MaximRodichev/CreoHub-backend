@@ -60,37 +60,39 @@ public class ProductRepository : IProductRepository
             query = query.Where(x => x.OwnerId == filters.ShopId);
 
         var normalized = filters.Search?.Trim().ToLowerInvariant() ?? "";
-        var hasSearch  = !string.IsNullOrWhiteSpace(normalized);
+        // Пробелы убираем с ОБЕИХ сторон: «SUGAR RUSH» ↔ «SUGARRUSH», «Fire Pack» ↔ «firepack».
+        var noSpace    = normalized.Replace(" ", "");
+        var hasSearch  = !string.IsNullOrWhiteSpace(noSpace);
 
         if (hasSearch)
         {
-            var pattern = $"%{normalized}%";
+            var pattern = $"%{noSpace}%";
 
-            if (normalized.Length >= 3)
+            if (noSpace.Length >= 3)
             {
-                // Collect product IDs that match by trigram similarity (handles typos / partial matches)
+                // Collect product IDs that match by trigram similarity (typos / partial), сравниваем без пробелов
                 var fuzzyIds = await _db.Database
                     .SqlQueryRaw<int>(@"
                         SELECT DISTINCT p.""Id""
                         FROM ""Products"" p
                         LEFT JOIN ""ProductTag"" pt ON pt.""ProductsId"" = p.""Id""
                         LEFT JOIN ""Tags"" t ON t.""Id"" = pt.""TagsId""
-                        WHERE similarity(lower(p.""Name""), {0}) > 0.2
-                           OR similarity(lower(t.""Name""), {0}) > 0.2",
-                        normalized)
+                        WHERE similarity(replace(lower(p.""Name""), ' ', ''), {0}) > 0.2
+                           OR similarity(replace(lower(t.""Name""), ' ', ''), {0}) > 0.2",
+                        noSpace)
                     .ToListAsync();
 
                 query = query.Where(x =>
-                    EF.Functions.ILike(x.Name, pattern) ||
-                    x.Tags.Any(t => EF.Functions.ILike(t.Name, pattern)) ||
+                    EF.Functions.ILike(x.Name.Replace(" ", ""), pattern) ||
+                    x.Tags.Any(t => EF.Functions.ILike(t.Name.Replace(" ", ""), pattern)) ||
                     fuzzyIds.Contains(x.Id));
             }
             else
             {
                 // Short queries (1-2 chars): substring match on name and tags only, no fuzzy noise
                 query = query.Where(x =>
-                    EF.Functions.ILike(x.Name, pattern) ||
-                    x.Tags.Any(t => EF.Functions.ILike(t.Name, pattern)));
+                    EF.Functions.ILike(x.Name.Replace(" ", ""), pattern) ||
+                    x.Tags.Any(t => EF.Functions.ILike(t.Name.Replace(" ", ""), pattern)));
             }
         }
 
@@ -142,9 +144,9 @@ public class ProductRepository : IProductRepository
         // Ключ 2: релевантность (только при поиске)
         IOrderedQueryable<Product> step2 = hasSearch
             ? step1.ThenBy(p =>
-                EF.Functions.ILike(p.Name, normalized)             ? 0 :   // exact
-                EF.Functions.ILike(p.Name, normalized + "%")       ? 1 :   // starts with
-                EF.Functions.ILike(p.Name, "%" + normalized + "%") ? 2 : 3 // contains / fuzzy
+                EF.Functions.ILike(p.Name.Replace(" ", ""), noSpace)             ? 0 :   // exact
+                EF.Functions.ILike(p.Name.Replace(" ", ""), noSpace + "%")       ? 1 :   // starts with
+                EF.Functions.ILike(p.Name.Replace(" ", ""), "%" + noSpace + "%") ? 2 : 3 // contains / fuzzy
               )
             : step1;
 
@@ -220,6 +222,7 @@ public class ProductRepository : IProductRepository
                 inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
                 {
                     Name = b.Product.Name,
+                    Slug = b.Product.Slug,
                     Id = b.ProductId,
                     Price = b.Product.Prices
                         .OrderByDescending(p => p.Date)
@@ -323,6 +326,7 @@ public class ProductRepository : IProductRepository
                 inBundleProducts = x.BundleItems.Select(b => new ProductShortInfoDTO
                 {
                     Name = b.Product.Name,
+                    Slug = b.Product.Slug,
                     Id = b.ProductId,
                     Price = b.Product.Prices
                         .OrderByDescending(p => p.Date)
@@ -451,6 +455,7 @@ public class ProductRepository : IProductRepository
             inBundleProducts = rawData.BundleItems.Select(x => new ProductShortInfoDTO()
             {
                 Name = x.Product.Name,
+                Slug = x.Product.Slug,
                 Id = x.ProductId,
                 Price = x.Product.Prices
                     .OrderByDescending(p => p.Date)
@@ -515,6 +520,7 @@ public class ProductRepository : IProductRepository
             {
                 Id          = x.Id,
                 Name        = x.Name,
+                Slug        = x.Slug,
                 ProductType = x.ProductType,
                 Price       = x.Prices
                     .OrderByDescending(pr => pr.Date)

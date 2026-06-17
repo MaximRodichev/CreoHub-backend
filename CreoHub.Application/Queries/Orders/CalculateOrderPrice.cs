@@ -158,8 +158,9 @@ public class CalculateOrderPriceHandler
 
             var subtotal = lines.Sum(l => l.Price);
 
-            // ── Скидки (F1 + F2) ─────────────────────────────────────
+            // ── Скидки (F1 + F2 + лид-магнит) ────────────────────────
             decimal lifetimeDisc    = 0m;
+            decimal welcomeDisc     = 0m;
             // F2: скидка по количеству товаров (3+→3%, 5+→6%, 8+→9%)
             decimal cartVolumeDisc  = DiscountCalculator.GetCartCountDiscount(request.Items.Count);
 
@@ -167,10 +168,15 @@ public class CalculateOrderPriceHandler
             {
                 var user = await _accountRepository.GetFullInfoByIdAsync(request.UserId.Value);
                 if (user != null)
+                {
                     lifetimeDisc = user.GetLifetimeDiscount();
+                    welcomeDisc  = user.GetWelcomeDiscount();
+                }
             }
 
-            var totalDisc    = DiscountCalculator.GetTotalDiscount(lifetimeDisc, cartVolumeDisc);
+            // Personal = лучшая из lifetime и welcome; итог = MAX(personal, cart) — как в checkout.
+            var personalDisc = Math.Max(lifetimeDisc, welcomeDisc);
+            var totalDisc    = DiscountCalculator.GetTotalDiscount(personalDisc, cartVolumeDisc);
             var discountAmt  = subtotal * totalDisc;
             var total        = DiscountCalculator.ApplyDiscount(subtotal, totalDisc);
 
@@ -182,6 +188,7 @@ public class CalculateOrderPriceHandler
                 DiscountAmount  = discountAmt,
                 DiscountBreakdown = new DiscountBreakdownDTO
                 {
+                    WelcomeDiscountPercent     = welcomeDisc     * 100m,
                     LifetimeDiscountPercent    = lifetimeDisc    * 100m,
                     CartVolumeDiscountPercent  = cartVolumeDisc  * 100m,
                 },

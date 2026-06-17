@@ -75,6 +75,7 @@ public class CheckoutWithBalanceDiscountTests
     private static Product MakeProduct(decimal price)
     {
         var p = new Product("P", "D", Guid.NewGuid());
+        p.ApproveModeration();   // OnModerating → Active (checkout пропускает только Active)
         p.AddPrice(price);
         return p;
     }
@@ -168,14 +169,15 @@ public class CheckoutWithBalanceDiscountTests
     [Fact]
     public async Task Checkout_OneItem_NoDiscount_PaysFull()
     {
-        // 1 product = no count discount, no lifetime → pays full $50
+        // 1 product = no count discount, no lifetime, не первый заказ → pays full $50
         var product = MakeProduct(50m);
-        var user    = MakeUser(0m);
+        var user    = MakeUser(100m);   // spend>0 → welcome off; <$250 → lifetime 0
         var balance = new UserBalance(UserId);
         balance.AddFunds(100m);
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
@@ -204,12 +206,13 @@ public class CheckoutWithBalanceDiscountTests
         var p1 = MakeProduct(30m); SetProp(p1, "Id", 11);
         var p2 = MakeProduct(30m); SetProp(p2, "Id", 12);
         var p3 = MakeProduct(30m); SetProp(p3, "Id", 13);
-        var user    = MakeUser(0m);
+        var user    = MakeUser(100m);   // не первый заказ → проверяем именно cart-скидку
         var balance = new UserBalance(UserId);
         balance.AddFunds(200m);
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { p1, p2, p3 });
         _contentFileRepo.GetByProductIdAsync(11).Returns(new List<ContentFile>());
         _contentFileRepo.GetByProductIdAsync(12).Returns(new List<ContentFile>());
@@ -232,6 +235,66 @@ public class CheckoutWithBalanceDiscountTests
         Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
     }
 
+    // ── Лид-магнит: первый заказ → welcome −20% ──────────────────────────────
+
+    [Fact]
+    public async Task Checkout_FirstOrder_AppliesWelcome20Percent()
+    {
+        // Новый покупатель (LifetimeSpent=0), 1 товар $50 → welcome 20% → платит $40
+        var product = MakeProduct(50m);
+        var user    = MakeUser(0m);   // первый заказ
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(100m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
+        _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = new List<CheckoutItemDTO>
+        {
+            new() { ProductId = product.Id, FileIds = new List<Guid>() }
+        };
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        var expectedPays = 50m * (1m - 0.20m);   // $40
+        _output.WriteLine($"expectedPays={expectedPays}, spent={100m - balance.AvailableAmount}");
+        Assert.Equal(expectedPays, 100m - balance.AvailableAmount);
+    }
+
+    [Fact]
+    public async Task Checkout_SecondOrder_NoWelcomeDiscount()
+    {
+        // Покупатель уже что-то купил (LifetimeSpent>0) → welcome не применяется, платит полную $50
+        var product = MakeProduct(50m);
+        var user    = MakeUser(50m);   // уже покупал → не первый заказ
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(100m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
+        _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = new List<CheckoutItemDTO>
+        {
+            new() { ProductId = product.Id, FileIds = new List<Guid>() }
+        };
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        Assert.Equal(50m, 100m - balance.AvailableAmount);   // полная цена
+    }
+
     // ── F1: lifetime discount применяется ────────────────────────────────────
 
     [Fact]
@@ -246,6 +309,7 @@ public class CheckoutWithBalanceDiscountTests
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
@@ -280,6 +344,7 @@ public class CheckoutWithBalanceDiscountTests
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { p1, p2, p3 });
         _contentFileRepo.GetByProductIdAsync(21).Returns(new List<ContentFile>());
         _contentFileRepo.GetByProductIdAsync(22).Returns(new List<ContentFile>());
@@ -315,12 +380,13 @@ public class CheckoutWithBalanceDiscountTests
             var p = MakeProduct(10m); SetProp(p, "Id", id); return p;
         }).ToList();
 
-        var user    = MakeUser(0m);
+        var user    = MakeUser(100m);   // не первый заказ → cart-скидка 9% выигрывает
         var balance = new UserBalance(UserId);
         balance.AddFunds(200m);
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(products);
         foreach (var p in products)
             _contentFileRepo.GetByProductIdAsync((int)typeof(Product)
@@ -354,6 +420,7 @@ public class CheckoutWithBalanceDiscountTests
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
@@ -393,6 +460,7 @@ public class CheckoutWithBalanceDiscountTests
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { bundle });
         _contentFileRepo.GetByProductIdAsync(child1Id)
             .Returns(new List<ContentFile> { MakeContentFile(child1FileId, child1Id) });
@@ -428,6 +496,7 @@ public class CheckoutWithBalanceDiscountTests
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { bundle });
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
 
@@ -477,6 +546,7 @@ public class CheckoutWithBalanceDiscountTests
         _accessRepo.GetByUserIdAsync(UserId).Returns(ownedAccesses);
         _shopBalanceRepo.GetByShopIdAsync(Arg.Any<Guid>()).Returns((ShopBalance?)null);
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { bundle });
         _contentFileRepo.GetByProductIdAsync(child1Id).Returns(new List<ContentFile> { file1 });
         _contentFileRepo.GetByProductIdAsync(child2Id).Returns(new List<ContentFile> { file2 });
@@ -505,12 +575,13 @@ public class CheckoutWithBalanceDiscountTests
     {
         // product $50, 1 item = no discount, balance = 48.00 → fail
         var product = MakeProduct(50m);
-        var user    = MakeUser(0m);
+        var user    = MakeUser(100m);   // не первый заказ, иначе welcome −20% опустил бы цену до $40
         var balance = new UserBalance(UserId);
         balance.AddFunds(48m);   // меньше 50
 
         SetupDefaultMocks();
         _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
         _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
         _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
         _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);

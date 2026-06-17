@@ -1,5 +1,6 @@
 using CreoHub.Application.DTO.AdminDTOs;
 using CreoHub.Application.Repositories;
+using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,20 +16,32 @@ public class AdminRepository : IAdminRepository
 
     public async Task<List<AdminUserDto>> GetAllUsersAsync(CancellationToken ct = default)
     {
-        // OrderByDescending must come BEFORE Select — EF Core can't sort by a DTO property
-        return await _db.Users
+        // OrderByDescending must come BEFORE Select — EF Core can't sort by a DTO property.
+        // Скидку не храним — считаем из LifetimeSpent в памяти (единый источник тиров).
+        var rows = await _db.Users
             .OrderByDescending(u => u.RegistrationDate)
-            .Select(u => new AdminUserDto(
+            .Select(u => new
+            {
                 u.Id,
                 u.Name,
                 u.EmailAddress,
-                u.Role.ToString(),
+                Role = u.Role.ToString(),
                 u.LifetimeSpent,
-                u.Discount,
-                u.Orders.Count(o => o.Status == OrderStatus.Completed),
+                Completed = u.Orders.Count(o => o.Status == OrderStatus.Completed),
                 u.RegistrationDate
-            ))
+            })
             .ToListAsync(ct);
+
+        return rows.Select(r => new AdminUserDto(
+            r.Id,
+            r.Name,
+            r.EmailAddress,
+            r.Role,
+            r.LifetimeSpent,
+            User.LifetimeDiscountFor(r.LifetimeSpent) * 100m,
+            r.Completed,
+            r.RegistrationDate
+        )).ToList();
     }
 
     public async Task<AdminUserDetailDto?> GetUserDetailAsync(Guid userId, CancellationToken ct = default)
@@ -59,7 +72,7 @@ public class AdminRepository : IAdminRepository
             user.TelegramId,
             user.Role.ToString(),
             user.LifetimeSpent,
-            user.Discount,
+            user.GetLifetimeDiscount() * 100m,
             user.RegistrationDate,
             orders
         );

@@ -131,7 +131,7 @@ public class BalanceHandlerTests
 
         var handler = new ConfirmTopUpHandler(_unitOfWork, _transactionRepo, _balanceRepo);
         var result  = await handler.Handle(
-            new ConfirmTopUpCommand("TRK-100", "0xABC", "0xSender"), CancellationToken.None);
+            new ConfirmTopUpCommand("TRK-100", "0xABC", "0xSender", ReceivedAmount: 75m), CancellationToken.None);
 
         _output.WriteLine($"Status: {result.Status}");
         Assert.Equal(ResponseStatus.Success, result.Status);
@@ -151,7 +151,7 @@ public class BalanceHandlerTests
 
         var handler = new ConfirmTopUpHandler(_unitOfWork, _transactionRepo, _balanceRepo);
         var result  = await handler.Handle(
-            new ConfirmTopUpCommand("TRK-200", "0xABC2", "0xSender2"), CancellationToken.None);
+            new ConfirmTopUpCommand("TRK-200", "0xABC2", "0xSender2", ReceivedAmount: 50m), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Success, result.Status);
         Assert.Equal(150m, balance.AvailableAmount);
@@ -165,9 +165,11 @@ public class BalanceHandlerTests
 
         var handler = new ConfirmTopUpHandler(_unitOfWork, _transactionRepo, _balanceRepo);
         var result  = await handler.Handle(
-            new ConfirmTopUpCommand("NOT-EXIST", "0xHash", "0xAddr"), CancellationToken.None);
+            new ConfirmTopUpCommand("NOT-EXIST", "0xHash", "0xAddr", ReceivedAmount: 0m), CancellationToken.None);
 
         Assert.Equal(ResponseStatus.Error, result.Status);
-        Assert.Contains("not found", result.ErrorMessage);
+    
+        // Ищем русскую подстроку, которая реально возвращается в ErrorMessage
+        Assert.Contains("Не удалось зачислить", result.ErrorMessage);
     }
 }

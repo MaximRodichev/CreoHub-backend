@@ -32,6 +32,9 @@ public class UserTransactionConfiguration : IEntityTypeConfiguration<UserTransac
             .UsePropertyAccessMode(PropertyAccessMode.Field)
             .IsRequired();
 
+        builder.Property(x => x.PaidAmount)
+            .HasPrecision(18, 2);
+
         builder.Property(x => x.TransactionType)
             .HasConversion<string>();
 

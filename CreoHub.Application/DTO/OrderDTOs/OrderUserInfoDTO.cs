@@ -42,6 +42,7 @@ public class OrderItemDTO
 {
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? ProductSlug { get; set; }
     public decimal PriceAtPurchase { get; set; }
 
     /// <summary>true для бандл-продуктов</summary>
@@ -63,6 +64,7 @@ public class BundleOrderItemDTO
 {
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? ProductSlug { get; set; }
     public List<PurchasedFileDTO> Files { get; set; } = new();
 }
 

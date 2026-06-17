@@ -5,6 +5,7 @@ using CreoHub.Application.Services;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CreoHub.Application.Commands.AdminCommands;
 
@@ -21,26 +22,23 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
     private readonly IProductRepository          _productRepository;
     private readonly IProductStatusLogRepository _statusLogRepository;
     private readonly IAccountRepository          _accountRepository;
-    private readonly IShopFollowRepository       _shopFollowRepository;
-    private readonly IShopRepository             _shopRepository;
     private readonly INotificationService        _notifications;
+    private readonly IServiceScopeFactory        _scopeFactory;
     private readonly IUnitOfWork                 _unitOfWork;
 
     public ApproveModerationHandler(
         IProductRepository productRepository,
         IProductStatusLogRepository statusLogRepository,
         IAccountRepository accountRepository,
-        IShopFollowRepository shopFollowRepository,
-        IShopRepository shopRepository,
         INotificationService notifications,
+        IServiceScopeFactory scopeFactory,
         IUnitOfWork unitOfWork)
     {
         _productRepository    = productRepository;
         _statusLogRepository  = statusLogRepository;
         _accountRepository    = accountRepository;
-        _shopFollowRepository = shopFollowRepository;
-        _shopRepository       = shopRepository;
         _notifications        = notifications;
+        _scopeFactory         = scopeFactory;
         _unitOfWork           = unitOfWork;
     }
 
@@ -62,11 +60,12 @@ public class ApproveModerationHandler : IRequestHandler<ApproveModerationCommand
 
             await _unitOfWork.SaveChangesAsync(ct);
 
-            // Fire-and-forget notifications
-            _ = NotifySellerAsync(product.OwnerId, product.Name, approved: true, ct);
-            _ = ShopFollowerNotifier.NotifyNewProductAsync(
-                _shopFollowRepository, _shopRepository, _notifications,
-                product.OwnerId, product.Name, product.Slug);
+            // Продавцу — синхронно (1 получатель, текущий DbContext ещё жив)
+            await NotifySellerAsync(product.OwnerId, product.Name, approved: true, ct);
+
+            // Подписчикам — в фоне, в собственном scope (свой DbContext, не блокирует ответ)
+            _ = ShopFollowerNotifier.NotifyNewProductInScopeAsync(
+                _scopeFactory, product.OwnerId, product.Name, product.Slug);
 
             return BaseResponse<bool>.Success(true);
         }

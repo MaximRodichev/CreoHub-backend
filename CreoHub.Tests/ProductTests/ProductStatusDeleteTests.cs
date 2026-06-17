@@ -1,7 +1,7 @@
 using CreoHub.Application.Commands.ProductCommands;
 using CreoHub.Application.DTO;
 using CreoHub.Application.Repositories;
-using CreoHub.Application.Services;
+using Microsoft.Extensions.DependencyInjection;
 using CreoHub.Domain.Entities;
 using CreoHub.Domain.Types;
 using NSubstitute;
@@ -16,9 +16,7 @@ public class ProductStatusDeleteTests
     private readonly ITestOutputHelper _output;
     private readonly IProductRepository _productRepo;
     private readonly IProductStatusLogRepository _statusLogRepo;
-    private readonly IShopFollowRepository _shopFollowRepo;
-    private readonly IShopRepository _shopRepo;
-    private readonly INotificationService _notifications;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IUnitOfWork _unitOfWork;
 
     private static readonly Guid ShopId      = Guid.Parse("eeee0001-0000-0000-0000-000000000000");
@@ -28,13 +26,11 @@ public class ProductStatusDeleteTests
 
     public ProductStatusDeleteTests(ITestOutputHelper output)
     {
-        _output         = output;
-        _productRepo    = Substitute.For<IProductRepository>();
-        _statusLogRepo  = Substitute.For<IProductStatusLogRepository>();
-        _shopFollowRepo = Substitute.For<IShopFollowRepository>();
-        _shopRepo       = Substitute.For<IShopRepository>();
-        _notifications  = Substitute.For<INotificationService>();
-        _unitOfWork     = Substitute.For<IUnitOfWork>();
+        _output        = output;
+        _productRepo   = Substitute.For<IProductRepository>();
+        _statusLogRepo = Substitute.For<IProductStatusLogRepository>();
+        _scopeFactory  = Substitute.For<IServiceScopeFactory>();
+        _unitOfWork    = Substitute.For<IUnitOfWork>();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -127,7 +123,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -146,7 +142,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Active"),
             CancellationToken.None);
@@ -162,7 +158,7 @@ public class ProductStatusDeleteTests
     {
         _productRepo.GetProductById(ProductId).ReturnsNull();
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -180,7 +176,7 @@ public class ProductStatusDeleteTests
         var product = MakeProduct(OtherShopId); // принадлежит другому шопу
         _productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Hidden"),
             CancellationToken.None);
@@ -198,7 +194,7 @@ public class ProductStatusDeleteTests
         var product = MakeProduct(ShopId);
         _productRepo.GetProductById(ProductId).Returns(product);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
         var result  = await handler.Handle(
             new ChangeProductStatusCommand(ShopId, ProductId, "Deleted"), // неверный статус
             CancellationToken.None);
@@ -217,7 +213,7 @@ public class ProductStatusDeleteTests
         _productRepo.GetProductById(ProductId).Returns(product);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
-        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _shopFollowRepo, _shopRepo, _notifications, _unitOfWork);
+        var handler = new ChangeProductStatusHandler(_productRepo, _statusLogRepo, _scopeFactory, _unitOfWork);
 
         // "HIDDEN", "hidden", "Hidden" — все должны работать
         var result = await handler.Handle(

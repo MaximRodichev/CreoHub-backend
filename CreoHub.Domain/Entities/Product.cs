@@ -45,17 +45,42 @@ public class Product
     private Product() {}
 
     /// <summary>
+    /// Карта транслитерации кириллица → латиница для slug.
+    /// Должна совпадать с SQL-картой в миграции TransliterateProductSlugs
+    /// и JS-зеркалом во фронтенде (lib/translit.js).
+    /// </summary>
+    private static readonly Dictionary<char, string> Translit = new()
+    {
+        ['а']="a", ['б']="b", ['в']="v", ['г']="g", ['д']="d", ['е']="e", ['ё']="yo",
+        ['ж']="zh", ['з']="z", ['и']="i", ['й']="y", ['к']="k", ['л']="l", ['м']="m",
+        ['н']="n", ['о']="o", ['п']="p", ['р']="r", ['с']="s", ['т']="t", ['у']="u",
+        ['ф']="f", ['х']="h", ['ц']="c", ['ч']="ch", ['ш']="sh", ['щ']="shch",
+        ['ъ']="", ['ы']="y", ['ь']="", ['э']="e", ['ю']="yu", ['я']="ya",
+    };
+
+    /// <summary>
     /// Генерирует URL-безопасный slug из произвольного названия.
     /// "Fire Pack: Vol. 3 — Premium" → "fire-pack-vol-3-premium"
+    /// "Анимационные материалы" → "animacionnye-materialy"
     /// </summary>
     public static string GenerateSlug(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
-        var s = name.ToLowerInvariant();
+        var lower = name.ToLowerInvariant();
+
+        var sb = new System.Text.StringBuilder(lower.Length + 8);
+        foreach (var ch in lower)
+            sb.Append(Translit.TryGetValue(ch, out var lat) ? lat : ch);
+
+        var s = sb.ToString();
         s = Regex.Replace(s, @"[^\w\s-]", " ");   // оставляем буквы, цифры, пробелы, дефисы
         s = Regex.Replace(s, @"\s+", "-");          // пробелы → дефисы
         s = Regex.Replace(s, @"-{2,}", "-");         // двойные дефисы → одиночные
-        return s.Trim('-');
+        s = s.Trim('-');
+
+        // Имя целиком из спецсимволов/удаляемых букв → slug не должен быть пустым
+        // (unique index): подстраховка случайным суффиксом.
+        return s.Length > 0 ? s : $"product-{Guid.NewGuid():N}"[..16];
     }
 
     public const int MaxNameLength        = 50;
@@ -113,10 +138,14 @@ public class Product
         // Slug НЕ меняется автоматически — URL должен оставаться стабильным
     }
 
-    /// <summary>Явное переопределение slug (если null — регенерировать из текущего Name).</summary>
+    /// <summary>
+    /// Явное переопределение slug (если null/пустой — регенерировать из текущего Name).
+    /// Ручной ввод проходит ту же санитизацию, что и автогенерация:
+    /// транслит, lowercase, спецсимволы → дефисы.
+    /// </summary>
     public void UpdateSlug(string? slug = null)
     {
-        Slug = slug is not null ? slug.Trim('-').ToLowerInvariant() : GenerateSlug(Name);
+        Slug = string.IsNullOrWhiteSpace(slug) ? GenerateSlug(Name) : GenerateSlug(slug);
     }
 
     public void UpdateDescription(string description)

@@ -22,6 +22,9 @@ public class PriceBreakdownDTO
 
 public class DiscountBreakdownDTO
 {
+    /// <summary>Скидка новому покупателю на первый заказ, % (0 или 20).</summary>
+    public decimal WelcomeDiscountPercent { get; set; }
+
     /// <summary>Скидка за накопленный спенд, % (0–12).</summary>
     public decimal LifetimeDiscountPercent { get; set; }
 
