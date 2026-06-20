@@ -49,6 +49,11 @@ public class ChangeProductStatusHandler
 
             var oldStatus = product.ProductStatus;
 
+            // Публиковался ли товар когда-либо (для «нового товара» только при первой публикации).
+            var everPublished = (await _statusLogRepository.GetByProductIdAsync(product.Id, cancellationToken)
+                                 ?? new List<ProductStatusLog>())
+                .Any(l => l.NewStatus == ProductStatus.Active);
+
             switch (request.TargetStatus?.ToLower())
             {
                 case "active":
@@ -73,12 +78,16 @@ public class ChangeProductStatusHandler
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            // Подписчики уведомляются только когда скрытый товар снова стал виден.
-            // Первая публикация идёт через модерацию (ApproveModeration), не здесь.
+            // «Новый товар» подписчикам — только при ПЕРВОЙ публикации (никогда ранее не был Active).
+            // Повторная публикация ранее опубликованного (просто раскрытие из Hidden) — без рассылки.
             // Фоновая рассылка в собственном scope — не блокирует ответ, свой DbContext.
-            if (oldStatus == ProductStatus.Hidden && product.ProductStatus == ProductStatus.Active)
+            if (!everPublished && oldStatus == ProductStatus.Hidden && product.ProductStatus == ProductStatus.Active)
                 _ = ShopFollowerNotifier.NotifyNewProductInScopeAsync(
                     _scopeFactory, product.OwnerId, product.Name, product.Slug);
+
+            // Перегенерировать og:image при повторной публикации (Hidden → Active)
+            if (oldStatus == ProductStatus.Hidden && product.ProductStatus == ProductStatus.Active)
+                _ = ProductOgGenerator.GenerateInScopeAsync(_scopeFactory, product.Id);
 
             return BaseResponse<bool>.Success(true);
         }

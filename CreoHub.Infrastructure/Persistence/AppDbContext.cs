@@ -64,6 +64,9 @@ public class AppDbContext : DbContext
 
     // forensic-лог входящих платёжных вебхуков (raw)
     public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; }
+
+    // заявки на замену контент-файла (через модерацию)
+    public DbSet<ContentFileReplacement> ContentFileReplacements { get; set; }
     
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)

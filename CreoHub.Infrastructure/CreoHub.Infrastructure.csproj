@@ -15,10 +15,19 @@
     </ItemGroup>
 
     <ItemGroup>
+      <None Update="Assets\Og\template.png"       CopyToOutputDirectory="PreserveNewest" />
+      <None Update="Assets\Og\Unbounded-800.ttf"  CopyToOutputDirectory="PreserveNewest" />
+      <None Update="Assets\Og\Unbounded-700.ttf"  CopyToOutputDirectory="PreserveNewest" />
+      <None Update="Assets\Og\Unbounded-600.ttf"  CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
       <PackageReference Include="AWSSDK.S3" Version="4.0.19" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.1" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.1" />
+      <PackageReference Include="SixLabors.ImageSharp" Version="2.1.10" />
+      <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0" />
       <PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
     </ItemGroup>
 

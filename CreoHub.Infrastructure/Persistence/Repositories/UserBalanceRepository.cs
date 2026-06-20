@@ -58,8 +58,10 @@ public class UserBalanceRepository : IUserBalanceRepository
     /// <summary>SELECT … FOR UPDATE — блокирует строку до конца транзакции.</summary>
     public async Task<UserBalance?> GetByUserIdForUpdateAsync(Guid userId)
     {
+        // xmin (rowversion) — системная колонка, её НЕ возвращает SELECT *. Перечисляем явно,
+        // иначе EF9 оборачивает запрос в подзапрос и падает: "column c.xmin does not exist".
         return await _db.UserBalances
-            .FromSqlRaw(@"SELECT * FROM ""UserBalances"" WHERE ""UserId"" = {0} FOR UPDATE", userId)
+            .FromSqlRaw(@"SELECT ""Id"", ""AvailableAmount"", ""PendingAmount"", ""UserId"", xmin FROM ""UserBalances"" WHERE ""UserId"" = {0} FOR UPDATE", userId)
             .FirstOrDefaultAsync();
     }
 }

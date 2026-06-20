@@ -179,6 +179,23 @@ public class S3Controller : ShopOwnerControllerBase
         return Ok(response);
     }
 
+    // ── Content replacement (через модерацию) ─────────────────────────────────
+
+    public record RequestContentReplacementDto(Guid ContentFileId, Guid NewStorageObjectId);
+
+    /// <summary>Продавец просит заменить байты контент-файла новым (уже загруженным) файлом — на модерацию.</summary>
+    [Authorize]
+    [HttpPost("content-replacement")]
+    public async Task<IActionResult> RequestContentReplacement([FromBody] RequestContentReplacementDto dto)
+    {
+        var (ok, shopId) = await TryGetShopId(_shopRepository);
+        if (!ok) return StatusCode(403, BaseResponse<bool>.Fail("У вас нет магазина"));
+
+        var response = await _mediator.Send(
+            new RequestContentReplacementCommand(shopId, dto.ContentFileId, dto.NewStorageObjectId));
+        return Ok(response);
+    }
+
     // ── Sort order ────────────────────────────────────────────────────────────
 
     [Authorize]

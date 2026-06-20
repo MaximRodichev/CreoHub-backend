@@ -480,6 +480,30 @@ public class ModerationFlowTests
     }
 
     [Fact]
+    public async Task ApproveModeration_Republish_RunsPriceBranchAndSucceeds()
+    {
+        var (productRepo, statusLogRepo, unitOfWork) = MakeModerationDeps();
+        var product = MakeProduct(ProductStatus.OnModerating, price: 25m);
+        productRepo.GetProductById(ProductId).Returns(product);
+
+        // Товар уже публиковался раньше → срабатывает ветка повторной публикации (сравнение цены).
+        statusLogRepo.GetByProductIdAsync(ProductId, Arg.Any<CancellationToken>())
+            .Returns(new List<ProductStatusLog>
+            {
+                new(ProductId, ProductStatus.OnModerating, ProductStatus.Active, "первый аппрув"),
+            });
+
+        var handler = new ApproveModerationHandler(productRepo, statusLogRepo,
+            Substitute.For<IAccountRepository>(), Substitute.For<INotificationService>(),
+            Substitute.For<IServiceScopeFactory>(), unitOfWork);
+        var result  = await handler.Handle(
+            new ApproveModerationCommand(ProductId, AdminId), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        Assert.Equal(ProductStatus.Active, product.ProductStatus);
+    }
+
+    [Fact]
     public async Task RejectModeration_WithCustomReason_UsesCustomReason()
     {
         var (productRepo, statusLogRepo, unitOfWork) = MakeModerationDeps();

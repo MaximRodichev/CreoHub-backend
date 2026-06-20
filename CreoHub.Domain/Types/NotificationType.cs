@@ -9,4 +9,5 @@ public enum NotificationType
     System,
     ShopRequest,
     NewProduct,
+    ProductPriceChanged,
 }

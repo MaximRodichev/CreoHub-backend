@@ -77,6 +77,7 @@ public static class Initialization
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IMediaProductRepository, MediaProductRepository>();
         services.AddScoped<IContentFileRepository, ContentFileRepository>();
+        services.AddScoped<IContentFileReplacementRepository, ContentFileReplacementRepository>();
         services.AddScoped<IContentAccessRepository, ContentAccessRepository>();
         services.AddScoped<IUserTransactionRepository, UserTransactionRepository>();
         services.AddScoped<IShopTransactionRepository, ShopTransactionRepository>();
@@ -93,6 +94,7 @@ public static class Initialization
         services.AddScoped<IStorageObjectRepository, StorageObjectRepository>();
         services.AddScoped<IVideoConversionService, VideoConversionService>();
         services.AddScoped<IThumbnailGenerationService, ThumbnailGenerationService>();
+        services.AddScoped<IProductOgImageService, ProductOgImageService>();
         services.AddScoped<ITelegramAuthVerifier, TelegramAuthVerifier>();
         
         

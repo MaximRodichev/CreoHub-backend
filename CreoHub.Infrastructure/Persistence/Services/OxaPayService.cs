@@ -91,7 +91,9 @@ public class OxaPayService : IPaymentGatewayService
 
     public async Task<GetInvoiceResult> GetInvoiceAsync(string trackId)
     {
-        var payload = new { trackId };
+        // OxaPay v1 ожидает snake_case (как order_id/callback_url в CreateInvoice).
+        // Раньше слалось { trackId } → инвойс не находился → Data == null → NRE.
+        var payload = new { track_id = trackId };
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Add("merchant_api_key", _merchantApiKey);
@@ -101,8 +103,12 @@ public class OxaPayService : IPaymentGatewayService
 
         var result = await response.Content.ReadFromJsonAsync<OxaPayInquiryResponse>();
 
+        if (result?.Data is null)
+            throw new InvalidOperationException(
+                $"OxaPay inquiry вернул пустой ответ (HTTP {(int)response.StatusCode}) для track_id={trackId}.");
+
         return new GetInvoiceResult(
-            PaymentUrl: result!.Data.PaymentUrl,
+            PaymentUrl: result.Data.PaymentUrl,
             Status:     result.Data.Status,
             ExpiredAt:  DateTimeOffset.FromUnixTimeSeconds(result.Data.ExpiredAt).UtcDateTime
         );

@@ -126,4 +126,13 @@ public class CartRepository : ICartRepository
         if (items.Count > 0)
             _db.CartItems.RemoveRange(items);
     }
+
+    public async Task<List<Guid>> GetUserIdsWithProductAsync(int productId, CancellationToken ct = default)
+    {
+        return await _db.CartItems
+            .Where(ci => ci.ProductId == productId)
+            .Select(ci => ci.Cart.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
 }

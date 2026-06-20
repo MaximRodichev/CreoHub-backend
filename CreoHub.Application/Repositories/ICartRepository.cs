@@ -16,4 +16,6 @@ public interface ICartRepository : IRepository<Cart, Guid>
     public Task ClearCartAsync(Guid userId);
     /// <summary>Удалить CartItem только для указанных productId (после оплаты).</summary>
     public Task RemoveCartItemsByProductIdsAsync(Guid userId, IEnumerable<int> productIds);
+    /// <summary>UserId всех пользователей, у кого этот товар лежит в корзине (для уведомления о смене цены).</summary>
+    public Task<List<Guid>> GetUserIdsWithProductAsync(int productId, CancellationToken ct = default);
 }

@@ -23,6 +23,9 @@ public record AdminSendToModerationDto(string? Reason = null);
 // DTOs for broadcast
 public record CreateBroadcastDto(string Message);
 
+// DTO for content-replacement rejection
+public record AdminRejectReplacementDto(string? Reason = null);
+
 /// <summary>
 /// Все эндпоинты доступны только пользователям с ролью Admin.
 /// Авторизация через политику "Admin" (ClaimTypes.Role == "Admin").
@@ -179,6 +182,42 @@ var result = await _mediator.Send(new GetProductInfoByIdQuery(id));
 var result = await _mediator.Send(new GetProductEditHistoryQuery(id));
         return Ok(result);
     }
+
+    /// <summary>Контент-файлы товара + presigned-ссылки на скачивание — проверить, что внутри (модерация).</summary>
+    [HttpGet("product/{id:int}/content-files")]
+    public async Task<IActionResult> GetProductContentFiles(int id)
+    {
+        var result = await _mediator.Send(new GetAdminProductContentFilesQuery(id));
+        return Ok(result);
+    }
+
+    // ══════════════════════════════════════════
+    // ЗАМЕНА КОНТЕНТ-ФАЙЛОВ (модерация)
+    // ══════════════════════════════════════════
+
+    /// <summary>Очередь заявок на замену контент-файла (старый + новый файл со ссылками для сравнения).</summary>
+    [HttpGet("content-replacements")]
+    public async Task<IActionResult> GetContentReplacements()
+        => Ok(await _mediator.Send(new GetPendingContentReplacementsQuery()));
+
+    /// <summary>Одобрить замену: подменяет байты исходного файла (покупатели получают новый).</summary>
+    [HttpPost("content-replacement/{id:guid}/approve")]
+    public async Task<IActionResult> ApproveContentReplacement(Guid id)
+        => Ok(await _mediator.Send(new ApproveContentReplacementCommand(id, GetAdminUserId())));
+
+    /// <summary>Отклонить замену: удаляет загруженный файл, уведомляет владельца.</summary>
+    [HttpPost("content-replacement/{id:guid}/reject")]
+    public async Task<IActionResult> RejectContentReplacement(Guid id, [FromBody] AdminRejectReplacementDto dto)
+        => Ok(await _mediator.Send(new RejectContentReplacementCommand(id, GetAdminUserId(), dto.Reason)));
+
+    // ══════════════════════════════════════════
+    // OG-КАРТОЧКИ
+    // ══════════════════════════════════════════
+
+    /// <summary>Перегенерировать og:image карточки ВСЕХ активных товаров (фоном, троттлинг).</summary>
+    [HttpPost("og/regenerate")]
+    public async Task<IActionResult> RegenerateAllOg()
+        => Ok(await _mediator.Send(new RegenerateAllProductOgCommand()));
 
     /// <summary>Принудительно скрыть любой товар.</summary>
     [HttpPost("product/{id:int}/hide")]

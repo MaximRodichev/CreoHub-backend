@@ -159,7 +159,36 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 */
 
-app.UseSerilogRequestLogging();
+// Один структурированный лог на запрос (заменяет двойное логирование).
+// Тихо для здоровых; WRN для медленных (>2с); ERR для 5xx/исключений;
+// healthcheck/swagger/статика → Verbose (ниже порога, не пишутся).
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate =
+        "{RequestMethod} {RequestPath} | {StatusCode} | {Elapsed:0}ms | {User} | {ClientIp}";
+
+    options.GetLevel = (ctx, elapsedMs, ex) =>
+    {
+        if (ex != null || ctx.Response.StatusCode >= 500)
+            return Serilog.Events.LogEventLevel.Error;
+        if (elapsedMs > 2000)
+            return Serilog.Events.LogEventLevel.Warning;
+
+        var path = ctx.Request.Path.Value ?? "";
+        var noise = path == "/" || path.StartsWith("/swagger")
+            || path.StartsWith("/_content") || path.StartsWith("/favicon");
+        return noise ? Serilog.Events.LogEventLevel.Verbose : Serilog.Events.LogEventLevel.Information;
+    };
+
+    options.EnrichDiagnosticContext = (diag, ctx) =>
+    {
+        var user = ctx.User.Identity?.IsAuthenticated == true
+            ? ctx.User.Identity!.Name ?? ctx.User.FindFirst("id")?.Value ?? "?"
+            : "Anonymous";
+        diag.Set("User", user);
+        diag.Set("ClientIp", ctx.Connection.RemoteIpAddress?.ToString());
+    };
+});
 app.UseStaticFiles(); // обслуживает /_content/Creohub.AutoSlot/ и wwwroot
 /*
 var provider = new FileExtensionContentTypeProvider();
@@ -197,8 +226,6 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAutoSlot();
-
-app.UseMiddleware<SerilogUserActivityMiddleware>();
 
 app.MapGet("/", () => Results.Ok("CreoHub API"));
 
