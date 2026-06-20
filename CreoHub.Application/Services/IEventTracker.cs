@@ -26,4 +26,5 @@ public static class EventTypes
     public const string CheckoutStarted   = "checkout_started";
     public const string CheckoutCompleted = "checkout_completed";
     public const string ProductPurchased  = "product_purchased";
+    public const string PageView          = "page_view";
 }

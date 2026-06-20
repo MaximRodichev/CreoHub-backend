@@ -33,6 +33,22 @@ public interface IUserEventRepository
         DateTime to,
         int      topN = 10,
         CancellationToken ct = default);
+
+    // ── Admin activity dashboard ───────────────────────────────────────────────
+
+    /// <summary>Distinct authenticated users that produced any event in the window.</summary>
+    Task<int> GetActiveUserCountAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
+    /// <summary>Per-day, per-type event counts (for trend chart).</summary>
+    Task<List<DailyEventCount>> GetDailyCountsAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
+    /// <summary>Most recent events (newest first) for the live activity feed.</summary>
+    Task<List<ActivityEventRaw>> GetRecentActivityAsync(
+        DateTime from, DateTime to, int take, CancellationToken ct = default);
+
+    /// <summary>Top visited paths from page_view events.</summary>
+    Task<List<TopPageEntry>> GetTopPagesAsync(
+        DateTime from, DateTime to, int topN = 15, CancellationToken ct = default);
 }
 
 public record ProductEventStats(
@@ -43,3 +59,6 @@ public record ProductEventStats(
     int    Purchases);
 
 public record TopSearchEntry(string Query, int Count);
+public record TopPageEntry(string Path, int Count);
+public record DailyEventCount(DateTime Day, string EventType, int Count);
+public record ActivityEventRaw(DateTime At, string EventType, Guid? UserId, int? ProductId, string? Payload);

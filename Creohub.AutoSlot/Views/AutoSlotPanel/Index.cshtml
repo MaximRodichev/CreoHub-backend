@@ -238,17 +238,35 @@
       </div>
     </div>
 
-    <!-- Promo banners -->
-    <div class="profile-section-lbl">Акции <span class="promo-count-badge">1</span></div>
+    <!-- Товар из каталога (рандомный, тянется с сайта при открытии панели) -->
+    <div class="profile-section-lbl">Из каталога</div>
     <div class="promo-banners">
-      <div class="promo-banner-card" id="promo-banner-1">
+      <div class="promo-banner-card" id="featured-product">
         <div class="promo-banner-body">
-          <div class="promo-banner-title">Промо пак Эмоции на 30 стран</div>
-          <div class="promo-banner-sub">Всего 99$ на нашем маркетплейсе</div>
+          <div class="promo-banner-title" id="fp-title">Загрузка…</div>
+          <div class="promo-banner-sub" id="fp-sub"></div>
         </div>
-        <button class="promo-banner-btn" onclick="openURL('https://creohub.xyz')">Смотреть</button>
+        <button class="promo-banner-btn" id="fp-btn">Смотреть</button>
       </div>
     </div>
+    <script>
+      (function () {
+        var card = document.getElementById('featured-product');
+        function go(url) { if (typeof openURL === 'function') openURL(url); else window.open(url, '_blank'); }
+        fetch('https://api.creohub.xyz/api/product/get-products?Page=0&PageSize=30')
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            var list = (res && res.data && res.data.products) || [];
+            if (!list.length) { if (card) card.style.display = 'none'; return; }
+            var p = list[Math.floor(Math.random() * list.length)];
+            var url = 'https://www.creohub.xyz/store/product/' + p.slug;
+            document.getElementById('fp-title').textContent = p.name;
+            document.getElementById('fp-sub').textContent = '$' + p.price;
+            document.getElementById('fp-btn').onclick = function () { go(url); };
+          })
+          .catch(function () { if (card) card.style.display = 'none'; });
+      })();
+    </script>
 
     <!-- Promo code -->
     <div class="promo-section">

@@ -88,6 +88,43 @@ public class AdminRepository : IAdminRepository
             .ToListAsync(ct);
     }
 
+    // ── Дашборд активности ──────────────────────────────────────────────────
+
+    public async Task<int> GetRegisteredCountAsync(DateTime from, DateTime to, CancellationToken ct = default)
+        => await _db.Users.CountAsync(u => u.RegistrationDate >= from && u.RegistrationDate <= to, ct);
+
+    public async Task<List<DailyRegistration>> GetDailyRegistrationsAsync(
+        DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var rows = await _db.Users
+            .Where(u => u.RegistrationDate >= from && u.RegistrationDate <= to)
+            .GroupBy(u => u.RegistrationDate.Date)
+            .Select(g => new { Day = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        return rows.Select(r => new DailyRegistration(r.Day, r.Count)).ToList();
+    }
+
+    public async Task<Dictionary<Guid, string>> GetUserNamesAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return new();
+        return await _db.Users
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name, ct);
+    }
+
+    public async Task<Dictionary<int, string>> GetProductNamesAsync(
+        IReadOnlyCollection<int> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return new();
+        return await _db.Products
+            .Where(p => ids.Contains(p.Id))
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name, ct);
+    }
+
     // ── Магазины ──────────────────────────────────────────────────────────
 
     public async Task<List<AdminShopDto>> GetAllShopsAsync(CancellationToken ct = default)

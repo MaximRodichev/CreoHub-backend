@@ -117,4 +117,73 @@ public class UserEventRepository : IUserEventRepository
             .Select(g => new TopSearchEntry(g.Key, g.Count()))
             .ToList();
     }
+
+    // ── Admin activity dashboard ────────────────────────────────────────────────
+
+    public async Task<int> GetActiveUserCountAsync(
+        DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        return await _db.UserEvents
+            .Where(e => e.UserId != null && e.CreatedAt >= from && e.CreatedAt <= to)
+            .Select(e => e.UserId!.Value)
+            .Distinct()
+            .CountAsync(ct);
+    }
+
+    public async Task<List<DailyEventCount>> GetDailyCountsAsync(
+        DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var rows = await _db.UserEvents
+            .Where(e => e.CreatedAt >= from && e.CreatedAt <= to)
+            .GroupBy(e => new { Day = e.CreatedAt.Date, e.EventType })
+            .Select(g => new { g.Key.Day, g.Key.EventType, Count = g.Count() })
+            .ToListAsync(ct);
+
+        return rows.Select(r => new DailyEventCount(r.Day, r.EventType, r.Count)).ToList();
+    }
+
+    public async Task<List<ActivityEventRaw>> GetRecentActivityAsync(
+        DateTime from, DateTime to, int take, CancellationToken ct = default)
+    {
+        var rows = await _db.UserEvents
+            .Where(e => e.CreatedAt >= from && e.CreatedAt <= to)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(take)
+            .Select(e => new { e.CreatedAt, e.EventType, e.UserId, e.ProductId, e.Payload })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => new ActivityEventRaw(r.CreatedAt, r.EventType, r.UserId, r.ProductId, r.Payload))
+            .ToList();
+    }
+
+    public async Task<List<TopPageEntry>> GetTopPagesAsync(
+        DateTime from, DateTime to, int topN = 15, CancellationToken ct = default)
+    {
+        // Payload for page_view events is JSON: {"path":"..."}
+        var rows = await _db.UserEvents
+            .Where(e => e.EventType == "page_view"
+                     && e.Payload   != null
+                     && e.CreatedAt >= from
+                     && e.CreatedAt <= to)
+            .Select(e => e.Payload!)
+            .ToListAsync(ct);
+
+        return rows
+            .Select(p =>
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(p);
+                    return doc.RootElement.TryGetProperty("path", out var path) ? path.GetString() : null;
+                }
+                catch { return null; }
+            })
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .GroupBy(p => p!, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Take(topN)
+            .Select(g => new TopPageEntry(g.Key, g.Count()))
+            .ToList();
+    }
 }

@@ -280,6 +280,14 @@ var result = await _mediator.Send(new GetAdminAnalyticsQuery(days));
         return Ok(result);
     }
 
+    /// <summary>Дашборд активности: новые юзеры, события по дням, лента активности, топ-поиски/страницы.</summary>
+    [HttpGet("activity")]
+    public async Task<IActionResult> GetActivity([FromQuery] int days = 14)
+    {
+var result = await _mediator.Send(new GetAdminActivityQuery(days));
+        return Ok(result);
+    }
+
     // ══════════════════════════════════════════
     // РАССЫЛКИ
     // ══════════════════════════════════════════

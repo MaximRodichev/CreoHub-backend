@@ -2,13 +2,15 @@ using Creohub.AutoSlot.Services;
 using CreoHub.Application.Repositories;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace Creohub.AutoSlot.Controllers;
 
 [Route("autoslot")]
 [EnableCors("AllowPanel")]
-public class AutoSlotPanelController(SubscriptionService subs, IAccountRepository accounts) : Controller
+public class AutoSlotPanelController(SubscriptionService subs, IAccountRepository accounts, IConfiguration config) : Controller
 {
+    private readonly string _frontendUrl = config["Frontend"] ?? "https://www.creohub.xyz";
     // Основная панель — middleware уже проверил cookie + подписку
     [HttpGet("")]
     public IActionResult Index()
@@ -24,8 +26,9 @@ public class AutoSlotPanelController(SubscriptionService subs, IAccountRepositor
     {
         var userId = (Guid)HttpContext.Items["AutoSlotUserId"]!;
         var user   = await accounts.GetFullInfoByIdAsync(userId);
-        ViewBag.UserName  = user?.Name  ?? "Пользователь";
-        ViewBag.UserEmail = user?.EmailAddress ?? "";
+        ViewBag.UserName    = user?.Name  ?? "Пользователь";
+        ViewBag.UserEmail   = user?.EmailAddress ?? "";
+        ViewBag.FrontendUrl = _frontendUrl;
         return View("Subscribe");
     }
 
