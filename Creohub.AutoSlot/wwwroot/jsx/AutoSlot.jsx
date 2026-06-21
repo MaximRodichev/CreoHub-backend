@@ -17,6 +17,7 @@ function AutoSlot(){
         this.AutoSlotFolder = app.project.items.addFolder(this.name)
         this.SymbolsFolder = this.AutoSlotFolder.items.addFolder("Symbols");
         this.GifsFolder = this.SymbolsFolder.items.addFolder("GIFs");
+        this.ReskinFolder = this.SymbolsFolder.items.addFolder("GIFs_Reskin");
         this.SymbolCompsFolder = this.SymbolsFolder.items.addFolder("SymbolComps");
         this.WinAnimationComp = this.AutoSlotFolder.items.addComp("WinAnimation", 250, 250, 1, 40, 30);
         this.SpinsFolder = this.AutoSlotFolder.items.addFolder("Spins");
@@ -29,6 +30,10 @@ function AutoSlot(){
         this.AutoSlotFolder = Helper.findFolderByName(this.name);
         this.SymbolsFolder = Helper.findFolderByName("Symbols", this.AutoSlotFolder);
         this.GifsFolder = Helper.findFolderByName("GIFs", this.SymbolsFolder);
+        this.ReskinFolder = Helper.findFolderByName("GIFs_Reskin", this.SymbolsFolder);
+        if(this.ReskinFolder == null && this.SymbolsFolder != null){
+            this.ReskinFolder = this.SymbolsFolder.items.addFolder("GIFs_Reskin"); // авто-починка старых проектов
+        }
         this.SymbolCompsFolder = Helper.findFolderByName("SymbolComps", this.SymbolsFolder);
         this.WinAnimationComp = Helper.findCompByName("WinAnimation", this.AutoSlotFolder);
         this.SpinsFolder = Helper.findFolderByName("Spins", this.AutoSlotFolder);
@@ -214,68 +219,61 @@ AutoSlot.prototype.createElement = function(){
     ТРЕБУЕТ ДОРАБОТКИ (Новые элементы не добавятся на слот, удаленные сделают дырки в слоте)
 */
 AutoSlot.prototype.reskinElements = function(){
-    app.beginUndoGroup("AutoSlot: Замена элементов");
-    var allElements = this.GifsFolder.getArray()
-    var previousElements = this.SymbolCompsFolder.getArray()
-    var previousElementsNames = previousElements.map(function(element){
-        return element.name
-    })
-    if(allElements.length === previousElements.length){
-        return;
-    }
-    if(allElements.length === 0 || previousElements.length === 0){
-        return
-    }
-    var feedback = []
-    var pointer = 0
-    var a = Math.min(allElements.length-previousElements.length,previousElements.length)
-    for(var x=0; x<a; x++){
-        var currentComp = previousElements[x]
-        var currentFootage = currentComp.layer(currentComp.name)
-        // alert(currentComp.name + "=>" + allElements[pointer].name + '\n')
-        if(previousElementsNames.indexOf(allElements[pointer].name.split(".")[0]) !== -1){
-            x = x-1
-            pointer = pointer+1
-            continue;
-        }
-        
-        feedback.push(currentComp.name + "=>" + allElements[pointer].name + '\n')
-        currentFootage.replaceSource(allElements[pointer], false)
-        currentFootage.name = allElements[pointer].name.split(".")[0]
-        currentFootage.timeRemapEnabled = false;
-        currentFootage.timeRemapEnabled = true;
-        currentComp.name = currentFootage.name
-        // alert("done")
-        pointer = pointer+1
-    }
-    for(x = pointer; x<allElements.length; x++){
-        // alert(allElements[x].name.split(".")[0])
-        if(previousElementsNames.indexOf(allElements[x].name.split(".")[0]) !== -1){
-            continue;
-        }
-        
-        feedback.push(allElements[x].name + " - CREATED \n")
-        this.wrapElement(allElements[x])
-        // alert("done")
-    }
-    for(x = 0; x<allElements.length; x++){
-        if(previousElementsNames.indexOf(allElements[x].name.split(".")[0]) !== -1){
-            
-            feedback.push(allElements[x].name + " - REMOVE \n")
-            allElements[x].remove()
-        }
-    }
-    for(x=1; x<=this.SymbolCompsFolder.numItems; x++){
-        var current = this.SymbolCompsFolder.item(x);
-        
-        if(current instanceof CompItem){
-            if(!current.layer(current.name)){
-                current.remove()
+    if(this.ReskinFolder == null){ alert("Не найдена папка GIFs_Reskin"); return; }
+
+    // Новый набор берём из отдельной папки GIFs_Reskin — туда монитор авто-врапа не лезет.
+    var reskinItems = this.ReskinFolder.getArray();
+    var comps = this.SymbolCompsFolder.getArray();
+    if(reskinItems.length === 0){ alert("Папка GIFs_Reskin пуста — нечего заменять."); return; }
+
+    app.beginUndoGroup("AutoSlot: Рескин элементов");
+    var report = { replaced: 0, created: 0, removed: 0 };
+    var n = Math.min(reskinItems.length, comps.length);
+
+    // 1) Замена по позиции: i-й новый элемент → i-й прекомп (in-place, анимация цела)
+    for(var i=0; i<n; i++){
+        try{
+            var comp  = comps[i];
+            var layer = comp.layer(comp.name);          // футадж-слой внутри прекомпа
+            var oldSource = layer.source;               // старый footage-айтем
+            var baseName  = reskinItems[i].name.split(".")[0];
+
+            layer.replaceSource(reskinItems[i], false);
+            layer.name = baseName;
+            comp.name  = baseName;
+            if(layer.canSetTimeRemapEnabled){
+                layer.timeRemapEnabled = false;
+                layer.timeRemapEnabled = true;
             }
-        }
+
+            reskinItems[i].parentFolder = this.GifsFolder;  // новый гиф → в канонический GIFs
+            if(oldSource && oldSource.parentFolder === this.GifsFolder){ oldSource.remove(); } // старый айтем из проекта
+            report.replaced++;
+        }catch(e){ alert("reskin replace error: " + e.toString()); }
     }
+
+    // 2) Лишние новые (пары не нашлось) → создаём новые прекомпы
+    for(var j=n; j<reskinItems.length; j++){
+        try{
+            this.wrapElement(reskinItems[j]);
+            reskinItems[j].parentFolder = this.GifsFolder;
+            report.created++;
+        }catch(e){ alert("reskin create error: " + e.toString()); }
+    }
+
+    // 3) Лишние старые прекомпы (пары не нашлось) → удаляем вместе со старым гифом
+    for(var k=n; k<comps.length; k++){
+        try{
+            var oldLayer = comps[k].layer(comps[k].name);
+            var src = oldLayer ? oldLayer.source : null;
+            comps[k].remove();
+            if(src && src.parentFolder === this.GifsFolder){ src.remove(); }
+            report.removed++;
+        }catch(e){ alert("reskin remove error: " + e.toString()); }
+    }
+
     app.endUndoGroup();
-    alert(feedback)
+    alert("Рескин завершён.\nЗаменено: " + report.replaced + "\nСоздано: " + report.created + "\nУдалено: " + report.removed);
 }
 /**
     Функция возвращающая словарь с 

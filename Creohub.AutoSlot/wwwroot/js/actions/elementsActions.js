@@ -40,18 +40,10 @@ async function wrapSymbols() {
  * @returns 
  */
 async function reskinSymbols(){
-    d = await adobeMiddleWare_.getReskinElements();
-    if(d["CurrentSlotElements"].length == 0 && d["!NewSlotElements"].length == 0){
-        CEPException.GIFsFolderNotFound();
+    if(!confirm("Заменить элементы новыми из папки AutoSlot / Symbols / GIFs_Reskin?\nСтарые элементы заменятся по позиции, лишние новые добавятся, лишние старые удалятся.")){
         return;
     }
-    text = d["!NewSlotElements"].join(",  ")
-    if(confirm(`Нажмите ok, если вы заменяете на эти элементы:\n${text}`)){
-        adobeMiddleWare_.reskinElements();
-    }
-    else{
-        return;
-    }
+    adobeMiddleWare_.reskinElements();
     await adobeMiddleWare_.Analyze();
     initializeSymbolsScroll();
     loadSymbolThumbnails();
