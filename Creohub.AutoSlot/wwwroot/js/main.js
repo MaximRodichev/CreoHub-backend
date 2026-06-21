@@ -239,17 +239,23 @@ async function loadProfileData() {
         const res  = await fetch('/autoslot/me');
         const data = await res.json();
         if (data.hasSubscription) {
-            var exp = new Date(data.expiresAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
             if (statusEl) statusEl.textContent = 'Лицензия активна';
-            if (expiryEl) expiryEl.textContent  = 'до ' + exp + ' · ' + data.daysLeft + ' дней';
             if (dotEl)   { dotEl.className = 'sub-dot active'; }
             if (badgeEl) { badgeEl.className = 'sub-badge active'; }
-            // Expiry warning
-            if (data.daysLeft <= 5 && data.daysLeft > 0) {
-                var warn = document.getElementById('sub-expiry-warn');
-                var daysEl = document.getElementById('sub-days-left');
-                if (daysEl) daysEl.textContent = data.daysLeft;
-                if (warn)   warn.style.display = 'inline-flex';
+
+            if (data.isLifetime || !data.expiresAt) {
+                // Пожизненная — без даты и счётчика дней
+                if (expiryEl) expiryEl.textContent = 'навсегда';
+            } else {
+                var exp = new Date(data.expiresAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+                if (expiryEl) expiryEl.textContent = 'до ' + exp + ' · ' + data.daysLeft + ' дней';
+                // Expiry warning
+                if (data.daysLeft <= 5 && data.daysLeft > 0) {
+                    var warn = document.getElementById('sub-expiry-warn');
+                    var daysEl = document.getElementById('sub-days-left');
+                    if (daysEl) daysEl.textContent = data.daysLeft;
+                    if (warn)   warn.style.display = 'inline-flex';
+                }
             }
         } else {
             if (statusEl) statusEl.textContent = 'Подписка не активна';

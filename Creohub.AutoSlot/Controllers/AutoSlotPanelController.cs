@@ -46,17 +46,22 @@ public class AutoSlotPanelController(SubscriptionService subs, IAccountRepositor
     [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
-        var userId = (Guid)HttpContext.Items["AutoSlotUserId"]!;
-        var expiresAt = await subs.GetLatestExpiresAtAsync(userId, CreoHub.Domain.Types.SubscriptionProductType.AutoSlot);
-        var isActive  = expiresAt.HasValue && expiresAt.Value > DateTime.UtcNow;
-        int? daysLeft = isActive
-            ? (int)Math.Ceiling((expiresAt!.Value - DateTime.UtcNow).TotalDays)
+        var userId  = (Guid)HttpContext.Items["AutoSlotUserId"]!;
+        var product = CreoHub.Domain.Types.SubscriptionProductType.AutoSlot;
+
+        // hasSubscription через IsActiveAsync — корректно учитывает пожизненную (ExpiresAt == null)
+        var isActive   = await subs.IsActiveAsync(userId, product);
+        var expiresAt  = await subs.GetLatestExpiresAtAsync(userId, product); // null у lifetime
+        var isLifetime = isActive && expiresAt is null;
+        int? daysLeft  = expiresAt.HasValue && expiresAt.Value > DateTime.UtcNow
+            ? (int)Math.Ceiling((expiresAt.Value - DateTime.UtcNow).TotalDays)
             : null;
 
         return Ok(new
         {
             hasSubscription = isActive,
-            expiresAt       = expiresAt?.ToString("o"),
+            isLifetime,
+            expiresAt = expiresAt?.ToString("o"),
             daysLeft
         });
     }
