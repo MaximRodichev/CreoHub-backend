@@ -254,11 +254,13 @@ public class CheckoutWithBalanceHandler
                 computeAlpha:   _pricing.ComputeAlpha);
 
             // ── Рассчитываем и сохраняем снимок скидок ──────────────
+            // Велком (−20% на первый заказ) капается потолком в $ (User.FirstOrderDiscountCap),
+            // лояльность и объём — нет. Итог = лучшая по сумме (см. Order.ApplyDiscounts).
             var user         = await _accountRepository.GetFullInfoByIdAsync(request.UserId);
-            // Personal = лучшая из lifetime и welcome (−20% на первый заказ). См. User.GetPersonalDiscount.
-            var personalDisc = user?.GetPersonalDiscount() ?? 0m;
+            var welcomeDisc  = user?.GetWelcomeDiscount()  ?? 0m;
+            var lifetimeDisc = user?.GetLifetimeDiscount() ?? 0m;
             var cartDisc     = DiscountCalculator.GetCartCountDiscount(orderItems.Count);
-            order.ApplyDiscounts(personalDisc, cartDisc);
+            order.ApplyDiscounts(welcomeDisc, lifetimeDisc, cartDisc, User.FirstOrderDiscountCap);
 
             var buyerPays = order.Price; // уже пересчитан после ApplyDiscounts
 

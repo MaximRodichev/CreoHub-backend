@@ -168,4 +168,54 @@ public class DiscountCalculatorTests
         Assert.Equal(0.12m, totalDisc);
         Assert.Equal(264m, buyerPays);
     }
+
+    // ── GetBestDiscountAmount — велком капается на $10 ────────────────────────
+
+    [Fact]
+    public void BestAmount_FirstOrder_SmallCart_FullWelcomeUnderCap()
+    {
+        // $40 первый заказ: 20% = $8 < $10 кап → полные 20% = $8
+        var amt = DiscountCalculator.GetBestDiscountAmount(40m, 0.20m, 0m, 0m, 10m);
+        Assert.Equal(8m, amt);
+    }
+
+    [Fact]
+    public void BestAmount_FirstOrder_AtCapBoundary_Returns10()
+    {
+        // $50 первый заказ: 20% = $10 = кап → ровно $10
+        var amt = DiscountCalculator.GetBestDiscountAmount(50m, 0.20m, 0m, 0m, 10m);
+        Assert.Equal(10m, amt);
+    }
+
+    [Fact]
+    public void BestAmount_FirstOrder_LargeSingle_WelcomeCappedAt10()
+    {
+        // $300 первый заказ, 1 товар (cart 0): 20% = $60, но кап → $10, а не $60
+        var amt = DiscountCalculator.GetBestDiscountAmount(300m, 0.20m, 0m, 0m, 10m);
+        Assert.Equal(10m, amt);
+    }
+
+    [Fact]
+    public void BestAmount_FirstOrder_BigBulk_VolumeBeatsCappedWelcome()
+    {
+        // $300 первый заказ + опт 12% : max(capped welcome $10, объём $36) = $36
+        // Это и есть фикс «новичок с большим оптом получает объёмную, а не куцый велком».
+        var amt = DiscountCalculator.GetBestDiscountAmount(300m, 0.20m, 0m, 0.12m, 10m);
+        Assert.Equal(36m, amt);
+    }
+
+    [Fact]
+    public void BestAmount_ReturningUser_LoyaltyAndVolume_NoWelcomeNoCap()
+    {
+        // Не первый заказ (welcome 0): max(лояльность 9% = $27, объём 12% = $36) = $36, без капа
+        var amt = DiscountCalculator.GetBestDiscountAmount(300m, 0m, 0.09m, 0.12m, 10m);
+        Assert.Equal(36m, amt);
+    }
+
+    [Fact]
+    public void BestAmount_ZeroSubtotal_ReturnsZero()
+    {
+        var amt = DiscountCalculator.GetBestDiscountAmount(0m, 0.20m, 0.09m, 0.12m, 10m);
+        Assert.Equal(0m, amt);
+    }
 }

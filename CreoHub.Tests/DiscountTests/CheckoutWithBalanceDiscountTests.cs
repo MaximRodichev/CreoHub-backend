@@ -268,6 +268,71 @@ public class CheckoutWithBalanceDiscountTests
     }
 
     [Fact]
+    public async Task Checkout_FirstOrder_LargeSingleItem_WelcomeCappedAt10()
+    {
+        // Первый заказ, 1 дорогой товар $200: без капа было бы −$40, с капом −$10 → платит $190.
+        var product = MakeProduct(200m);
+        var user    = MakeUser(0m);   // первый заказ
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(300m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(new List<Product> { product });
+        _contentFileRepo.GetByProductIdAsync(product.Id).Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = new List<CheckoutItemDTO>
+        {
+            new() { ProductId = product.Id, FileIds = new List<Guid>() }
+        };
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        _output.WriteLine($"spent={300m - balance.AvailableAmount} (ожидаем 190)");
+        Assert.Equal(190m, 300m - balance.AvailableAmount);   // $200 − $10 кап
+    }
+
+    [Fact]
+    public async Task Checkout_FirstOrder_BigBulk_VolumeBeatsCappedWelcome()
+    {
+        // Первый заказ, 12 товаров × $25 = $300. Велком капнут на $10, объём 12% = $36 → берётся $36.
+        // Платит $264, а НЕ $240 (велком без капа) и не $290 (только кап).
+        var products = Enumerable.Range(41, 12).Select(id =>
+        {
+            var p = MakeProduct(25m); SetProp(p, "Id", id); return p;
+        }).ToList();
+
+        var user    = MakeUser(0m);   // первый заказ
+        var balance = new UserBalance(UserId);
+        balance.AddFunds(400m);
+
+        SetupDefaultMocks();
+        _balanceRepo.GetByUserIdAsync(UserId).Returns(balance);
+        _balanceRepo.GetByUserIdForUpdateAsync(UserId).Returns(balance);
+        _productRepo.GetProductsByIds(Arg.Any<List<int>>()).Returns(products);
+        foreach (var p in products)
+            _contentFileRepo.GetByProductIdAsync((int)typeof(Product)
+                .GetProperty("Id")!.GetValue(p)!)
+                .Returns(new List<ContentFile>());
+        _accountRepo.GetFullInfoByIdAsync(UserId).Returns(user);
+
+        var items = Enumerable.Range(41, 12).Select(id =>
+            new CheckoutItemDTO { ProductId = id, FileIds = new List<Guid>() }
+        ).ToList();
+
+        var result = await MakeHandler().Handle(
+            new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
+
+        Assert.Equal(ResponseStatus.Success, result.Status);
+        _output.WriteLine($"spent={400m - balance.AvailableAmount} (ожидаем 264)");
+        Assert.Equal(264m, 400m - balance.AvailableAmount);   // $300 − $36 (объём, обошёл капнутый велком)
+    }
+
+    [Fact]
     public async Task Checkout_SecondOrder_NoWelcomeDiscount()
     {
         // Покупатель уже что-то купил (LifetimeSpent>0) → welcome не применяется, платит полную $50

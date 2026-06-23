@@ -111,16 +111,30 @@ public class Order
     /// <summary>
     /// Сохраняет снимок скидок и пересчитывает итоговую сумму к оплате (Price).
     /// Вызывается один раз — сразу после Order.Open(), до сохранения в БД.
+    /// Велком капается абсолютным потолком (welcomeCap), лояльность и объём — нет.
+    /// Итог считается по суммам (DiscountCalculator.GetBestDiscountAmount), поэтому
+    /// крупный опт может обойти упёршийся в потолок велком.
     /// </summary>
-    /// <param name="personalDiscountPercent">Доля lifetime-скидки [0,1].</param>
+    /// <param name="welcomeDiscountPercent">Доля велком-скидки [0,1] (0, если не первый заказ).</param>
+    /// <param name="lifetimeDiscountPercent">Доля скидки за лояльность [0,1].</param>
     /// <param name="cartDiscountPercent">Доля скидки за объём корзины [0,1].</param>
-    public void ApplyDiscounts(decimal personalDiscountPercent, decimal cartDiscountPercent)
+    /// <param name="welcomeCap">Потолок экономии велком-скидки в валюте заказа.</param>
+    public void ApplyDiscounts(
+        decimal welcomeDiscountPercent,
+        decimal lifetimeDiscountPercent,
+        decimal cartDiscountPercent,
+        decimal welcomeCap)
     {
-        PersonalDiscountPercent = personalDiscountPercent;
+        // Снимок: персональная = лучшая из велком/лояльности (как предлагалась), объёмная — отдельно.
+        PersonalDiscountPercent = Math.Max(welcomeDiscountPercent, lifetimeDiscountPercent);
         CartDiscountPercent     = cartDiscountPercent;
-        DiscountPercent         = DiscountCalculator.GetTotalDiscount(personalDiscountPercent, cartDiscountPercent);
-        DiscountAmount          = Math.Round(Subtotal * DiscountPercent, 2);
-        _price                  = Subtotal - DiscountAmount;
+        DiscountAmount          = Math.Round(
+            DiscountCalculator.GetBestDiscountAmount(
+                Subtotal, welcomeDiscountPercent, lifetimeDiscountPercent, cartDiscountPercent, welcomeCap),
+            2);
+        // Эффективная доля скидки (после капа) — для снимка/истории.
+        DiscountPercent = Subtotal > 0m ? Math.Round(DiscountAmount / Subtotal, 4) : 0m;
+        _price          = Subtotal - DiscountAmount;
     }
 
     public void AttachTransaction(UserTransaction transaction)

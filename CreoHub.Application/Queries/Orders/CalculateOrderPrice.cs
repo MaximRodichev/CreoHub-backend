@@ -174,11 +174,12 @@ public class CalculateOrderPriceHandler
                 }
             }
 
-            // Personal = лучшая из lifetime и welcome; итог = MAX(personal, cart) — как в checkout.
-            var personalDisc = Math.Max(lifetimeDisc, welcomeDisc);
-            var totalDisc    = DiscountCalculator.GetTotalDiscount(personalDisc, cartVolumeDisc);
-            var discountAmt  = subtotal * totalDisc;
-            var total        = DiscountCalculator.ApplyDiscount(subtotal, totalDisc);
+            // Итог по суммам: велком капается потолком в $ (как в checkout), лояльность/объём — нет.
+            var discountAmt  = DiscountCalculator.GetBestDiscountAmount(
+                subtotal, welcomeDisc, lifetimeDisc, cartVolumeDisc,
+                Domain.Entities.User.FirstOrderDiscountCap);
+            var total        = subtotal - discountAmt;
+            var totalDisc    = subtotal > 0m ? discountAmt / subtotal : 0m;
 
             return BaseResponse<PriceBreakdownDTO>.Success(new PriceBreakdownDTO
             {
