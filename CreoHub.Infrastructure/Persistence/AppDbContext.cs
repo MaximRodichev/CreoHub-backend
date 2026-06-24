@@ -67,7 +67,9 @@ public class AppDbContext : DbContext
 
     // заявки на замену контент-файла (через модерацию)
     public DbSet<ContentFileReplacement> ContentFileReplacements { get; set; }
-    
+
+    public DbSet<AccountMergeLog> AccountMergeLogs { get; set; }
+
     // Если есть конфигурации сущностей через Fluent API
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

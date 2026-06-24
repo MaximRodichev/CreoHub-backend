@@ -26,6 +26,9 @@ public record CreateBroadcastDto(string Message);
 // DTO for content-replacement rejection
 public record AdminRejectReplacementDto(string? Reason = null);
 
+// DTO for account merge
+public record AdminMergeAccountsDto(Guid KeepId, Guid MergeId);
+
 /// <summary>
 /// Все эндпоинты доступны только пользователям с ролью Admin.
 /// Авторизация через политику "Admin" (ClaimTypes.Role == "Admin").
@@ -70,6 +73,21 @@ var result = await _mediator.Send(new GetAdminUserDetailQuery(id));
     public async Task<IActionResult> CreateClient([FromBody] AdminCreateClientDto dto)
     {
 var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.TelegramId, dto.TelegramUsername, dto.Email));
+        return result.Status == Application.DTO.ResponseStatus.Success
+            ? Ok(result)
+            : BadRequest(result);
+    }
+
+    /// <summary>Предпросмотр объединения аккаунтов (что переедет + результат гардов). Ничего не меняет.</summary>
+    [HttpGet("users/merge-preview")]
+    public async Task<IActionResult> MergePreview([FromQuery] Guid keepId, [FromQuery] Guid mergeId)
+        => Ok(await _mediator.Send(new GetMergePreviewQuery(keepId, mergeId)));
+
+    /// <summary>Объединить аккаунты: перенести данные mergeId → keepId, затем удалить mergeId. Необратимо.</summary>
+    [HttpPost("users/merge")]
+    public async Task<IActionResult> MergeAccounts([FromBody] AdminMergeAccountsDto dto)
+    {
+        var result = await _mediator.Send(new MergeAccountsCommand(dto.KeepId, dto.MergeId, GetAdminUserId()));
         return result.Status == Application.DTO.ResponseStatus.Success
             ? Ok(result)
             : BadRequest(result);

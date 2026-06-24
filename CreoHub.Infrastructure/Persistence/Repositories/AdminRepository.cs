@@ -164,4 +164,109 @@ public class AdminRepository : IAdminRepository
             ))
             .ToList();
     }
+
+    // ── Объединение аккаунтов ───────────────────────────────────────────────
+
+    public async Task<MergeUserSummaryDto?> GetMergeUserAsync(Guid id, CancellationToken ct = default)
+    {
+        var u = await _db.Users
+            .Where(x => x.Id == id)
+            .Select(x => new
+            {
+                x.Id, x.Name, x.EmailAddress, x.TelegramId, x.TelegramUsername,
+                HasShop = x.ShopId != null, Role = x.Role.ToString(), x.LifetimeSpent
+            })
+            .FirstOrDefaultAsync(ct);
+        if (u is null) return null;
+
+        var bal = await _db.UserBalances
+            .Where(b => b.UserId == id)
+            .Select(b => new { b.AvailableAmount, b.PendingAmount })
+            .FirstOrDefaultAsync(ct);
+
+        return new MergeUserSummaryDto(
+            u.Id, u.Name, u.EmailAddress, u.TelegramId, u.TelegramUsername,
+            u.HasShop, u.Role, u.LifetimeSpent,
+            bal?.AvailableAmount ?? 0m, bal?.PendingAmount ?? 0m);
+    }
+
+    public async Task<MergeCountsDto> GetMergeCountsAsync(Guid m, CancellationToken ct = default)
+    {
+        return new MergeCountsDto(
+            await _db.ContentAccesses.CountAsync(x => x.UserId == m, ct),
+            await _db.Orders.CountAsync(x => x.CustomerId == m, ct),
+            await _db.UserTransactions.CountAsync(x => x.UserId == m, ct),
+            await _db.Subscriptions.CountAsync(x => x.UserId == m, ct),
+            await _db.ShopFollows.CountAsync(x => x.UserId == m, ct),
+            await _db.InAppNotifications.CountAsync(x => x.UserId == m, ct));
+    }
+
+    public async Task MergeAccountsAsync(Guid keepId, Guid mergeId, Guid adminId, CancellationToken ct = default)
+    {
+        var keep  = await GetMergeUserAsync(keepId, ct)  ?? throw new InvalidOperationException("Остающийся аккаунт не найден.");
+        var merge = await GetMergeUserAsync(mergeId, ct) ?? throw new InvalidOperationException("Удаляемый аккаунт не найден.");
+
+        // Защитные ре-проверки (на случай обхода command-уровня)
+        if (keepId == mergeId)             throw new InvalidOperationException("Нельзя объединить аккаунт сам с собой.");
+        if (keep.HasShop || merge.HasShop) throw new InvalidOperationException("Один из аккаунтов владеет магазином — мердж запрещён.");
+
+        var counts = await GetMergeCountsAsync(mergeId, ct);
+
+        // COALESCE: целевой сохраняет свои поля, иначе берёт у удаляемого (гарды исключают коллизию)
+        object tg     = (object?)(keep.TelegramId       ?? merge.TelegramId)       ?? DBNull.Value;
+        object tgUser = (object?)(keep.TelegramUsername  ?? merge.TelegramUsername) ?? DBNull.Value;
+        object email  = (object?)(keep.Email             ?? merge.Email)            ?? DBNull.Value;
+        var spent     = merge.LifetimeSpent;
+
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+        // 1) Купленные файлы — дубли убрать, остальное перенести
+        await _db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM \"ContentAccesses\" s WHERE s.\"UserId\"={1} AND EXISTS (SELECT 1 FROM \"ContentAccesses\" t WHERE t.\"UserId\"={0} AND t.\"ContentFileId\"=s.\"ContentFileId\")",
+            new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"ContentAccesses\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+
+        // 2-4) Заказы / транзакции / подписки
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"Orders\" SET \"CustomerId\"={0} WHERE \"CustomerId\"={1}", new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"UserTransactions\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"Subscriptions\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+
+        // 5) Подписки на магазины — дубли убрать, остальное перенести
+        await _db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM \"ShopFollows\" s WHERE s.\"UserId\"={1} AND EXISTS (SELECT 1 FROM \"ShopFollows\" t WHERE t.\"UserId\"={0} AND t.\"ShopId\"=s.\"ShopId\")",
+            new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"ShopFollows\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+
+        // 6) Запросы продавцу / уведомления / промокоды / аналитика
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"ShopRequests\" SET \"BuyerUserId\"={0} WHERE \"BuyerUserId\"={1}", new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"InAppNotifications\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"SubscriptionPromoCodes\" SET \"IssuedToUserId\"={0} WHERE \"IssuedToUserId\"={1}", new object[] { keepId, mergeId }, ct);
+        await _db.Database.ExecuteSqlRawAsync("UPDATE \"UserEvents\" SET \"UserId\"={0} WHERE \"UserId\"={1}", new object[] { keepId, mergeId }, ct);
+
+        // 7) Баланс merge → keep
+        await _db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"UserBalances\" t SET \"AvailableAmount\"=t.\"AvailableAmount\"+s.\"AvailableAmount\", \"PendingAmount\"=t.\"PendingAmount\"+s.\"PendingAmount\" FROM \"UserBalances\" s WHERE t.\"UserId\"={0} AND s.\"UserId\"={1}",
+            new object[] { keepId, mergeId }, ct);
+
+        // 8) Удаляем merge-юзера → каскад Cart(+items+files) и NotificationSettings
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Users\" WHERE \"Id\"={0}", new object[] { mergeId }, ct);
+
+        // 9) Осиротевший баланс merge (UserBalances.UserId — не FK, каскада нет)
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"UserBalances\" WHERE \"UserId\"={0}", new object[] { mergeId }, ct);
+
+        // 10) Телега + почта + спенд на keep (merge удалён → уникальность свободна)
+        await _db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Users\" SET \"TelegramId\"={1}, \"TelegramUsername\"={2}, \"EmailAddress\"={3}, \"LifetimeSpent\"=\"LifetimeSpent\"+{4} WHERE \"Id\"={0}",
+            new object[] { keepId, tg, tgUser, email, spent }, ct);
+
+        // Аудит — в той же транзакции
+        _db.AccountMergeLogs.Add(new AccountMergeLog(
+            keepId, mergeId, merge.Name, merge.Email, merge.TelegramId, merge.TelegramUsername, adminId,
+            counts.ContentAccess, counts.Orders, counts.Transactions, counts.Subscriptions,
+            merge.Balance, spent));
+        await _db.SaveChangesAsync(ct);
+
+        await tx.CommitAsync(ct);
+    }
 }
