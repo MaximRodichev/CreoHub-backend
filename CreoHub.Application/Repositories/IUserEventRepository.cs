@@ -49,6 +49,19 @@ public interface IUserEventRepository
     /// <summary>Top visited paths from page_view events.</summary>
     Task<List<TopPageEntry>> GetTopPagesAsync(
         DateTime from, DateTime to, int topN = 15, CancellationToken ct = default);
+
+    // ── Retention / поведение ───────────────────────────────────────────────
+
+    /// <summary>Привязать анонимную историю (SessionId) к аккаунту при логине (стичинг гость→юзер).</summary>
+    Task AttachSessionToUserAsync(Guid userId, string sessionId, CancellationToken ct = default);
+
+    /// <summary>Пагинированная история поиска (search + search_no_results). onlyNoResults — только нулевые.</summary>
+    Task<(List<SearchHistoryItem> Items, int Total)> GetSearchHistoryAsync(
+        DateTime from, DateTime to, bool onlyNoResults, int page, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Хронология событий субъекта (по UserId ИЛИ SessionId) — для flow-таймлайна.</summary>
+    Task<List<FlowEventRaw>> GetSubjectFlowAsync(
+        Guid? userId, string? sessionId, DateTime from, DateTime to, int take, CancellationToken ct = default);
 }
 
 public record ProductEventStats(
@@ -62,3 +75,5 @@ public record TopSearchEntry(string Query, int Count);
 public record TopPageEntry(string Path, int Count);
 public record DailyEventCount(DateTime Day, string EventType, int Count);
 public record ActivityEventRaw(DateTime At, string EventType, Guid? UserId, int? ProductId, string? Payload);
+public record SearchHistoryItem(DateTime At, string Query, bool NoResults, Guid? UserId, string? SessionId);
+public record FlowEventRaw(DateTime At, string EventType, int? ProductId, string? Payload, string? SessionId, Guid? UserId);

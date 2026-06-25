@@ -186,4 +186,72 @@ public class UserEventRepository : IUserEventRepository
             .Select(g => new TopPageEntry(g.Key, g.Count()))
             .ToList();
     }
+
+    // ── Retention / поведение ───────────────────────────────────────────────
+
+    public async Task AttachSessionToUserAsync(Guid userId, string sessionId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return;
+        await _db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"UserEvents\" SET \"UserId\"={0} WHERE \"SessionId\"={1} AND \"UserId\" IS NULL",
+            new object[] { userId, sessionId }, ct);
+    }
+
+    public async Task<(List<SearchHistoryItem> Items, int Total)> GetSearchHistoryAsync(
+        DateTime from, DateTime to, bool onlyNoResults, int page, int pageSize, CancellationToken ct = default)
+    {
+        var q = _db.UserEvents.Where(e =>
+            e.CreatedAt >= from && e.CreatedAt <= to &&
+            (onlyNoResults
+                ? e.EventType == "search_no_results"
+                : (e.EventType == "search" || e.EventType == "search_no_results")));
+
+        var total = await q.CountAsync(ct);
+
+        var rows = await q
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip(Math.Max(0, page) * pageSize)
+            .Take(pageSize)
+            .Select(e => new { e.CreatedAt, e.EventType, e.Payload, e.UserId, e.SessionId })
+            .ToListAsync(ct);
+
+        var items = rows.Select(r =>
+        {
+            var query = "";
+            if (r.Payload != null)
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(r.Payload);
+                    if (doc.RootElement.TryGetProperty("q", out var qv)) query = qv.GetString() ?? "";
+                }
+                catch { /* битый payload — пустой запрос */ }
+            }
+            return new SearchHistoryItem(r.CreatedAt, query, r.EventType == "search_no_results", r.UserId, r.SessionId);
+        }).ToList();
+
+        return (items, total);
+    }
+
+    public async Task<List<FlowEventRaw>> GetSubjectFlowAsync(
+        Guid? userId, string? sessionId, DateTime from, DateTime to, int take, CancellationToken ct = default)
+    {
+        var q = _db.UserEvents.Where(e => e.CreatedAt >= from && e.CreatedAt <= to);
+        if (userId is Guid uid)
+            q = q.Where(e => e.UserId == uid);
+        else if (!string.IsNullOrWhiteSpace(sessionId))
+            q = q.Where(e => e.SessionId == sessionId);
+        else
+            return [];
+
+        var rows = await q
+            .OrderBy(e => e.CreatedAt)
+            .Take(take)
+            .Select(e => new { e.CreatedAt, e.EventType, e.ProductId, e.Payload, e.SessionId, e.UserId })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => new FlowEventRaw(r.CreatedAt, r.EventType, r.ProductId, r.Payload, r.SessionId, r.UserId))
+            .ToList();
+    }
 }

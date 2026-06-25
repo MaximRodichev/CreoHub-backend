@@ -29,6 +29,9 @@ public record AdminRejectReplacementDto(string? Reason = null);
 // DTO for account merge
 public record AdminMergeAccountsDto(Guid KeepId, Guid MergeId);
 
+// DTO for manager-created shop
+public record AdminCreateShopDto(Guid OwnerUserId, string Name, string Description);
+
 /// <summary>
 /// Все эндпоинты доступны только пользователям с ролью Admin.
 /// Авторизация через политику "Admin" (ClaimTypes.Role == "Admin").
@@ -94,6 +97,23 @@ var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.Telegram
     }
 
     // ══════════════════════════════════════════
+    // ПОВЕДЕНИЕ / СПРОС
+    // ══════════════════════════════════════════
+
+    /// <summary>История поиска: пагинация + фильтр noResults=true (бэклог спроса).</summary>
+    [HttpGet("searches")]
+    public async Task<IActionResult> GetSearches(
+        [FromQuery] int days = 30, [FromQuery] bool noResults = false,
+        [FromQuery] int page = 0, [FromQuery] int pageSize = 50)
+        => Ok(await _mediator.Send(new GetSearchHistoryQuery(days, noResults, page, pageSize)));
+
+    /// <summary>Путь субъекта (по userId ИЛИ sessionId) — хронология событий.</summary>
+    [HttpGet("flow")]
+    public async Task<IActionResult> GetFlow(
+        [FromQuery] Guid? userId, [FromQuery] string? sessionId, [FromQuery] int days = 30)
+        => Ok(await _mediator.Send(new GetSubjectFlowQuery(userId, sessionId, days)));
+
+    // ══════════════════════════════════════════
     // МАГАЗИНЫ
     // ══════════════════════════════════════════
 
@@ -103,6 +123,14 @@ var result = await _mediator.Send(new CreateClientCommand(dto.Name, dto.Telegram
     {
 var result = await _mediator.Send(new GetAdminShopsQuery());
         return Ok(result);
+    }
+
+    /// <summary>Менеджер создаёт магазин для пользователя (само-создание отключено).</summary>
+    [HttpPost("shop")]
+    public async Task<IActionResult> CreateShop([FromBody] AdminCreateShopDto dto)
+    {
+        var result = await _mediator.Send(new AdminCreateShopCommand(dto.OwnerUserId, dto.Name, dto.Description, GetAdminUserId()));
+        return result.Status == Application.DTO.ResponseStatus.Success ? Ok(result) : BadRequest(result);
     }
 
     /// <summary>Дашборд конкретного магазина (те же данные что видит владелец).</summary>

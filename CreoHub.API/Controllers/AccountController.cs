@@ -26,6 +26,8 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace CreoHub.API.Controllers;
 
+public record LinkSessionDto(string SessionId);
+
 [ApiController]
 [Route("api/[controller]")] 
 public class AccountController : ControllerBase
@@ -254,6 +256,12 @@ public class AccountController : ControllerBase
     }
     
     
+    /// <summary>Стичинг гость→юзер: привязать анонимную историю (SessionId) к текущему аккаунту.</summary>
+    [Authorize]
+    [HttpPost("link-session")]
+    public async Task<IActionResult> LinkSession([FromBody] LinkSessionDto dto)
+        => Ok(await _mediator.Send(new LinkSessionCommand(UserId, dto.SessionId)));
+
     [Authorize] // Этот атрибут проверяет наличие и валидность JWT
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
