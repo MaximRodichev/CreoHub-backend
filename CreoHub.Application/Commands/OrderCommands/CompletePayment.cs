@@ -140,11 +140,12 @@ public class CompletePaymentHandler : IRequestHandler<CompletePaymentCommand, Ba
             }
 
             // ── LifetimeSpent + milestone промо-коды ──────────────────────
-            var orderTotal = order.Items.Sum(i => i.PriceAtPurchase);
+            // Спенд копим от реально уплаченной суммы (order.Price, после скидок),
+            // а не от raw-subtotal (Σ PriceAtPurchase).
             var user = await _accountRepository.GetByIdAsync(order.CustomerId);
             if (user != null)
             {
-                user.AddSpend(orderTotal);
+                user.AddSpend(order.Price);
                 await CheckMilestonesAsync(user);
             }
 

@@ -433,6 +433,9 @@ public class ProductRepository : IProductRepository
                     BuyDate      = y.Order.OrderDate,
                     CustomerName = y.Order.Customer.Name,
                     Amount       = y.PriceAtPurchase,
+                    // Files пусто = куплен весь продукт; непусто и меньше общего числа файлов = частично.
+                    IsPartial      = y.Files.Count > 0 && y.Files.Count < x.ContentFiles.Count,
+                    PurchasedFiles = y.Files.Select(f => f.ContentFile.PreviewName).ToList(),
                 }).ToList(),
                 TotalRevenue = x.OrderItems.Sum(y => y.PriceAtPurchase),
             })

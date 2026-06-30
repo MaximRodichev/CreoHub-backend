@@ -169,6 +169,18 @@ public class OrderRepository : IOrderRepository
                 // Используем Select без ToList() внутри проекции для EF
                 ProductNames = order.Items.Select(i => i.Product.Name).ToList(),
                 Status = order.Status.ToString(),
+                // Позиции этого магазина с частичной покупкой (куплены не все файлы продукта).
+                PartialItems = order.Items
+                    .Where(i => i.Product.OwnerId == shopId
+                                && i.Files.Count > 0
+                                && i.Files.Count < i.Product.ContentFiles.Count)
+                    .Select(i => new OrderLinePartialDTO
+                    {
+                        ProductName = i.Product.Name,
+                        BoughtCount = i.Files.Count,
+                        TotalCount  = i.Product.ContentFiles.Count,
+                        FileNames   = i.Files.Select(f => f.ContentFile.PreviewName).ToList(),
+                    }).ToList(),
             });
 
         // 4. Применяем лимит в самом конце

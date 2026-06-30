@@ -472,12 +472,13 @@ public class CheckoutWithBalanceDiscountTests
         Assert.Equal(expectedPays, 200m - balance.AvailableAmount);
     }
 
-    // ── AddSpend использует rawTotal, а не discounted buyerPays ─────────────
+    // ── AddSpend использует реально уплаченную сумму (после скидок), а не rawTotal ──
 
     [Fact]
-    public async Task Checkout_AddSpend_UsesRawTotal_NotDiscountedAmount()
+    public async Task Checkout_AddSpend_UsesDiscountedAmount_NotRawTotal()
     {
-        // product $50, 1 item = no count discount → buyerPays=50, LifetimeSpent += 50 (rawTotal)
+        // product $50, первый заказ → применяется велком-скидка, buyerPays < 50.
+        // LifetimeSpent должен пополниться на реально списанную сумму, не на rawTotal=50.
         var product = MakeProduct(50m);
         var user    = MakeUser(0m);
         var balance = new UserBalance(UserId);
@@ -498,8 +499,10 @@ public class CheckoutWithBalanceDiscountTests
         await MakeHandler().Handle(
             new CheckoutWithBalanceCommand(UserId, items), CancellationToken.None);
 
-        // AddSpend вызывается с rawTotal = 50, не с buyerPays = 48.50
-        Assert.Equal(50m, user.LifetimeSpent);
+        // Реально списано с баланса = order.Price (после скидок)
+        var actuallyPaid = 100m - balance.AvailableAmount;
+        Assert.True(actuallyPaid < 50m, "ожидалась скидка на первый заказ (buyerPays < rawTotal)");
+        Assert.Equal(actuallyPaid, user.LifetimeSpent);
     }
 
     // ── Бандл: ContentAccess выдаётся для всех child-файлов ─────────────────

@@ -392,7 +392,7 @@ public class CheckoutWithBalanceHandler
             // ── Обновляем LifetimeSpent пользователя (F1) ───────────
             if (user != null)
             {
-                user.AddSpend(order.Subtotal); // списываем от полной суммы, не от buyerPays
+                user.AddSpend(order.Price);    // реально уплаченная сумма (после скидок), = buyerPays
                 _accountRepository.Update(user);
                 try { await _unitOfWork.SaveChangesAsync(cancellationToken); } catch { /* не критично */ }
             }

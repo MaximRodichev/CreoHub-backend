@@ -1,3 +1,4 @@
+using CreoHub.Application.Analytics;
 using CreoHub.Application.DTO.ShopDTOs;
 using CreoHub.Application.Repositories;
 using CreoHub.Domain.Entities;
@@ -115,25 +116,25 @@ public class ShopRepository : IShopRepository
             })
             .FirstOrDefaultAsync();
 
-        var revenueData = await _db.Orders
+        // ── График выручки: уважаем период (from/to) + zero-fill + адаптивный шаг ──
+        // Раньше этот запрос игнорировал from/to и не заполнял пустые периоды нулями,
+        // из-за чего ось времени «съезжала» (месяцы без продаж выпадали).
+        var chartTo   = to ?? DateTime.UtcNow;
+        var datedQuery = _db.Orders
             .AsNoTracking()
             .Where(o => o.Status == OrderStatus.Completed &&
-                        o.Items.Any(oi => oi.Product.OwnerId == shopId))
-            .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
-            .Select(g => new
-            {
-                Date = new DateTime(g.Key.Year, g.Key.Month, 1),
-                TotalSum = g.Sum(o => o.Price),
-                TransactionsCount = g.Count()
-            })
-            .OrderBy(x => x.Date)
+                        o.Items.Any(oi => oi.Product.OwnerId == shopId) &&
+                        o.OrderDate <= chartTo);
+        if (from.HasValue) datedQuery = datedQuery.Where(o => o.OrderDate >= from.Value);
+
+        var dated = await datedQuery
+            .Select(o => new { o.OrderDate, o.Price })
             .ToListAsync();
 
-// Превращаем в словарь для фронтенда
-        var revenueHistory = revenueData.ToDictionary(
-            x => x.Date.ToString("yyyy-MM-dd"), 
-            x => x.TotalSum
-        );
+        // Начало диапазона: явное from, иначе — самый ранний заказ (для «весь период»).
+        var chartFrom = from ?? (dated.Count > 0 ? dated.Min(d => d.OrderDate) : chartTo);
+        var (revenueHistory, granularity) =
+            RevenueBucketizer.Build(dated.Select(d => (d.OrderDate, d.Price)), chartFrom, chartTo);
 
         var productsCount = await _db.Products.CountAsync(p => p.OwnerId == shopId);
 
@@ -142,7 +143,8 @@ public class ShopRepository : IShopRepository
             TotalOrders: statsResult?.OrdersCount ?? 0,
             TotalProducts: productsCount,
             TotalClients: statsResult?.ClientsCount ?? 0,
-            RevenuePerMonth: revenueHistory // Список выручки по месяцам
+            RevenuePerMonth: revenueHistory,
+            Granularity: granularity
         );
     }
 
